@@ -167,6 +167,8 @@ impl App {
         }
         let zone = match &hit {
             Some(Hit::Timer(_)) => Zone::Hold,
+            // The text is wide and sits where a swipe starts: a click on it copies, a move swipes.
+            Some(Hit::Player(PlayerHit::Copy)) if self.stage.can_swipe() => Zone::Swipe,
             Some(_) => Zone::Button,
             None if self.stage.can_swipe() => Zone::Swipe,
             None => Zone::Button,

@@ -5,6 +5,10 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+### Fixed
+
+- Player: a swipe that starts on the title or the artist is now read, the downward one included. That area used to only copy the text, so no gesture started on it. A press without movement still copies.
+
 ## 0.7.0 — 2026-11-17
 
 Updates, a license and a new name.
