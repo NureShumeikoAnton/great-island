@@ -1,0 +1,107 @@
+[package]
+name = "great-island"
+version = "0.6.1"
+description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
+authors = []
+license = "GPL-3.0-or-later"
+edition = "2024"
+
+[lib]
+# The _lib suffix keeps the library name from clashing with the exe name on Windows.
+name = "great_island_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri is needed only by the settings window (--settings mode). The island does not depend on it.
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+windows-numerics = "0.3"
+# The #[implement] macro for our own COM objects (sound notifications) refers to this crate by name.
+windows-core = "0.62"
+# Same version Tauri pulls in, so the crate is not built twice.
+windows = { version = "0.62", features = [
+    # Window, mouse, tray, monitors
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    # Keep awake
+    "Win32_System_Power",
+    "Win32_System_Registry",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    # Composition: the scene and animations the Windows compositor computes
+    "Foundation",
+    "Graphics",
+    "Graphics_DirectX",
+    "System",
+    "UI",
+    "UI_Composition",
+    "UI_Composition_Desktop",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Composition",
+    # Text: Direct2D + DirectWrite on top of Direct3D 11
+    "Win32_Graphics_Direct2D",
+    "Win32_Graphics_Direct2D_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_DirectWrite",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    # Sound
+    "Win32_Media_Audio",
+    # Screenshot: PNG, clipboard
+    "Win32_Graphics_Imaging",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    # Screenshot viewer window: frame, shadow and rounding from Windows
+    "Win32_Graphics_Dwm",
+    "Win32_UI_Controls",
+    # "Now playing": media sessions, covers, player audio level, app windows
+    "Foundation_Collections",
+    "Graphics_Imaging",
+    "Media",
+    "Media_Control",
+    "Storage",
+    "Storage_Streams",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_UI_Shell_PropertiesSystem",
+    # Screen recording: capture, encoder, free disk space
+    "Graphics_Capture",
+    "Graphics_DirectX_Direct3D11",
+    "Security_Authorization_AppCapabilityAccess",
+    "Win32_Media_MediaFoundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+    # Sound in a recording: the counter WASAPI stamps packets with
+    "Win32_System_Performance",
+    # Interface language: the Windows display-language list
+    "Win32_Globalization",
+    # Crash handler: the journal gets the reason before the process ends
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Kernel",
+] }
+# Texts of the island in each language, embedded into the exe at build time (no files at runtime).
+rust-i18n = "4.2.4"
+
+# Build for minimal size: https://tauri.app/concept/size/
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

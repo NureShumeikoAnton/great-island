@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — запись экрана</title>
+<style>
+:root{
+  /* ── Island: colors ── */
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --btn-bg:#2C2C2E;
+  --btn-hover:#3A3A3C;
+  --track:rgba(255,255,255,.16);
+  /* recording: the same red as the record button in the control center */
+  --rec:#FF375F;
+  --ok:#30D158;
+  --r-orange:#FF9F0A;
+  --r-cyan:#64D2FF;
+  /* ── Motion ── */
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  /* ── Page (not the island) ── */
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --page-accent:#64D2FF;
+  --desk-dark:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+  --desk-light:radial-gradient(120% 140% at 20% 0%,#ffffff 0%,#e7ecf3 45%,#cdd6e2 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:52px 0 6px;font-weight:700}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 18px}
+.sub{color:var(--page-dim);margin:0 0 16px;max-width:900px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 4px;font-size:13px}
+nav.toc a{color:var(--page-dim);text-decoration:none;border-bottom:1px dashed #444}
+nav.toc a:hover{color:var(--page-text)}
+code,.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12.5px}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  height:30px;border-radius:15px;
+  transition:width var(--dur-island) var(--ease-island),height var(--dur-island) var(--ease-island),border-radius var(--dur-island) var(--ease-island)}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:5}
+.island .content{position:absolute;inset:0}
+.layer{position:absolute;top:0;left:50%;height:100%;transform:translateX(-50%);display:flex;align-items:center;white-space:nowrap}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* round island buttons */
+.ib{position:relative;flex:none;width:22px;height:22px;border-radius:50%;border:0;padding:0;margin:0;
+  background:var(--btn-bg);color:var(--text-1);display:grid;place-items:center;cursor:pointer;overflow:hidden;
+  transition:background 120ms}
+.ib:hover{background:var(--btn-hover)}
+.ib:active{transform:scale(.9)}
+.ib svg{position:relative;z-index:1;display:block}
+.ib.stop{color:var(--rec)}
+/* hold: the white fill rises bottom to top, like the editor's arrow */
+.ib .fill{position:absolute;inset:0;background:#fff;transform:translateY(100%);
+  transition:transform 160ms cubic-bezier(.4,0,1,1)}
+.ib.holding .fill{transform:translateY(0);transition:transform 500ms linear}
+.ib.holding{color:#000;transition:color 500ms linear}
+.ib.shake{animation:shake 320ms ease-out}
+@keyframes shake{0%,100%{translate:0}20%{translate:-3px}40%{translate:3px}60%{translate:-2px}80%{translate:1px}}
+
+/* collapsed timers (as now, for context) */
+.tc{gap:9px;padding:0 13px}
+.tc .rings{display:flex;gap:5px}
+.tc .t{font-size:13px;font-weight:600;color:var(--digits)}
+
+/* ── recording status ── */
+.core{position:absolute;top:0;left:50%;transform:translateX(-50%);height:30px;display:flex;align-items:center;padding:0 4px 0 12px}
+.core .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--rec);margin-right:6px;animation:pulse 1.6s ease-in-out infinite}
+.core .rec{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--rec)}
+.core .mid{flex:1;display:flex;justify-content:center;min-width:0}
+.core .time{font-size:13px;font-weight:600;color:var(--text-1)}
+.core .btns{display:flex;gap:4px}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.85)}}
+.island.paused .core .dot{background:var(--text-2);animation:none}
+.island.paused .core .rec,.island.paused .core .time{color:var(--text-2)}
+/* side fields on hover: fade in while the island widens, the buttons stay in place */
+.side-l{position:absolute;left:14px;top:0;line-height:30px;font-size:12px;font-weight:600;color:var(--text-2);
+  opacity:0;transition:opacity 120ms}
+.side-r{position:absolute;right:4px;top:4px;height:22px;border-radius:11px;background:rgba(255,255,255,.08);
+  opacity:0;pointer-events:none;transition:opacity 120ms}
+.side-r .chev{position:absolute;top:0;bottom:0;right:0;display:flex;justify-content:space-around;align-items:center;color:var(--text-2);font-size:13px;font-weight:700}
+.side-r .knob{position:absolute;left:0;top:0;cursor:grab;touch-action:none}
+.side-r .knob.back{transition:transform 260ms var(--ease-island)}
+.card .t1 .m{font-weight:400;color:var(--text-2)}
+.island.hover .side-l,.island.hover .side-r{opacity:1;pointer-events:auto;transition:opacity 220ms 120ms var(--ease-out)}
+
+/* countdown */
+.cd{position:absolute;inset:0;display:grid;place-items:center;cursor:pointer}
+.cd svg{position:absolute;inset:0}
+.cd .trk{fill:none;stroke:var(--track);stroke-width:2.2}
+.cd .arc{fill:none;stroke:var(--rec);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:75.4;stroke-dashoffset:0;
+  transform:rotate(-90deg);transform-origin:15px 15px;animation:cd 3s linear forwards}
+.cd .n{position:relative;font-size:15px;font-weight:700}
+@keyframes cd{to{stroke-dashoffset:75.4}}
+
+/* "Recording deleted" indicator */
+.ind{gap:8px;padding:0 14px 0 12px;font-size:13px;font-weight:600}
+.ind .ic{color:var(--text-2);display:grid}
+
+/* reminder (as now, for context) */
+.al{gap:12px;padding:0 10px 0 12px;width:100%;left:0;transform:none}
+.al .meta{flex:1;min-width:0}
+.al .a1{font-size:14px;font-weight:600;line-height:18px}
+.al .a2{font-size:12px;line-height:16px;color:var(--text-2)}
+.al .done{flex:none;height:28px;padding:0 14px;border-radius:14px;background:var(--btn-bg);font-size:12px;font-weight:600;display:grid;place-items:center}
+
+/* recording card */
+.card{left:0;transform:none;width:100%;padding:0 12px;gap:12px}
+.card .thumb{position:relative;flex:none;width:60px;height:40px;border-radius:6px;overflow:hidden;cursor:pointer;
+  background:linear-gradient(160deg,#3b4a66,#1b2333)}
+.card .thumb .w1{position:absolute;left:6px;top:6px;width:30px;height:22px;border-radius:2px;background:#e9edf3;opacity:.9}
+.card .thumb .w2{position:absolute;left:26px;top:13px;width:28px;height:20px;border-radius:2px;background:#5a6f94}
+.card .thumb .shade{position:absolute;inset:0;background:rgba(0,0,0,.28)}
+.card .thumb .play{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  background:rgba(0,0,0,.55);display:grid;place-items:center;color:#fff}
+.card .thumb .dur{position:absolute;right:3px;bottom:2px;font-size:9px;font-weight:700;line-height:11px;padding:0 3px;border-radius:3px;background:rgba(0,0,0,.6)}
+.card .thumb .chk{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;
+  background:var(--ok);display:none;place-items:center;color:#fff;z-index:2}
+.card.copied .thumb .chk{display:grid}
+.card.copied .thumb .play,.card.copied .thumb .dur{display:none}
+.card.copied .thumb .w1,.card.copied .thumb .w2{opacity:.55}
+.card .meta{flex:1;min-width:0;cursor:pointer}
+.card .t1{font-size:14px;font-weight:600;line-height:18px}
+.card .t2{font-size:12px;line-height:16px;color:var(--text-2)}
+.card .ib{width:28px;height:28px;color:var(--text-2)}
+.card .ib:hover{color:var(--text-1)}
+
+/* ══════════ PAGE ══════════ */
+.stage{position:relative;height:250px;border-radius:14px;background:var(--desk-dark);overflow:hidden;border:1px solid var(--page-line)}
+.stage.light{background:var(--desk-light)}
+.stage .island{position:absolute;top:8px;left:50%;transform:translateX(-50%)}
+.stage .hint{position:absolute;left:16px;right:16px;bottom:12px;font-size:12px;color:rgba(255,255,255,.55)}
+.stage.light .hint{color:rgba(0,0,0,.5)}
+.panel{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0}
+.panel button{font:inherit;font-size:13px;color:var(--page-text);background:var(--page-card);border:1px solid var(--page-line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.panel button:hover{border-color:#44444c}
+.panel label{font-size:13px;color:var(--page-dim);display:flex;gap:6px;align-items:center;margin-left:4px}
+.log{margin-top:10px;font-size:13px;color:var(--page-dim);min-height:20px}
+.log b{color:var(--page-text);font-weight:600}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.cell{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;overflow:hidden}
+.cell .desk{height:104px;background:var(--desk-dark);display:flex;justify-content:center;align-items:flex-start;padding-top:12px}
+.cell .desk .island{transition:none}
+.cell .cap{padding:10px 14px 12px}
+.cell .cap b{display:block;font-size:13px;margin-bottom:2px}
+.cell .cap span{color:var(--page-dim);font-size:13px}
+
+/* control-center tile */
+.tiles{display:flex;gap:6px;padding:14px;background:#000;border-radius:22px;width:max-content}
+.tile{width:68px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.tile .c{width:44px;height:44px;border-radius:50%;background:#1C1C1E;display:grid;place-items:center;color:var(--text-1)}
+.tile.on .c{background:var(--rec)}
+.tile .l{font-size:11px;line-height:14px;color:var(--text-1);text-align:center}
+.tile.on .l{color:var(--text-1)}
+
+table.spec{border-collapse:collapse;width:100%;font-size:13px}
+table.spec td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+table.spec td:first-child{color:var(--page-dim);width:230px}
+.scroll{overflow-x:auto}
+ul.list{margin:8px 0 0;padding-left:20px;max-width:900px}
+ul.list li{margin:4px 0}
+.tag{display:inline-block;font-size:11px;font-weight:600;color:#000;background:var(--r-orange);border-radius:4px;padding:0 5px;margin-right:6px}
+@media (max-width:600px){.grid{grid-template-columns:1fr}table.spec td:first-child{width:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Запись экрана — остров</h1>
+  <p class="lead">Макет первой версии записи: старт, статус на острове, пауза, отмена, карточка после остановки. Остров и всё, что на нём, в саму запись не попадает. Размеры файла в макете условные — настоящие замерю на первой сборке.</p>
+  <nav class="toc">
+    <a href="#live">Живой макет</a>
+    <a href="#states">Все состояния</a>
+    <a href="#control">Центр управления</a>
+    <a href="#spec">Размеры и время</a>
+    <a href="#mine">Решения, принятые мной</a>
+    <a href="#later">Отложено</a>
+  </nav>
+
+  <h2 id="live">Живой макет</h2>
+  <p class="sub">Начни запись кнопкой ниже. Наведи на остров — по бокам выезжают размер файла и «Отменить», кнопки остаются на месте. ❚❚ — пауза, ■ — стоп, круг ✕ — дотянуть до правого края. На карточке: клик по тексту или Ctrl+C — копия, клик по миниатюре — плеер.</p>
+  <div class="stage" id="stage">
+    <div class="island" id="live-island"><div class="content"></div></div>
+    <div class="hint">Монитор с островом. Кадр — то, что пишется; остров поверх него виден тебе, но не попадает в видео.</div>
+  </div>
+  <div class="panel">
+    <button id="b-start">● Кнопка «Запись экрана»</button>
+    <button id="b-key">Клавиша записи</button>
+    <button id="b-alert">Напоминание</button>
+    <label><input type="checkbox" id="o-cd"> Отсчёт 3-2-1 (настройка)</label>
+    <label><input type="checkbox" id="o-light"> Светлый рабочий стол</label>
+    <label>Боковые поля: <select id="o-side"><option value="60">+60 (в сборке)</option><option value="84">+84</option></select></label>
+  </div>
+  <div class="log" id="log"></div>
+
+  <h2 id="states">Все состояния</h2>
+  <p class="sub">Высота статуса — 30, как у свёрнутого острова и статуса окна просмотра. Статус записи не тускнеет никогда.</p>
+  <div class="grid" id="gallery"></div>
+
+  <h2 id="control">Центр управления</h2>
+  <p class="sub">Во время записи кнопка красная, вместо подписи бежит время. Нажатие останавливает запись — так же, как ■ на острове и клавиша записи.</p>
+  <div class="tiles">
+    <div class="tile"><div class="c" id="tile-idle"></div><div class="l">Запись экрана</div></div>
+    <div class="tile on"><div class="c" id="tile-on"></div><div class="l num">0:42</div></div>
+  </div>
+
+  <h2 id="spec">Размеры и время</h2>
+  <div class="scroll">
+  <table class="spec">
+    <tr><td>Статус записи</td><td>Высота 30, скругление 15. Ширина постоянная: время по центру между REC и кнопками, отступы 10; длиннее время (10:00) — отступы меньше, до 5. Шире остров становится только после часа записи.</td></tr>
+    <tr><td>Наведение</td><td>+60 с каждой стороны (в макете можно переключить на +84). Растёт от центра пружиной острова (420 мс), поля проявляются с задержкой 120 мс. Центр с кнопками не двигается.</td></tr>
+    <tr><td>Точка</td><td>8 px, <span class="mono">#FF375F</span> — цвет кнопки записи. Пульс 1,6 с: прозрачность 1 → 0,35, масштаб 1 → 0,85. Анимацию считает компоновщик, процессор не тратится.</td></tr>
+    <tr><td>REC и время</td><td>REC — 11 px, жирный, разрядка 0,06 em, тот же красный. Время — 13 px, полужирный, цифры одной ширины; обновляется раз в секунду.</td></tr>
+    <tr><td>Кнопки</td><td>22 px, фон <span class="mono">#2C2C2E</span>, при наведении <span class="mono">#3A3A3C</span>. ■ — красный квадрат. Отступ справа 4 — круг концентричен скруглению острова.</td></tr>
+    <tr><td>Размер файла</td><td>12 px, <span class="mono">#8E8E93</span>, раз в секунду. До 10 МБ — с десятыми («4,2 МБ»), дальше целыми, с 1000 МБ — гигабайты.</td></tr>
+    <tr><td>Отмена ✕</td><td>Сдвиг: дорожка от ■ (через 6 px) до края, круг ✕ 22 px в её начале, «›» в свободной части. Круг тянут вправо; дотянул до края — запись удаляется; отпустил раньше — откатывается пружиной 260 мс. Ход круга: 32 px при +60, 56 px при +84.</td></tr>
+    <tr><td>Пауза</td><td>Точка сереет и замирает, REC и время — серые, вместо ❚❚ — ▶.</td></tr>
+    <tr><td>Отсчёт (настройка)</td><td>Круг 30, цифра 15 px, красное кольцо убывает за 3 с. Клик — старт сразу, Esc — отмена.</td></tr>
+    <tr><td>Карточка</td><td>Как у скриншота: высота 64, миниатюра 40 в пропорциях экрана — последний кадр, на ней ▶ и длительность. Заголовок «Запись экрана · 0:42 · 14 МБ»: длительность и размер — серым, обычным начертанием. Видна 6 с, после Ctrl+C или Ctrl+X — 1 с.</td></tr>
+    <tr><td>«Запись удалена»</td><td>Индикатор высотой 30 на 2 с, потом остров как обычно.</td></tr>
+    <tr><td>Напоминание</td><td>Встаёт поверх статуса на время показа, затем статус возвращается. Запись не прерывается.</td></tr>
+  </table>
+  </div>
+
+  <h2 id="mine">Решения, принятые мной</h2>
+  <ul class="list">
+    <li>Пауза — серая точка без пульса, серые REC и время, ▶ вместо ❚❚.</li>
+
+    <li>После отмены — индикатор «Запись удалена» на 2 с, чтобы было видно, что нажатие сработало.</li>
+    <li>REC и точка — тем же красным, что кнопка записи в центре управления.</li>
+    <li>Карточка: на миниатюре ▶ и длительность, чтобы видео не путалось со скриншотом. Миниатюра — последний кадр: первый часто пустой.</li>
+    <li>Подпись карточки — как у скриншота: «Ctrl+C — копия · Ctrl+X — без файла». Ctrl+X — файл уходит из папки записей, остаётся только в буфере.</li>
+    <li>Отсчёт — круг размером с затвор скриншота.</li>
+  </ul>
+
+  <h2 id="later">Отложено</h2>
+  <ul class="list">
+    <li><span class="tag">потом</span>Раскрытый остров перед стартом: качество «Высокое / Среднее / Низкое» (разрешение по масштабу экрана, кодек H.264 или HEVC), звук, курсор, «Задать область», отсчёт.</li>
+    <li><span class="tag">потом</span>Перетаскивание миниатюры с карточки в мессенджер или папку.</li>
+    <li><span class="tag">потом</span>Свой плеер вместо плеера Windows.</li>
+    <li><span class="tag">этап 2</span>Звук: система и микрофон.</li>
+  </ul>
+</div>
+
+<script>
+(function(){
+let SIDE=60;
+const ICON={
+  pause:'<svg viewBox="0 0 14 14" width="12" height="12" fill="currentColor"><rect x="3" y="2" width="3" height="10" rx="1"/><rect x="8" y="2" width="3" height="10" rx="1"/></svg>',
+  play:'<svg viewBox="0 0 14 14" width="12" height="12" fill="currentColor"><path d="M4.5 2.3v9.4c0 .5.5.8.9.5l7-4.7c.4-.2.4-.8 0-1l-7-4.7c-.4-.3-.9 0-.9.5z"/></svg>',
+  playS:'<svg viewBox="0 0 14 14" width="9" height="9" fill="currentColor"><path d="M4.5 2.3v9.4c0 .5.5.8.9.5l7-4.7c.4-.2.4-.8 0-1l-7-4.7c-.4-.3-.9 0-.9.5z"/></svg>',
+  stop:'<svg viewBox="0 0 14 14" width="10" height="10" fill="currentColor"><rect x="2" y="2" width="10" height="10" rx="2.2"/></svg>',
+  x:'<svg viewBox="0 0 14 14" width="10" height="10"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
+  folder:'<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 4.5c0-.6.4-1 1-1h3.2l1.5 1.6H13c.6 0 1 .4 1 1V12c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1z"/></svg>',
+  check:'<svg viewBox="0 0 14 14" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.4l2.6 2.6L11 4.4"/></svg>',
+  trash:'<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>',
+  record:'<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="4" fill="currentColor"/></svg>'
+};
+function ring(color,frac,size){
+  size=size||14;const r=size/2-1.6,c=2*Math.PI*r;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="2.2"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-frac)}" transform="rotate(-90 ${size/2} ${size/2})"/></svg>`;
+}
+function fmtTime(sec){
+  const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60,p=n=>String(n).padStart(2,'0');
+  return h?`${h}:${p(m)}:${p(s)}`:`${m}:${p(s)}`;
+}
+function fmtSize(mb){
+  if(mb>=1000)return (mb/1000).toFixed(1).replace('.',',')+' ГБ';
+  if(mb<10)return mb.toFixed(1).replace('.',',')+' МБ';
+  return Math.round(mb)+' МБ';
+}
+const coreW=s=>s.sec>=3600?168:158;
+function geom(s){
+  switch(s.mode){
+    case 'timers':return [112,30,15];
+    case 'countdown':return [30,30,15];
+    case 'rec':return [coreW(s)+(s.hover?2*SIDE:0),30,15];
+    case 'cancelled':return [176,30,15];
+    case 'card':return [372,64,22];
+    case 'alert':return [300,52,26];
+  }
+}
+function html(s){
+  switch(s.mode){
+    case 'timers':return `<div class="layer tc"><span class="rings">${ring('#FF9F0A',.7)}${ring('#64D2FF',.35)}</span><span class="t num">12:40</span></div>`;
+    case 'countdown':return `<div class="cd" data-act="now" title="Начать сразу"><svg viewBox="0 0 30 30" width="30" height="30"><circle cx="15" cy="15" r="12" class="trk"/><circle cx="15" cy="15" r="12" class="arc"/></svg><span class="n num" data-f="count"></span></div>`;
+    case 'rec':return `<span class="side-l num" data-f="size"></span>
+      <div class="core"><i class="dot"></i><span class="rec">REC</span><span class="mid"><span class="time num" data-f="time"></span></span>
+        <span class="btns"><button class="ib" data-act="pause" data-f="pause"></button><button class="ib stop" data-act="stop" title="Остановить">${ICON.stop}</button></span></div>
+      <div class="side-r" style="width:${SIDE-6}px"><span class="chev" style="left:22px"><i style="opacity:.35;font-style:normal">›</i><i style="opacity:.65;font-style:normal">›</i><i style="font-style:normal">›</i></span><button class="ib knob" data-act="cancel" title="Дотянуть вправо — удалить запись">${ICON.x}</button></div>`;
+    case 'cancelled':return `<div class="layer ind"><span class="ic">${ICON.trash}</span><span>Запись удалена</span></div>`;
+    case 'card':return `<div class="layer card${s.copied?' copied':''}">
+        <div class="thumb" data-act="open" title="Открыть в плеере"><i class="w1"></i><i class="w2"></i><i class="shade"></i><span class="play">${ICON.playS}</span><span class="dur num" data-f="dur"></span><span class="chk">${ICON.check}</span></div>
+        <div class="meta" data-act="copy"><div class="t1">${s.copied?'Скопировано':'Запись экрана'}<span class="m" data-f="meta"></span></div><div class="t2" data-f="sub"></div></div>
+        </div>`;
+    case 'alert':return `<div class="layer al">${ring('#FF9F0A',1,26)}<div class="meta"><div class="a1">Пора размяться</div><div class="a2">Напоминание · 2 мин</div></div><span class="done">Готово</span></div>`;
+  }
+}
+const keyOf=s=>s.mode+SIDE+(s.mode==='card'&&s.copied?'c':'');
+function render(el,s){
+  const [w,h,r]=geom(s);
+  el.style.width=w+'px';el.style.height=h+'px';el.style.borderRadius=r+'px';
+  el.classList.toggle('hover',!!s.hover&&s.mode==='rec');
+  el.classList.toggle('paused',!!s.paused&&s.mode==='rec');
+  const k=keyOf(s),box=el.querySelector('.content');
+  if(el.dataset.k!==k){box.innerHTML=html(s);el.dataset.k=k;}
+  box.querySelectorAll('[data-f]').forEach(n=>{
+    switch(n.dataset.f){
+      case 'time':n.textContent=fmtTime(s.sec);break;
+      case 'dur':n.textContent=fmtTime(s.sec);break;
+      case 'meta':n.textContent=` · ${fmtTime(s.sec)} · ${fmtSize(s.mb)}`;break;
+      case 'size':n.textContent=fmtSize(s.mb);break;
+      case 'count':n.textContent=s.count;break;
+      case 'sub':n.textContent=s.copied?'Файл тоже сохранён':'Ctrl+C — копия · Ctrl+X — без файла';break;
+      case 'pause':{const want=s.paused?'play':'pause';if(n.dataset.icon!==want){n.innerHTML=ICON[want];n.dataset.icon=want;n.title=s.paused?'Продолжить':'Пауза';}break;}
+    }
+  });
+  const core=box.querySelector('.core');if(core)core.style.width=coreW(s)+'px';
+}
+
+/* ── Gallery of states ── */
+const base={sec:42,mb:14.3,hover:false,paused:false,copied:false,count:3};
+const cells=[
+  {t:'Отсчёт (если включён)',d:'Круг с цифрой, красное кольцо убывает. Клик — старт сразу, Esc — отмена.',s:{mode:'countdown',count:2}},
+  {t:'Запись',d:'Пульсирующая точка, REC, время, пауза и стоп. Не тускнеет.',s:{mode:'rec'}},
+  {t:'Запись — наведение',d:'Слева размер файла, справа «Отменить». Центр не сдвигается.',s:{mode:'rec',hover:true}},
+  {t:'Пауза',d:'Точка серая и не пульсирует, время стоит, вместо ❚❚ — ▶.',s:{mode:'rec',paused:true}},
+  {t:'Пауза — наведение',d:'Отменить можно и на паузе.',s:{mode:'rec',paused:true,hover:true}},
+  {t:'Сдвиг ✕',d:'Круг тянут вправо; дотянул до края — запись удалена, отпустил раньше — откатывается.',s:{mode:'rec',hover:true},slide:.6},
+  {t:'Запись удалена',d:'Индикатор на 2 с после отмены.',s:{mode:'cancelled'}},
+  {t:'10 минут',d:'Ширина та же, отступы вокруг времени меньше.',s:{mode:'rec',sec:642,mb:96}},
+  {t:'Больше часа',d:'Отступы на минимуме — остров чуть шире, один раз за запись.',s:{mode:'rec',sec:3725,mb:412}},
+  {t:'Карточка',d:'Миниатюра — плеер, текст или Ctrl+C — копия, Ctrl+X — без файла. 6 с.',s:{mode:'card'}},
+  {t:'Карточка — скопировано',d:'Зелёная галочка, закрывается через 1 с.',s:{mode:'card',copied:true}},
+  {t:'Напоминание во время записи',d:'Встаёт поверх статуса ненадолго, запись идёт дальше.',s:{mode:'alert'}}
+];
+const gal=document.getElementById('gallery');
+function gallery(){
+gal.innerHTML='';
+cells.forEach(c=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class="desk"><div class="island"><div class="content"></div></div></div><div class="cap"><b>${c.t}</b><span>${c.d}</span></div>`;
+  gal.appendChild(cell);
+  const isl=cell.querySelector('.island');
+  render(isl,Object.assign({},base,c.s));
+  if(c.slide!=null){
+    isl.querySelector('.knob').style.transform=`translateX(${(SIDE-28)*c.slide}px)`;
+  }
+  isl.style.pointerEvents='none';
+});
+}
+gallery();
+document.getElementById('tile-idle').innerHTML=ICON.record;
+document.getElementById('tile-on').innerHTML=ICON.record;
+
+/* ── Live mockup ── */
+const live=document.getElementById('live-island');
+const logEl=document.getElementById('log');
+const S={mode:'timers',sec:0,mb:0,hover:false,paused:false,copied:false,count:3};
+let cdT=null,cardT=null,alertT=null,backT=null,under=null,drag=null;
+const set=p=>{Object.assign(S,p);render(live,S);};
+const log=t=>{logEl.innerHTML=t;};
+const clearAll=()=>{[cardT,alertT,backT].forEach(clearTimeout);clearInterval(cdT);under=null;drag=null;};
+const recording=()=>S.mode==='rec'||(S.mode==='alert'&&under==='rec');
+
+function start(){
+  clearAll();
+  if(document.getElementById('o-cd').checked){
+    set({mode:'countdown',count:3,sec:0,mb:0,paused:false,hover:false});
+    log('Отсчёт: клик по кругу — начать сразу, <b>Esc</b> — отменить.');
+    cdT=setInterval(()=>{if(S.count>1)set({count:S.count-1});else{clearInterval(cdT);begin();}},1000);
+  }else begin();
+}
+function begin(){
+  set({mode:'rec',sec:0,mb:0,paused:false,hover:live.matches(':hover')});
+  log('Идёт запись монитора с островом.');
+}
+function stop(){
+  clearAll();
+  set({mode:'card',copied:false,hover:false});
+  log('Запись сохранена: <b>Видео\\Записи экрана\\Запись экрана 2026-11-12 201530.mp4</b>');
+  cardT=setTimeout(()=>set({mode:'timers',copied:false}),6000);
+}
+function cancel(){
+  clearAll();
+  set({mode:'cancelled',hover:false});
+  log('Запись остановлена, файл удалён.');
+  backT=setTimeout(()=>set({mode:'timers'}),2000);
+}
+function copy(){
+  if(S.mode!=='card')return;
+  clearTimeout(cardT);
+  set({copied:true});
+  log('Файл в буфере обмена — в мессенджере <b>Ctrl+V</b>.');
+  cardT=setTimeout(()=>set({mode:'timers',copied:false}),1000);
+}
+function toggle(){ if(recording()||S.mode==='countdown')(S.mode==='countdown'?(clearAll(),set({mode:'timers'})):stop()); else start(); }
+
+document.getElementById('b-start').onclick=toggle;
+document.getElementById('b-key').onclick=toggle;
+document.getElementById('b-alert').onclick=()=>{
+  if(S.mode==='alert'||S.mode==='countdown')return;
+  const back=recording()?'rec':'timers';
+  if(S.mode==='card'||S.mode==='cancelled'){clearAll();}
+  under=back;set({mode:'alert',hover:false});
+  log(back==='rec'?'Напоминание поверх записи — запись идёт дальше.':'Напоминание.');
+  alertT=setTimeout(()=>{const u=under;under=null;set({mode:u||'timers',hover:u==='rec'&&live.matches(':hover')});},3500);
+};
+document.getElementById('o-side').onchange=e=>{SIDE=Number(e.target.value);gallery();live.dataset.k='';render(live,S);};
+document.getElementById('o-light').onchange=e=>document.getElementById('stage').classList.toggle('light',e.target.checked);
+
+live.addEventListener('mouseenter',()=>{if(S.mode==='rec')set({hover:true});});
+live.addEventListener('mouseleave',()=>{if(S.hover&&!drag)set({hover:false});});
+live.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a)return;
+  switch(a.dataset.act){
+    case 'pause':set({paused:!S.paused});log(S.paused?'Пауза: время стоит, в файле не будет пустого куска.':'Запись продолжается.');break;
+    case 'stop':stop();break;
+    case 'now':clearInterval(cdT);begin();break;
+    case 'open':log('Открылся бы плеер Windows с записью.');break;
+    case 'copy':copy();break;
+  }
+});
+const travel=()=>SIDE-6-22;
+live.addEventListener('pointerdown',e=>{
+  const b=e.target.closest('[data-act=cancel]');if(!b)return;
+  e.preventDefault();
+  b.classList.remove('back');b.setPointerCapture(e.pointerId);
+  drag={x:e.clientX,b,off:0};
+});
+live.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  drag.off=Math.max(0,Math.min(travel(),e.clientX-drag.x));
+  drag.b.style.transform=`translateX(${drag.off}px)`;
+  const chev=live.querySelector('.chev');if(chev)chev.style.opacity=1-drag.off/travel();
+});
+window.addEventListener('pointerup',()=>{
+  if(!drag)return;
+  const d=drag;drag=null;
+  if(d.off>=travel()){cancel();return;}
+  d.b.classList.add('back');d.b.style.transform='translateX(0)';
+  const chev=live.querySelector('.chev');if(chev)chev.style.opacity=1;
+  if(!live.matches(':hover'))set({hover:false});
+  log('Отпустил раньше — круг откатился, запись идёт. Дотяни ✕ до края.');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.mode==='countdown'){clearAll();set({mode:'timers'});log('Отсчёт отменён.');}
+  if(e.ctrlKey&&(e.code==='KeyC')&&S.mode==='card'){e.preventDefault();copy();}
+});
+setInterval(()=>{
+  if(recording()&&!S.paused){S.sec++;S.mb+=0.18+Math.random()*0.12;render(live,S);}
+},1000);
+render(live,S);
+})();
+</script>
+</body>
+</html>

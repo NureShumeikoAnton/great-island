@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — ошибка</title>
+<style>
+:root{
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --btn-bg:#2C2C2E;
+  /* error: system red, not to be confused with the recording red (#FF375F) next to the text */
+  --err:#FF453A;
+  --warn:#FF9F0A;
+  --r-orange:#FF9F0A;
+  --r-cyan:#64D2FF;
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --page-accent:#64D2FF;
+  --desk:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:52px 0 6px;font-weight:700}
+h2 .tag{display:inline-block;vertical-align:middle;margin-left:8px;font-size:12px;font-weight:600;color:var(--page-dim);
+  border:1px solid var(--page-line);border-radius:999px;padding:1px 9px}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 18px}
+.sub{color:var(--page-dim);margin:0 0 16px;max-width:900px}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;margin:0 auto;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  height:30px;border-radius:15px;
+  transition:width var(--dur-island) var(--ease-island),height var(--dur-island) var(--ease-island),border-radius var(--dur-island) var(--ease-island)}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:5}
+.layer{position:absolute;top:0;left:50%;height:100%;transform:translateX(-50%);display:flex;align-items:center;white-space:nowrap;
+  transition:opacity 160ms}
+.layer.out{opacity:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* collapsed timers, for context */
+.tc{gap:9px;padding:0 13px}
+.tc .rings{display:flex;gap:5px}
+.tc .ring{width:11px;height:11px;border-radius:50%;border:2.2px solid}
+.tc .t{font-size:13px;font-weight:600;color:var(--digits)}
+
+/* A: a one-line capsule, like the "Sound muted" indicator */
+.a{gap:8px;padding:0 14px 0 12px;font-size:13px;font-weight:600}
+.a .ic{display:grid;color:var(--warn)}
+
+/* B: a two-line card, laid out like the screenshot card */
+.b{left:0;transform:none;width:100%;padding:0 16px 0 12px;gap:12px}
+.b .badge{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--err) 18%,transparent);color:var(--err)}
+.b .meta{flex:1;min-width:0}
+.b .t1{font-size:14px;font-weight:600;line-height:18px}
+.b .t2{font-size:12px;line-height:16px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* C: shudders and flashes a red rim */
+.c{gap:8px;padding:0 14px 0 12px;font-size:13px;font-weight:600}
+.c .ic{display:grid;color:var(--err)}
+.island .flash{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:6;opacity:0;
+  box-shadow:inset 0 0 0 1.5px var(--err),inset 0 0 14px color-mix(in srgb,var(--err) 35%,transparent)}
+.island.flashing .flash{animation:flash 1100ms var(--ease-out)}
+@keyframes flash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.island.shake{animation:shake 360ms ease-out}
+@keyframes shake{0%,100%{translate:0}15%{translate:-5px}35%{translate:5px}55%{translate:-3px}75%{translate:2px}}
+
+/* ══════════ PAGE ══════════ */
+.variant{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:860px){.variant{grid-template-columns:1fr}}
+.desk{position:relative;background:var(--desk);border:1px solid var(--page-line);border-radius:14px;height:190px;overflow:hidden}
+.desk .stage{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:center}
+.desk .bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+.desk .bar button{font:inherit;font-size:12px;color:var(--page-text);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;padding:4px 11px;cursor:pointer}
+.desk .bar button:hover{background:rgba(255,255,255,.14)}
+.spec{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;font-size:13px}
+.spec dl{margin:0;display:grid;grid-template-columns:96px 1fr;gap:6px 10px}
+.spec dt{color:var(--page-dim)}
+.spec dd{margin:0}
+.spec .pro{margin:10px 0 0;padding:0;list-style:none}
+.spec .pro li{padding-left:18px;position:relative;margin:3px 0}
+.spec .pro li::before{position:absolute;left:0;font-weight:700}
+.spec .pro li.p::before{content:"+";color:#30D158}
+.spec .pro li.m::before{content:"−";color:var(--err)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:12px}
+.cell{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:14px 10px 10px;overflow:hidden}
+.cell .island{transition:none}
+.cell p{margin:10px 2px 0;font-size:12px;color:var(--page-dim);text-align:center}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+td:first-child{color:var(--page-dim);width:200px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ошибка на острове</h1>
+  <p class="lead">Что-то не получилось из-за Windows, видеокарты, диска или другой программы: запись не началась, снимок не сохранился, буфер обмена занят, клавишу заняли. Сейчас такие случаи видны только в журнале. Три варианта, как сказать об этом на острове. Кнопки под островом показывают ошибку вживую; после неё остров возвращается к таймерам.</p>
+
+  <h2>A. Строка <span class="tag">тихо</span></h2>
+  <p class="sub">Как индикатор «Звук выключен»: капсула 30 px, жёлтый треугольник и короткая фраза. Ничего не мигает: остров просто говорит, что не вышло.</p>
+  <div class="variant">
+    <div class="desk" data-v="a"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Высота 30, ширина по тексту.</dd>
+      <dt>Значок</dt><dd>Треугольник с «!», 16 px, жёлтый #FF9F0A.</dd>
+      <dt>Текст</dt><dd>13, полужирный, одна фраза: что не получилось.</dd>
+      <dt>Держится</dt><dd>3 с.</dd>
+    </dl><ul class="pro">
+      <li class="p">Свой в ряду индикаторов, ничего нового.</li>
+      <li class="p">Не пугает: жёлтый — «не вышло», а не «авария».</li>
+      <li class="m">Причины нет — только «что», без «почему».</li>
+      <li class="m">Легко пропустить, если смотришь не на остров.</li>
+    </ul></div>
+  </div>
+
+  <h2>B. Карточка с причиной <span class="tag">подробно</span></h2>
+  <p class="sub">Разметка карточки скриншота: слева круг 40 px с «!» на бледно-красном, справа что случилось и почему — простыми словами. Причина вторая строка, серым.</p>
+  <div class="variant">
+    <div class="desk" data-v="b"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Высота 64, ширина по тексту, от 240 до 380.</dd>
+      <dt>Значок</dt><dd>Круг 40, красный #FF453A на 18 %, «!» 20 px.</dd>
+      <dt>Текст</dt><dd>14 полужирный — что; 12 серый — почему и что сделать.</dd>
+      <dt>Держится</dt><dd>5 с; клик — закрыть сразу.</dd>
+    </dl><ul class="pro">
+      <li class="p">Понятно, что делать: «освободите место», «закройте программу».</li>
+      <li class="p">Та же разметка, что у карточек снимка и записи.</li>
+      <li class="m">Крупнее — заметнее перекрывает то, что было на острове.</li>
+      <li class="m">Для каждой ошибки нужна своя понятная причина.</li>
+    </ul></div>
+  </div>
+
+  <h2>C. Вздрогнуть <span class="tag">заметно</span></h2>
+  <p class="sub">Капсула как в A, но остров вздрагивает, как стрелка в редакторе, и по краю один раз вспыхивает красная кайма. Значок — красный круг с «!».</p>
+  <div class="variant">
+    <div class="desk" data-v="c"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Высота 30, ширина по тексту.</dd>
+      <dt>Значок</dt><dd>Круг с «!», 16 px, красный #FF453A.</dd>
+      <dt>Движение</dt><dd>Дрожь 360 мс и кайма 1,1 с — один раз, силами композитора.</dd>
+      <dt>Держится</dt><dd>3 с.</dd>
+    </dl><ul class="pro">
+      <li class="p">Заметно краем глаза, но остров не растёт.</li>
+      <li class="p">Дрожь уже значит «не так» — в редакторе.</li>
+      <li class="m">Причины нет, как в A.</li>
+      <li class="m">Резче остальных — для мелочей вроде занятого буфера может быть много.</li>
+    </ul></div>
+  </div>
+
+  <h2>Все тексты рядом</h2>
+  <p class="sub">Одни и те же четыре ошибки во всех вариантах — видно, какой длины выходят капсулы.</p>
+  <div class="gallery" id="gallery"></div>
+
+  <h2>Общее для любого варианта</h2>
+  <table>
+    <tr><td>Когда показывается</td><td>Только когда что-то не вышло по нажатию человека: запись, снимок, копирование, клавиша. Фоновые сбои (обложка трека, значок плеера) остаются в журнале.</td></tr>
+    <tr><td>Поверх чего</td><td>Как напоминание: ненадолго поверх любого вида, в том числе статуса записи и окна просмотра; потом остров возвращается к тому, что было. Свайпом смахивается.</td></tr>
+    <tr><td>Несколько подряд</td><td>Новая ошибка заменяет старую, очереди нет.</td></tr>
+    <tr><td>Тусклость</td><td>Не тускнеет, пока видна.</td></tr>
+    <tr><td>Звук</td><td>Нет.</td></tr>
+  </table>
+</div>
+
+<script>
+const ICON={
+  warn:'<svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.8c.5 0 .9.25 1.15.68l5.6 9.9c.5.9-.14 1.97-1.15 1.97H2.4c-1 0-1.65-1.08-1.15-1.97l5.6-9.9C7.1 2.05 7.5 1.8 8 1.8z" fill="currentColor"/><rect x="7.2" y="5.4" width="1.6" height="4.6" rx=".8" fill="#000"/><circle cx="8" cy="11.9" r=".95" fill="#000"/></svg>',
+  dot:'<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><rect x="7.2" y="3.9" width="1.6" height="5.2" rx=".8" fill="#000"/><circle cx="8" cy="11.4" r=".95" fill="#000"/></svg>',
+  bang:'<svg width="20" height="20" viewBox="0 0 20 20"><rect x="8.9" y="3.5" width="2.2" height="9" rx="1.1" fill="currentColor"/><circle cx="10" cy="15.6" r="1.4" fill="currentColor"/></svg>',
+};
+const ERRORS=[
+  {key:'Запись',short:'Запись не началась',t1:'Запись не началась',t2:'Видеокарта не ответила — попробуйте ещё раз'},
+  {key:'Снимок',short:'Снимок не сохранён',t1:'Снимок не сохранён',t2:'Нет доступа к папке «Снимки экрана»'},
+  {key:'Буфер',short:'Буфер обмена занят',t1:'Не скопировано',t2:'Буфер обмена занят другой программой'},
+  {key:'Клавиша',short:'Клавиша занята',t1:'Клавиша записи не работает',t2:'Ctrl+Shift+R заняла другая программа'},
+];
+const TIMERS=`<div class="layer tc"><span class="rings"><i class="ring" style="border-color:var(--r-orange)"></i><i class="ring" style="border-color:var(--r-cyan)"></i></span><span class="t num">12:40</span></div>`;
+const HOLD={a:3000,b:5000,c:3000};
+
+function errorHTML(v,e){
+  if(v==='a')return `<div class="layer a"><span class="ic">${ICON.warn}</span>${e.short}</div>`;
+  if(v==='c')return `<div class="layer c"><span class="ic">${ICON.dot}</span>${e.short}</div>`;
+  return `<div class="layer b"><span class="badge">${ICON.bang}</span><span class="meta"><div class="t1">${e.t1}</div><div class="t2">${e.t2}</div></span></div>`;
+}
+
+/* Capsule width follows the content, as the island computes it. */
+function measure(v,html){
+  const probe=document.createElement('div');
+  probe.className='island';probe.style.cssText='position:absolute;visibility:hidden;width:auto;transition:none';
+  probe.innerHTML=html;document.body.appendChild(probe);
+  const layer=probe.firstElementChild;
+  let w;
+  if(v==='b'){
+    layer.style.cssText='position:static;transform:none;width:auto;display:inline-flex;height:64px';
+    w=Math.min(380,Math.max(240,Math.ceil(layer.scrollWidth)));
+  }else{
+    layer.style.cssText='position:static;transform:none;display:inline-flex;height:30px';
+    w=Math.ceil(layer.scrollWidth);
+  }
+  probe.remove();
+  return w;
+}
+function place(island,v,html,isError){
+  const h=isError&&v==='b'?64:30;
+  const r=h===64?22:15;
+  island.style.width=measure(isError?v:'t',html)+'px';
+  island.style.height=h+'px';
+  island.style.borderRadius=r+'px';
+  const old=island.querySelector('.layer');
+  if(old){old.classList.add('out');setTimeout(()=>old.remove(),180);}
+  const tmp=document.createElement('div');tmp.innerHTML=html;
+  const layer=tmp.firstElementChild;layer.classList.add('out');
+  island.insertBefore(layer,island.querySelector('.flash'));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>layer.classList.remove('out')));
+}
+
+document.querySelectorAll('.desk').forEach(desk=>{
+  const v=desk.dataset.v;
+  const island=document.createElement('div');
+  island.className='island';
+  island.innerHTML='<span class="flash"></span>';
+  desk.querySelector('.stage').appendChild(island);
+  place(island,v,TIMERS,false);
+  let back=null;
+  const show=e=>{
+    clearTimeout(back);
+    place(island,v,errorHTML(v,e),true);
+    if(v==='c'){
+      island.classList.remove('shake','flashing');void island.offsetWidth;
+      island.classList.add('shake','flashing');
+    }
+    back=setTimeout(()=>{place(island,v,TIMERS,false);island.classList.remove('shake','flashing');},HOLD[v]);
+  };
+  if(v==='b')island.addEventListener('click',()=>{if(island.offsetHeight>40){clearTimeout(back);place(island,v,TIMERS,false);}});
+  const bar=desk.querySelector('.bar');
+  ERRORS.forEach(e=>{
+    const b=document.createElement('button');b.textContent=e.key;b.onclick=()=>show(e);bar.appendChild(b);
+  });
+});
+
+const gal=document.getElementById('gallery');
+['a','b','c'].forEach(v=>ERRORS.forEach(e=>{
+  const cell=document.createElement('div');cell.className='cell';
+  const island=document.createElement('div');island.className='island';
+  const html=errorHTML(v,e);
+  island.innerHTML=html+'<span class="flash"></span>';
+  const h=v==='b'?64:30;
+  island.style.cssText=`width:${measure(v,html)}px;height:${h}px;border-radius:${h===64?22:15}px`;
+  if(v==='c')island.querySelector('.flash').style.opacity=.55;
+  cell.appendChild(island);
+  const p=document.createElement('p');p.textContent=`${v.toUpperCase()} · ${e.key}`;cell.appendChild(p);
+  gal.appendChild(cell);
+}));
+</script>
+</body>
+</html>

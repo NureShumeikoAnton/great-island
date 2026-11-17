@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — активность «Сейчас играет»</title>
+<style>
+:root{
+  /* ── Island: colors ── */
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --btn-bg:#1C1C1E;
+  --track:rgba(255,255,255,.16);
+  --nocover:#2C2C2E;
+  --tint-neutral:#D1D1D6;
+  --ind:rgba(255,255,255,.30);
+  --ind-active:rgba(255,255,255,.62);
+  /* reminders */
+  --r-orange:#FF9F0A;
+  --r-cyan:#64D2FF;
+  --r-blue:#0A84FF;
+  /* palette */
+  --p-yellow:#FFD60A;
+  --p-green:#30D158;
+  --p-purple:#BF5AF2;
+  --p-pink:#FF375F;
+  /* ── Motion ── */
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --dur-in:220ms;
+  --dur-out:120ms;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  /* ── Page (not the island) ── */
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-card-2:#1b1b1f;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --page-accent:#64D2FF;
+  --desk-dark:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+  --desk-light:radial-gradient(120% 140% at 20% 0%,#ffffff 0%,#e7ecf3 45%,#cdd6e2 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+a{color:var(--page-accent)}
+.wrap{max-width:1360px;margin:0 auto;padding:32px 28px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:56px 0 6px;font-weight:700}
+h3{font-size:15px;margin:0 0 4px;font-weight:600}
+.lead{color:var(--page-dim);max-width:900px;margin:0 0 18px}
+.sub{color:var(--page-dim);margin:0 0 16px;max-width:980px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 4px;font-size:13px}
+nav.toc a{color:var(--page-dim);text-decoration:none;border-bottom:1px dashed #444}
+nav.toc a:hover{color:var(--page-text)}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px;margin:18px 0 0}
+.key{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:12px 14px}
+.key b{display:block;font-size:13px;margin-bottom:2px}
+.key span{color:var(--page-dim);font-size:13px}
+code,.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12.5px}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;background:var(--island-bg);overflow:hidden;font-family:var(--font);color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none}
+.island .stroke{position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:3}
+.island svg.ind{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible}
+.layer{position:absolute;top:0;left:50%;width:max-content;transform:translateX(-50%);will-change:transform,opacity}
+.v{display:inline-flex;align-items:center;white-space:nowrap}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.dig{color:var(--digits)}
+.sec{color:var(--text-2)}
+.cover{flex:none;border-radius:50%;position:relative;overflow:hidden;display:grid;place-items:center}
+.cover.nc{background:var(--nocover)}
+.bars{display:flex;align-items:center;justify-content:space-between;flex:none}
+.bars i{display:block;background:var(--tint)}
+.bars.idle i{background:var(--text-2)}
+.pz{display:flex;align-items:center;justify-content:center;gap:3px;width:14px;height:12px;flex:none}
+.pz i{display:block;width:2.5px;height:10px;border-radius:1px;background:var(--text-2)}
+.ring{flex:none;display:block;overflow:visible;transition:transform 120ms var(--ease-out)}
+.ring .arc{transition:none}
+.island.live .ring .arc{transition:stroke-dashoffset .6s var(--ease-out)}
+.island.live.fast .ring .arc{transition:none}
+.holding .ring,.ring.holding{transform:scale(1.18)}
+
+/* collapsed */
+.tc{height:30px;padding:0 13px;gap:9px}
+.tc .rings{display:flex;gap:5px}
+.tc .t{font-size:13px;font-weight:600;line-height:16px}
+.pc{height:30px;padding:0 12px 0 6px;gap:12px}
+.pc .t{font-size:13px;font-weight:600;line-height:16px}
+/* announce */
+.pa{width:300px;height:52px;padding:0 18px 0 8px;gap:10px}
+.pa .meta{flex:1;min-width:0}
+.pa .a1{font-size:14px;font-weight:600;line-height:18px;overflow:hidden;text-overflow:ellipsis}
+.pa .a2{font-size:12px;line-height:16px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+/* expanded player */
+.pe{display:flex;flex-direction:column;align-items:stretch;width:340px;padding:16px 16px 12px;position:relative}
+.pe>*{position:relative;z-index:1}
+.pe>.wash{position:absolute;inset:0;z-index:0;pointer-events:none}
+.pe .r1{display:flex;align-items:center;gap:12px;height:52px}
+.pe .meta{flex:1;min-width:0}
+.pe .ttl{font-size:15px;font-weight:600;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pe .ttl.marq{text-overflow:clip;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%)}
+.pe .ttl.marq span{display:inline-block}
+.pe .art{font-size:13px;line-height:18px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.pe .prog{display:flex;align-items:center;gap:8px;height:14px;margin-top:14px}
+.pe .prog .num{width:34px;flex:none;font-size:11px;font-weight:600;line-height:14px}
+.pe .prog .rt{text-align:right;color:var(--text-2)}
+.pe .track{flex:1;height:4px;border-radius:3px;background:var(--track);position:relative;cursor:pointer;transition:height 150ms var(--ease-out)}
+.pe .track::before{content:"";position:absolute;left:0;right:0;top:-8px;bottom:-8px}
+.pe .track:hover,.pe .track.seeking{height:6px}
+.pe .fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--tint)}
+.pe .ctrls{display:flex;align-items:center;justify-content:space-between;height:32px;margin-top:10px}
+.pe .ctrls.np{margin-top:12px}
+.pe .side{width:32px;display:flex;align-items:center;color:var(--text-2)}
+.pe .side.r{justify-content:flex-end}
+.pe .mid{display:flex;gap:20px}
+.ib{width:40px;height:32px;border:0;padding:0;background:transparent;color:var(--text-1);display:grid;place-items:center;cursor:pointer;transition:transform 120ms var(--ease-out),opacity 120ms}
+.ib:hover{opacity:.82}
+.ib:active{transform:scale(.88)}
+.srct{width:16px;height:16px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(142,142,147,.6);display:grid;place-items:center;font-size:9px;font-weight:700;color:var(--text-2)}
+/* expanded timers */
+.te{display:flex;flex-direction:column;align-items:stretch;width:240px;padding:14px;gap:8px}
+.te .trow{display:flex;align-items:center;gap:10px;height:18px;cursor:default}
+.te .trow .nm{flex:1;font-size:13px;line-height:16px}
+.te .trow .t{font-size:13px;font-weight:600;line-height:16px}
+.te .tb{display:flex;gap:8px;margin-top:4px}
+.pbtn{flex:1;height:28px;border-radius:14px;border:0;background:var(--btn-bg);color:var(--text-1);font:400 13px/16px var(--font);cursor:pointer;transition:transform 120ms var(--ease-out)}
+.pbtn:active{transform:scale(.96)}
+/* reminder */
+.rm{width:340px;height:66px;padding:0 18px 0 12px;gap:12px}
+.rm .rw{position:relative;width:42px;height:42px;flex:none}
+.rm .rn{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:600}
+.rm .meta{flex:1;min-width:0}
+.rm .m1{font-size:15px;font-weight:700;line-height:20px;overflow:hidden;text-overflow:ellipsis}
+.rm .m2{font-size:12px;line-height:16px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.done{height:30px;padding:0 14px;border-radius:15px;border:0;color:#000;font:600 13px/16px var(--font);cursor:pointer;flex:none;transition:transform 120ms var(--ease-out)}
+.done:active{transform:scale(.94)}
+
+/* ══════════ Desktop ══════════ */
+.desk{position:relative;overflow:hidden;border-radius:12px}
+.desk.dark{background:var(--desk-dark)}
+.desk.light{background:var(--desk-light)}
+.anchor{position:absolute;top:8px;left:50%;transform:translateX(-50%)}
+
+/* ══════════ Prototype ══════════ */
+.proto{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+@media (max-width:1100px){.proto{grid-template-columns:1fr}}
+.stage{height:360px;border:1px solid var(--page-line)}
+.stage .win{position:absolute;left:8%;right:8%;top:120px;bottom:-20px;border-radius:10px}
+.stage.dark .win{background:#1e2430;box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+.stage.light .win{background:#fbfcfe;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.stage .win::before{content:"";position:absolute;left:0;right:0;top:0;height:30px;border-bottom:1px solid rgba(127,127,127,.18)}
+.stage .hint{position:absolute;left:12px;bottom:10px;font-size:12px;color:#9aa3b2;z-index:2}
+.stage.light .hint{color:#55606f}
+.dbg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--page-dim);margin-top:8px;min-height:20px}
+.dbg b{color:var(--page-text);font-weight:600}
+.panel{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:14px}
+.panel h3{margin-bottom:8px}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.btns button,.seg button{font:500 13px/1 var(--font);color:var(--page-text);background:var(--page-card-2);border:1px solid var(--page-line);border-radius:8px;padding:8px 10px;cursor:pointer}
+.btns button:hover,.seg button:hover{border-color:#3d3d46}
+.btns button.hot{border-color:#5b5b66}
+.tog{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px;font-size:13px}
+.tog label{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--page-dim)}
+.seg{display:inline-flex;gap:4px}
+.seg button.on{background:#2b2b33;border-color:#4a4a55}
+.read{font-size:13px;border-top:1px solid var(--page-line);padding-top:10px;margin-top:2px}
+.read .row{display:flex;gap:8px;margin:3px 0}
+.read .row span:first-child{color:var(--page-dim);width:112px;flex:none}
+.plist{margin-top:10px;border-top:1px solid var(--page-line);padding-top:8px;font-size:12.5px}
+.plist div{display:flex;gap:8px;padding:4px 6px;border-radius:6px;color:var(--page-dim);transition:background .2s,color .2s}
+.plist div b{width:34px;flex:none;color:inherit}
+.plist div.on{background:rgba(100,210,255,.12);color:var(--page-text)}
+
+/* ══════════ Gallery ══════════ */
+.state{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:18px 18px 8px;margin:14px 0}
+.state>header{display:flex;gap:10px;align-items:baseline}
+.state>header .n{font-size:12px;font-weight:700;color:#000;background:var(--page-accent);border-radius:6px;padding:1px 7px}
+.state>p{color:var(--page-dim);margin:4px 0 12px;max-width:1080px;font-size:13px}
+.bgrow{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--page-line)}
+.bgrow .lbl{font-size:12px;color:var(--page-dim);padding-top:6px}
+.strip{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.strip.x2{flex-wrap:nowrap;overflow-x:auto;padding:12px 0 8px}
+.tile{margin:0;display:flex;flex-direction:column;gap:6px}
+.tile .screen{position:relative;border-radius:8px;overflow:hidden}
+.tile .screen.dark{background:var(--desk-dark)}
+.tile .screen.light{background:var(--desk-light)}
+.tile figcaption{font-size:11.5px;color:var(--page-dim);max-width:260px;line-height:1.35}
+.tile .arrow{align-self:center}
+.seqarrow{color:#555;font-size:18px;align-self:center;padding-top:0}
+.scale-note{font-size:11px;color:#6d6d77;margin-bottom:2px}
+
+/* ══════════ Tables ══════════ */
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0 6px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--page-line)}
+th{color:var(--page-dim);font-weight:600;font-size:12px;background:var(--page-card)}
+td .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.tablebox{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:4px 10px;overflow-x:auto}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:1000px){.cols2{grid-template-columns:1fr}}
+.diag{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:14px}
+.diag svg{width:100%;height:auto;display:block}
+.diag p{color:var(--page-dim);font-size:13px;margin:8px 0 0}
+.notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:12px}
+.note{background:var(--page-card);border:1px solid var(--page-line);border-left:3px solid var(--r-orange);border-radius:10px;padding:12px 14px;font-size:13px}
+.note b{display:block;margin-bottom:4px;font-size:13.5px}
+.note .alt{color:var(--page-dim);margin-top:6px}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:#26262c;color:var(--page-dim);margin-left:6px;vertical-align:1px}
+#measure{position:absolute;left:-10000px;top:0;visibility:hidden}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Great Island · активность «Сейчас играет»</h1>
+<p class="lead">Вторая активность острова и система, в которую дальше встанут остальные. В капсуле всегда одна активность. Какая именно — решают приоритеты; остальные доступны свайпом. Визуальный язык, кривая анимации и жест удержания на таймере оставлены как есть.</p>
+<nav class="toc">
+  <a href="#proto">Живой прототип</a><a href="#states">Состояния 1–10</a><a href="#gestures">Жесты</a><a href="#priorities">Приоритеты</a><a href="#spec">Спецификация</a><a href="#scale">Новые активности</a><a href="#notes">Заметки и альтернативы</a>
+</nav>
+<div class="keys">
+  <div class="key"><b>Индикатор — светлая дуга на обводке</b><span>22 px контура на торце капсулы, со стороны соседней активности. Места не занимает и помещается в капсулу высотой 30.</span></div>
+  <div class="key"><b>Свайп везде листает активности</b><span>И в свёрнутом, и в раскрытом виде. Треки переключаются только кнопками ⏮ ⏭, поэтому жест нигде не меняет смысл.</span></div>
+  <div class="key"><b>Порядок ленты фиксированный</b><span>Таймеры · Плеер · (будущие). Приоритеты решают, что на экране, но порядок не переставляют, поэтому свайп предсказуем.</span></div>
+  <div class="key"><b>Ручной выбор держится 30 с покоя</b><span>Его сбрасывают напоминание, плей/пауза и вход в «меньше минуты». Анонс трека ручной выбор не сбрасывает.</span></div>
+  <div class="key"><b>Пауза: 4 с плеера, потом таймеры</b><span>Музыка на паузе доступна только свайпом и через 10 мин пропадает совсем.</span></div>
+  <div class="key"><b>6 px — свайп, 350 мс на месте — перемотка</b><span>Решение принимается один раз за жест. Вертикальных свайпов нет; щелчок колеса мыши — шаг на одну активность.</span></div>
+</div>
+
+<!-- ═════════════ PROTOTYPE ═════════════ -->
+<h2 id="proto">Живой прототип</h2>
+<p class="sub">Наведите на остров (раскрытие через 250 мс). Тяните капсулу мышью влево-вправо или листайте двумя пальцами по тачпаду. Колесо мыши — шаг на одну активность. Удерживайте кольцо или строку таймера — пойдёт перемотка. Справа можно задать, что сейчас происходит, и посмотреть, какой приоритет сработал. Время идёт по-настоящему: тускнение через 10 с, возврат после ручного выбора через 30 с.</p>
+<div class="proto">
+  <div>
+    <div class="desk stage dark" id="stage">
+      <div class="win"></div>
+      <div class="anchor" id="anchor"><div class="island live" id="island"><div class="stroke"></div><svg class="ind" id="ind"></svg></div></div>
+      <div class="hint">Рабочий стол · остров вверху по центру, отступ 8 px</div>
+    </div>
+    <div class="dbg" id="dbg"></div>
+  </div>
+  <div class="panel">
+    <h3>Что сейчас происходит</h3>
+    <div class="btns">
+      <button data-sc="play">▶ Играет</button>
+      <button data-sc="pause">⏸ Пауза</button>
+      <button data-sc="next">⏭ Смена трека</button>
+      <button data-sc="soon">Скоро напоминание</button>
+      <button data-sc="remind">Напоминание</button>
+      <button data-sc="stale">Пауза дольше 10 мин</button>
+      <button data-sc="close">Плеер закрыт</button>
+      <button data-sc="dim">Потускнеть сейчас</button>
+      <button data-sc="reset">Сброс</button>
+    </div>
+    <div class="tog">
+      <label><input type="checkbox" data-tg="hasPos" checked> Плеер сообщает позицию</label>
+      <label><input type="checkbox" data-tg="hasCover" checked> Есть обложка</label>
+      <label><input type="checkbox" data-tg="longTitle"> Длинное название</label>
+      <label><input type="checkbox" data-tg="video"> Видео (16:9)</label>
+      <label><input type="checkbox" data-tg="showTime"> Время в свёрнутом плеере</label>
+      <label><input type="checkbox" data-tg="speakers"> Вывод: колонки</label>
+    </div>
+    <div style="margin-bottom:12px"><span style="color:var(--page-dim);font-size:13px;margin-right:8px">Рабочий стол</span>
+      <span class="seg"><button class="on" data-bg="dark">тёмный</button><button data-bg="light">светлый</button></span></div>
+    <div class="read" id="read"></div>
+    <div class="plist" id="plist">
+      <div data-p="P1"><b>P1</b>Напоминание о перерыве</div>
+      <div data-p="DONE"><b>P1a</b>После «Готово»: 1,5 с таймеры</div>
+      <div data-p="P2"><b>P2</b>Смена трека / плей: анонс 3 с</div>
+      <div data-p="PIN"><b>—</b>Ручной выбор свайпом</div>
+      <div data-p="P3"><b>P3</b>До напоминания &lt; 1 мин</div>
+      <div data-p="P4"><b>P4</b>Играет музыка</div>
+      <div data-p="PAUSED4"><b>P4a</b>Только что пауза: 4 с плеер</div>
+      <div data-p="P5"><b>P5</b>Таймеры (по умолчанию)</div>
+      <div data-p="P6"><b>P6</b>Пауза — только свайпом, 10 мин</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ STATES ═════════════ -->
+<h2 id="states">Состояния</h2>
+<p class="sub">Каждое состояние показано на тёмном и светлом рабочем столе, сначала в масштабе 1:1, затем ×2. Стрелки показывают последовательность кадров. Прототип и эти кадры рисует один и тот же код.</p>
+<div id="gallery"></div>
+
+<!-- ═════════════ GESTURES ═════════════ -->
+<h2 id="gestures">Жесты</h2>
+<p class="sub">Ввод — мышь и тачпад. Решение «свайп или удержание» принимается один раз за жест и до отпускания не меняется.</p>
+<div class="cols2">
+  <div class="diag">
+    <h3>Разделение: удержание против свайпа</h3>
+    <svg viewBox="0 0 600 260" id="dg1"></svg>
+    <p>Первые 6 px содержимое стоит на месте. Пока не ясно, что это: начало свайпа или дрожание руки при удержании, ничего не двигается. После порога содержимое едет 1:1 от точки порога, без скачка. Если за 350 мс курсор не ушёл дальше 6 px и он стоит на кольце или строке таймера, кольцо «защёлкивается» (×1,18 за 120 мс) и начинается перемотка. После этого горизонтальное движение до отпускания игнорируется. Вне колец и строк удержания нет, и свайп можно начать в любой момент.</p>
+  </div>
+  <div class="diag">
+    <h3>Пороги смещения</h3>
+    <svg viewBox="0 0 600 260" id="dg2"></svg>
+    <p>Смещение считается после порога 6 px. Доводка срабатывает от 32 px или при броске со скоростью от 0,4 px/мс (от 12 px). Короче — возврат. На 80 px соседняя активность встаёт на место целиком, дальше идёт сопротивление. На краю ленты всё смещение работает как резина: <span class="mono">40·(1 − 1/(1 + 0,55·x/40))</span>, максимум около 40 px. За один жест можно перейти только на одну активность.</p>
+  </div>
+</div>
+<div class="cols2" style="margin-top:16px">
+  <div class="diag">
+    <h3>Устройства ввода</h3>
+    <table>
+      <tr><th>Ввод</th><th>Что делает</th></tr>
+      <tr><td>Перетаскивание мышью</td><td>Свайп 1:1, доводка, возврат или отскок. Пока кнопка мыши нажата, наведение остров не раскрывает. После свайпа остров раскроется через 600 мс покоя.</td></tr>
+      <tr><td>Тачпад, горизонтальная прокрутка двумя пальцами</td><td>То же, что перетаскивание: <span class="mono">dx −= deltaX</span>. Жест закончен, если 120 мс нет событий. После этого 300 мс игнорируем инерцию, иначе хвост прокрутки перелистнёт ещё раз.</td></tr>
+      <tr><td>Колесо мыши (щелчок 120)</td><td>Один щелчок — одна активность, затем пауза 300 мс. Вниз — следующая (вправо), вверх — предыдущая. На краю — отскок на 12 px.</td></tr>
+      <tr><td>Тачпад, вертикальная прокрутка</td><td>Игнорируется. Отличаем от колеса по дельтам: у колеса шаг кратен 120, у тачпада дельты мелкие.</td></tr>
+      <tr><td>Удержание на кольце или строке таймера</td><td>Перемотка, как сейчас. Срабатывает через 350 мс без выхода за 6 px.</td></tr>
+      <tr><td>Полоса прогресса, кнопки</td><td>Свои зоны: нажатие на них свайп не начинает. По полосе — перемотка трека, если плеер её разрешает.</td></tr>
+    </table>
+  </div>
+  <div class="diag">
+    <h3>Решения по спорным жестам</h3>
+    <table>
+      <tr><th>Вопрос</th><th>Решение</th></tr>
+      <tr><td>Свайп в раскрытой карточке плеера</td><td><b>Листает активности, как везде.</b> Раскрытие по наведению срабатывает с задержкой, поэтому в начале жеста пользователь не всегда знает, раскрыт остров или нет. Если бы смысл свайпа зависел от этого, один и тот же жест иногда переключал бы трек. Переключение трека к тому же необратимо («назад» начинает трек сначала), а листание активностей безобидно. Треки — кнопками ⏮ ⏭.</td></tr>
+      <tr><td>Вертикальные свайпы</td><td><b>Отказ.</b> «Вниз — раскрыть» дублирует наведение. «Вверх — спрятать» упирается в край экрана: остров стоит в 8 px от верха. Вертикальная ось сделала бы диагональные движения неоднозначными. Спрятать остров на время — через правый клик: «Скрыть на 1 час».</td></tr>
+      <tr><td>Клик по свёрнутому острову</td><td>Ничего не переключает. Раскрывает сразу, без ожидания 250 мс; нужно для сенсорных экранов.</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═════════════ PRIORITIES ═════════════ -->
+<h2 id="priorities">Приоритеты</h2>
+<p class="sub">Сверху вниз: первая сработавшая строка решает, что на экране. В прототипе подсвечивается та строка, которая сработала сейчас.</p>
+<div class="tablebox"><table>
+  <tr><th style="width:52px">#</th><th style="width:220px">Условие</th><th style="width:210px">Что на экране</th><th style="width:160px">Сколько держится</th><th>Пояснение</th></tr>
+  <tr><td><b>P1</b></td><td>Пришло напоминание о перерыве</td><td>Карточка напоминания 340×66</td><td>До «Готово»</td><td>Перекрывает всё, в том числе ручной выбор и анонс трека, и сбрасывает их. Свайп и раскрытие по наведению на это время отключены. Музыка продолжает играть; автопауза — настройка, по умолчанию выключена.</td></tr>
+  <tr><td><b>P1a</b></td><td>Нажали «Готово»</td><td>Свёрнутые таймеры, кольцо этого напоминания заполняется заново (600 мс)</td><td>1,5 с</td><td>Подтверждает, что отсчёт начался заново. Потом остров идёт дальше по таблице; если музыка играет, это P4.</td></tr>
+  <tr><td><b>P2</b></td><td>Сменился трек или нажали «плей» в плеере</td><td>Анонс 300×52: обложка, название, исполнитель, полоски</td><td>3 с от начала раскрытия</td><td>Потом остров возвращается к тому, что было, включая ручной выбор. Новая смена во время анонса продлевает его, а не запускает заново. Наведение превращает анонс в карточку плеера, и пока курсор на острове, она не закрывается. Анонса нет, если трек переключили с самого острова (он и так виден) и если сессия играет меньше 1,5 с: это отсекает превью видео при наведении в браузере.</td></tr>
+  <tr><td><b>—</b></td><td>Ручной выбор свайпом</td><td>Выбранная активность</td><td>30 с без взаимодействия или до события</td><td>Важнее автоматики P3–P6. Сбрасывается после 30 с без взаимодействия (курсор вне острова), а также при P1, плей/паузе и входе в P3. P2 его не сбрасывает: анонс показывается поверх и возвращается к выбору.</td></tr>
+  <tr><td><b>P3</b></td><td>До ближайшего напоминания меньше 60 с</td><td>Свёрнутые таймеры, время с секундами в цвете напоминания</td><td>До напоминания</td><td>Не тускнеет. Ручной выбор сбрасывает один раз, при входе; если после этого снова свайпнуть на плеер, он останется до напоминания. Постоянной пульсации нет: правило «постоянные анимации — только для музыки».</td></tr>
+  <tr><td><b>P4</b></td><td>Играет музыка или видео</td><td>Свёрнутый плеер: обложка + полоски</td><td>Пока играет</td><td>Основной вид, пока звучит музыка. Таймеры — свайпом вправо.</td></tr>
+  <tr><td><b>P4a</b></td><td>Только что поставили на паузу</td><td>Свёрнутый плеер на паузе</td><td>4 с</td><td>Чтобы изменение было видно, а не «плеер исчез». Если пауза нажата из раскрытой карточки, карточка остаётся, пока на ней курсор.</td></tr>
+  <tr><td><b>P5</b></td><td>Ничего из перечисленного</td><td>Свёрнутые таймеры</td><td>—</td><td>Вид по умолчанию, как сейчас.</td></tr>
+  <tr><td><b>P6</b></td><td>Музыка на паузе</td><td>Только свайпом</td><td>10 мин паузы</td><td>Через 10 мин активность пропадает из ленты, а с ней и индикатор. Снова появляется при «плей» или новой сессии. 10 мин хватает на звонок или кофе и не оставляет «висящий» плеер на полдня.</td></tr>
+  <tr><td></td><td>Плеера нет</td><td>Таймеры</td><td>—</td><td>Одна активность, индикатора нет. Остров выглядит ровно так же, как сейчас.</td></tr>
+</table></div>
+
+<!-- ═════════════ SPECIFICATION ═════════════ -->
+<h2 id="spec">Спецификация</h2>
+<p class="sub">Все значения — в логических пикселях при 100% масштабе Windows. Цвета — в CSS-переменных в начале файла.</p>
+
+<h3 style="margin-top:18px">Размеры и отступы</h3>
+<div class="tablebox"><table id="t-sizes">
+  <tr><th style="width:230px">Элемент</th><th style="width:150px">Размер</th><th>Отступы и детали</th></tr>
+  <tr><td>Капсула свёрнутая</td><td>h 30, r 15</td><td>Заливка #000, обводка 1 px внутрь rgba(255,255,255,.08). Радиус = min(h/2, 24).</td></tr>
+  <tr><td>Таймеры свёрнуто</td><td>≈112 × 30</td><td>Поля 13 / 13. Кольца ⌀11, толщина 2, шаг 5, дорожка — цвет напоминания с прозрачностью 28%. От колец до времени 9.</td></tr>
+  <tr><td>Плеер свёрнуто</td><td><b>62 × 30</b></td><td>Слева 6 — концентрично: (30 − 18) / 2. Обложка ⌀18. Зазор 12. Полоски: 4 шт. × 2 px, шаг 2, блок 14 × 12, высота 3–12, по центру по вертикали, скругление 1. Справа 12.</td></tr>
+  <tr><td>Плеер свёрнуто, вариант «с временем»</td><td>≈114 × 30</td><td>Между обложкой и полосками остаток «−3:06», 13 semibold, зазоры 12.</td></tr>
+  <tr><td>Плеер свёрнуто, пауза</td><td>62 × 30</td><td>Вместо полосок — две статичные полосы 2,5 × 10, зазор 3, #8E8E93. Обложка 50%. Ширина та же, капсула не дёргается.</td></tr>
+  <tr><td>Анонс трека</td><td>300 × 52, r 24</td><td>Обложка ⌀36, слева 8 (концентрично). Зазор 10. Название 14 semibold, строка 18; исполнитель 12, строка 16. Полоски 4 × 3 px, шаг 2, высота до 16. Справа 18.</td></tr>
+  <tr><td>Плеер раскрыт</td><td>340 × 150, r 24</td><td>Поля 16 / 16 / 12. Ряд 1: обложка ⌀52, зазор 12, текст, полоски 18 × 18. Прогресс: отступ 14, ряд 14, время в колонках по 34, полоса 4 (6 при наведении, зона захвата ±8). Кнопки: отступ 10, ряд 32, кнопки 40 × 32, зазор 20, иконки 18 / 22 / 18. По краям слоты 32: слева устройство вывода 16, справа значок приложения 16.</td></tr>
+  <tr><td>Плеер раскрыт без позиции</td><td>340 × 124</td><td>Ряда прогресса нет, кнопки поднимаются: отступ 12. Высота меняется той же анимацией размера.</td></tr>
+  <tr><td>Подкраска карточки</td><td>—</td><td>Радиальный градиент 140 × 110 с центром в обложке: цвет обложки 16% → 0 к 70% радиуса. Только в раскрытом плеере.</td></tr>
+  <tr><td>Таймеры раскрыто</td><td>240 × 138</td><td>Поля 14. Строки 18, шаг 8: кольцо ⌀14 (2), зазор 10, название, время. Кнопки 28, r 14, зазор 8, отступ 12.</td></tr>
+  <tr><td>Напоминание</td><td>340 × 66, r 24</td><td>Кольцо ⌀42 (4), слева 12, внутри обратный отсчёт. Зазор 12. Кнопка «Готово» h 30, r 15, поля 14, справа 18.</td></tr>
+  <tr><td>Нет обложки</td><td>—</td><td>Круг #2C2C2E и значок ноты (Segoe Fluent E8D6; для видео — E714) #8E8E93 размером 50% круга. Полоски и прогресс — #D1D1D6.</td></tr>
+  <tr><td>Индикатор активностей</td><td>дуга 22 × 1</td><td>Отрезок обводки длиной 22 px по контуру, по центру торца со стороны соседа. Обычно rgba(255,255,255,.30), во время свайпа в сторону соседа .62. В раскрытом виде — тот же отрезок на прямой боковой стороне.</td></tr>
+  <tr><td>Окно острова</td><td>≤ 400</td><td>Самая широкая форма — 340; перелёт кривой даёт +2,6% от изменения ширины (до +8 px). Запаса хватает, расширять окно не нужно.</td></tr>
+</table></div>
+
+<div class="cols2" style="margin-top:18px">
+<div>
+<h3>Шрифты <span class="tag">Segoe UI Variable / Segoe UI</span></h3>
+<div class="tablebox"><table>
+  <tr><th>Где</th><th>Кегль / строка</th><th>Начертание</th><th>Цвет</th></tr>
+  <tr><td>Время, свёрнуто</td><td>13 / 16</td><td>Semibold 600, tabular</td><td>#D1D1D6 · в P3 — цвет напоминания</td></tr>
+  <tr><td>Анонс: название</td><td>14 / 18</td><td>Semibold 600</td><td>#F5F5F7</td></tr>
+  <tr><td>Анонс: исполнитель</td><td>12 / 16</td><td>Regular 400</td><td>#8E8E93</td></tr>
+  <tr><td>Карточка: название</td><td>15 / 20</td><td>Semibold 600, многоточие или бегущая строка</td><td>#F5F5F7</td></tr>
+  <tr><td>Карточка: исполнитель · альбом</td><td>13 / 18</td><td>Regular 400</td><td>#8E8E93</td></tr>
+  <tr><td>Время прогресса</td><td>11 / 14</td><td>Semibold 600, tabular</td><td>прошло #D1D1D6, осталось #8E8E93</td></tr>
+  <tr><td>Таймеры раскрыто: название</td><td>13 / 16</td><td>Regular 400</td><td>#F5F5F7</td></tr>
+  <tr><td>Таймеры раскрыто: время</td><td>13 / 16</td><td>Semibold 600, tabular</td><td>#D1D1D6</td></tr>
+  <tr><td>Кнопки «Пауза», «Настройки»</td><td>13 / 16</td><td>Regular 400</td><td>#F5F5F7 на #1C1C1E</td></tr>
+  <tr><td>Напоминание: заголовок</td><td>15 / 20</td><td>Bold 700</td><td>#F5F5F7</td></tr>
+  <tr><td>Напоминание: подпись</td><td>12 / 16</td><td>Regular 400</td><td>#8E8E93</td></tr>
+  <tr><td>Напоминание: число в кольце</td><td>13 / 16</td><td>Semibold 600, tabular</td><td>#F5F5F7</td></tr>
+  <tr><td>«Готово»</td><td>13 / 16</td><td>Semibold 600</td><td>#000 на цвете напоминания</td></tr>
+  <tr><td>Значок приложения</td><td>9</td><td>Bold 700</td><td>#8E8E93 (заглушка вместо значка)</td></tr>
+</table></div>
+</div>
+<div>
+<h3>Цвета</h3>
+<div class="tablebox"><table id="t-colors"></table></div>
+<p class="sub" style="margin-top:8px;font-size:13px"><b style="color:var(--page-text)">Цвет обложки (--tint).</b> Берём основной цвет обложки и приводим к HSL: S ≤ 85%, L в пределах 55–75%, чтобы полоски читались на чёрном. Если обложка почти серая (S &lt; 12%) или её нет — #D1D1D6. Цвет плавно перетекает при смене трека, 420 мс.</p>
+</div>
+</div>
+
+<h3 style="margin-top:18px">Движение</h3>
+<div class="tablebox"><table>
+  <tr><th style="width:280px">Переход</th><th style="width:110px">Длительность</th><th style="width:260px">Easing</th><th>Детали</th></tr>
+  <tr><td>Смена размера капсулы (ширина, высота, радиус)</td><td>420 мс</td><td class="mono">cubic-bezier(0.32,1.28,0.5,1)</td><td>Как сейчас. Перелёт около 2,6% изменения размера.</td></tr>
+  <tr><td>Появление содержимого</td><td>220 мс</td><td class="mono">ease-out, задержка 60 мс</td><td>Только прозрачность. Как сейчас.</td></tr>
+  <tr><td>Исчезновение содержимого</td><td>120 мс</td><td class="mono">ease-in</td><td>Как сейчас.</td></tr>
+  <tr><td>Раскрытие по наведению</td><td>задержка 250 мс</td><td>размер — основная кривая</td><td>Сворачивание через 300 мс после ухода курсора. Если сейчас другие значения — оставить их.</td></tr>
+  <tr><td>Тускнение до 45%</td><td>600 мс</td><td class="mono">ease</td><td>Через 10 с покоя. Возврат к 100% — 160 мс при наведении или событии. В P1, P3 и раскрытом виде не тускнеет.</td></tr>
+  <tr><td>Свайп: слежение</td><td>—</td><td>без анимации</td><td>Содержимое 1:1 за курсором. Ширина и высота — линейно по p = смещение / 80. Прозрачность текущего слоя: 1 − p/0,7; следующего: (p − 0,3)/0,7. Слои не смешиваются в кашу посередине, особенно в раскрытом виде.</td></tr>
+  <tr><td>Свайп: доводка</td><td>320 мс / 420 мс</td><td class="mono">cubic-bezier(0.22,1,0.36,1)</td><td>Содержимое — 320 мс без перелёта. Размер капсулы — 420 мс основной кривой с перелётом.</td></tr>
+  <tr><td>Свайп: возврат (короткий)</td><td>260 мс</td><td class="mono">cubic-bezier(0.22,1,0.36,1)</td><td>И содержимое, и размер, без перелёта: «передумал» не должен пружинить.</td></tr>
+  <tr><td>Свайп: отскок на краю</td><td>480 мс</td><td class="mono">cubic-bezier(0.32,1.28,0.5,1)</td><td>Из положения резины в ноль с лёгким перелётом.</td></tr>
+  <tr><td>Шаг колесом</td><td>как доводка</td><td>—</td><td>На краю: 140 мс ease-out до 12 px, затем отскок 480 мс.</td></tr>
+  <tr><td>Анонс трека</td><td>420 + 3000 + 420</td><td>основная кривая</td><td>3 с считаются от начала раскрытия.</td></tr>
+  <tr><td>Полоски-эквалайзер</td><td>30 кадр/с</td><td>атака 60 мс, спад 180 мс</td><td>Высота 3…max по уровню громкости сессии. При тускнении амплитуда ×0,5. На паузе не рисуются.</td></tr>
+  <tr><td>Прогресс</td><td>1000 мс</td><td class="mono">linear</td><td>Обновляется раз в секунду. Наведение на полосу: 4 → 6 px за 150 мс.</td></tr>
+  <tr><td>Бегущая строка</td><td>40 px/с</td><td class="mono">linear</td><td>Только если название не влезает. Старт через 1200 мс после раскрытия или смены трека, один проход, пауза 1000 мс. Затем возврат растворением (150 + 220 мс) к многоточию. Края — градиентная маска 12 px.</td></tr>
+  <tr><td>Кольцо после «Готово»</td><td>600 мс</td><td class="mono">cubic-bezier(0.22,1,0.36,1)</td><td>Заполнение от 0 до полного.</td></tr>
+  <tr><td>Удержание: «защёлка»</td><td>350 мс + 120 мс</td><td class="mono">cubic-bezier(0.22,1,0.36,1)</td><td>Кольцо ×1 → ×1,18. Перемотка ускоряется, пока кнопка нажата.</td></tr>
+  <tr><td>Нажатие кнопок</td><td>120 мс</td><td class="mono">cubic-bezier(0.22,1,0.36,1)</td><td>Масштаб 0,88 (иконки), 0,94–0,96 (кнопки с текстом). Подложки при наведении нет: только прозрачность 82%.</td></tr>
+</table></div>
+
+<h3 style="margin-top:18px">Пороги жестов</h3>
+<div class="tablebox"><table>
+  <tr><th style="width:280px">Параметр</th><th style="width:160px">Значение</th><th>Пояснение</th></tr>
+  <tr><td>Порог свайпа</td><td>6 px</td><td>По горизонтали, при |dx| ≥ |dy|. Смещение считается от точки порога.</td></tr>
+  <tr><td>Удержание</td><td>350 мс</td><td>Без выхода за 6 px и только на кольце или строке таймера. После срабатывания свайп заблокирован до отпускания.</td></tr>
+  <tr><td>Страница</td><td>80 px</td><td>При таком смещении соседняя активность стоит на месте целиком.</td></tr>
+  <tr><td>Доводка по расстоянию</td><td>≥ 32 px</td><td>После порога (то есть ≥ 38 px от точки нажатия).</td></tr>
+  <tr><td>Доводка по скорости</td><td>≥ 0,4 px/мс и ≥ 12 px</td><td>Скорость — по последним 80 мс, в ту же сторону, что смещение.</td></tr>
+  <tr><td>Резина</td><td class="mono">40·(1−1/(1+0,55x/40))</td><td>На краю ленты — для всего смещения; за пределами 80 px — для остатка.</td></tr>
+  <tr><td>Конец жеста тачпада</td><td>120 мс тишины</td><td>Затем 300 мс игнорируем инерцию.</td></tr>
+  <tr><td>Колесо мыши</td><td>1 щелчок = 1 шаг</td><td>Пауза 300 мс между шагами.</td></tr>
+  <tr><td>Повторное раскрытие после свайпа</td><td>600 мс покоя</td><td>Чтобы остров не раскрывался прямо посреди серии свайпов.</td></tr>
+</table></div>
+
+<!-- ═════════════ SCALING ═════════════ -->
+<h2 id="scale">Как добавлять следующие активности</h2>
+<p class="sub">Чтобы новая активность встала в систему без переделки, каждая описывает себя одинаково:</p>
+<div class="tablebox"><table>
+  <tr><th style="width:240px">Поле</th><th>Значение для «Сейчас играет»</th><th>Правило</th></tr>
+  <tr><td>Место в ленте</td><td>2 (после таймеров)</td><td>Фиксировано при регистрации и не зависит от приоритета. Таймеры всегда первые: это «дом» острова.</td></tr>
+  <tr><td>Фоновый уровень</td><td>P4 — играет, P6 — пауза</td><td>Новая активность выбирает уровень между P3 и P5. Уровней выше P3 у неё быть не может: они зарезервированы за напоминаниями.</td></tr>
+  <tr><td>Кратковременные события</td><td>Смена трека, плей → анонс 3 с</td><td>Все анонсы делят уровень P2 и показываются по очереди, не больше одного одновременно. Новый анонс того же источника заменяет старый.</td></tr>
+  <tr><td>Срок жизни в ленте</td><td>10 мин паузы</td><td>Активность без срока жизни постоянно занимала бы место и индикатор.</td></tr>
+  <tr><td>Виды</td><td>Свёрнутый (h 30), анонс (h 52), раскрытый (≤ 340 × 150)</td><td>Ширина свёрнутого вида — по содержимому, раскрытого — до 340.</td></tr>
+  <tr><td>Индикатор</td><td>—</td><td>При 3+ активностях дуга остаётся той же: она говорит «там есть ещё», а не «сколько». Когда это станет важно — во время свайпа показывать точки 3 px под содержимым раскрытого вида.</td></tr>
+</table></div>
+
+<!-- ═════════════ NOTES ═════════════ -->
+<h2 id="notes">Сомнительные решения и альтернативы</h2>
+<div class="notes">
+  <div class="note"><b>Индикатор — дуга на обводке, а не точки</b>Точки внутри капсулы высотой 30 не помещаются без тесноты: обложке ⌀18 и кольцам ⌀11 нужна вся высота. Точки под капсулой — это подложка за пределами формы, которую к тому же обрежет окно. Дуга живёт на уже существующей обводке и не занимает места.<div class="alt">Альтернатива: не показывать индикатор в покое, только во время свайпа и в раскрытом виде. Чище, но тогда о плеере за свайпом не узнать, пока не потрогаешь.</div></div>
+  <div class="note"><b>Плеер в свёрнутом виде узкий: 62 против 112</b>Заметное изменение ширины при свайпе само сообщает, что активность сменилась, и в задании это прямо просится («капсула плавно меняет ширину»).<div class="alt">Альтернатива: общая минимальная ширина свёрнутого вида 96, чтобы остров меньше «дышал». Тогда у плеера появится пустая середина.</div></div>
+  <div class="note"><b>Обложка с отступом 6, кольца — с 13</b>Круг ⌀18 в капсуле высотой 30 смотрится правильно, только когда он концентричен скруглению: (30 − 18) / 2 = 6. С отступом 13 обложка «висит» внутри. У маленьких колец ⌀11 концентрический отступ был бы 9,5 — им 13 подходит, оставляем как есть.</div>
+  <div class="note"><b>Полоски при тускнении не останавливаются</b>Это единственный сигнал «играет» в свёрнутом виде. Амплитуда ×0,5 при прозрачности 45% почти не отвлекает.<div class="alt">Альтернатива: полоски замирают на низкой высоте. Спокойнее, но остров на паузе и играющий станут похожи.</div></div>
+  <div class="note"><b>P3 сбрасывает ручной выбор</b>Остров существует ради перерывов, и предупреждение за минуту важнее того, что пользователь когда-то пролистнул. Сброс одноразовый: свайпнул на плеер снова — плеер останется.<div class="alt">Альтернатива мягче: не сбрасывать, а окрасить дугу-индикатор в цвет напоминания и показывать её на 100%.</div></div>
+  <div class="note"><b>Возврат к автоматике через 30 с</b>Тускнение начинается через 10 с, возврат — через 30. Вариант «до следующего события» без таймера опасен: если пользователь пролистнул на таймеры и ушёл, плеер не вернётся, пока не сменится трек.<div class="alt">Если 30 с окажется мало для тех, кто специально держит таймеры на экране, — настройка «Запоминать ручной выбор до события».</div></div>
+  <div class="note"><b>После «Готово» — 1,5 с таймеров, потом плеер</b>Пользователь видит, что отсчёт пошёл заново, и только затем возвращается музыка.<div class="alt">Альтернатива: сразу плеер. Быстрее, но подтверждение действия пропадает.</div></div>
+  <div class="note"><b>Анонсы видео нужно фильтровать</b>Браузеры создают медиасессии на превью при наведении и на автоплей. Не анонсируем сессии, играющие меньше 1,5 с, а также беззвучные. При быстром листании треков анонс продлевается, а не мигает заново.</div>
+  <div class="note"><b>Несколько плееров сразу</b>Активность «Сейчас играет» одна. Источник — сессия, которая последней начала играть: «текущая сессия» Windows может прыгать между приложениями.<div class="alt">Альтернатива: отдельная активность на каждый плеер. Система это выдержит, но лента засорится вкладками браузера.</div></div>
+  <div class="note"><b>Автопауза музыки при напоминании</b>По умолчанию выключена. «Отдохните глазами» не повод останавливать музыку, а разминка под музыку даже приятнее. Включается в настройках отдельно для каждого напоминания.</div>
+  <div class="note"><b>Вертикальное колесо листает, а не меняет громкость</b>Громкость плеера через системную медиасессию недоступна, а системная громкость — не забота острова. Колесо над маленькой капсулой чаще всего крутят случайно, поэтому шаг дискретный, с паузой 300 мс.</div>
+  <div class="note"><b>Видео 16:9 в круге теряет края кадра</b>В круг попадает центр кадра. Для узнаваемости этого обычно хватает: у видео обложка — кадр, а не дизайн.<div class="alt">Альтернатива: в раскрытой карточке у видео скруглённый прямоугольник 52 × 29, r 8. Честнее к кадру, но ломает единый ряд с музыкой.</div></div>
+  <div class="note"><b>Направление перемотки таймера</b>В прототипе удержание уменьшает остаток с ускорением, чтобы было видно, что жест работает. В продукте направление и скорость — как сейчас; меняется только порог отделения от свайпа.</div>
+  <div class="note"><b>Шрифт в браузере</b>Страница использует Segoe UI Variable / Segoe UI. Если их нет (не Windows), подставляется системный шрифт, и ширина текстовых капсул может отличаться на 1–3 px. Размеры в таблицах — целевые.</div>
+</div>
+
+<div id="measure"></div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+/* ═════════════ DATA ═════════════ */
+const TIMERS0 = [
+  {id:'move',  name:'Разминка', color:'--r-orange', period:45*60, left:27*60+10, title:'Время размяться', sub:'Встаньте и потянитесь пару минут', dur:120},
+  {id:'eyes',  name:'Глаза',    color:'--r-cyan',   period:20*60, left:12*60+34, title:'Отдохните глазами', sub:'Посмотрите вдаль 20 секунд', dur:20},
+  {id:'water', name:'Вода',     color:'--r-blue',   period:60*60, left:41*60+5,  title:'Выпейте воды', sub:'Стакан воды — и обратно к делам', dur:15},
+];
+const COVER_NIGHT = 'radial-gradient(circle at 50% 58%,#FFD60A 0 17%,#FF9F0A 18%,transparent 30%),linear-gradient(180deg,#2a0b4a 0%,#7a2bd0 38%,#FF375F 60%,#1a0630 61%,#0b0320 100%)';
+const TRACKS = [
+  {title:'Nightcall', long:'Nightcall (Extended Night Drive Version, Remastered)', artist:'Kavinsky', album:'OutRun', dur:258, tint:'#FF5C8A', cover:COVER_NIGHT, src:'S'},
+  {title:'Odd Look', long:'Odd Look (Night Drive Edit)', artist:'Kavinsky', album:'OutRun', dur:252, tint:'#5AC8FA', cover:'linear-gradient(135deg,#0A84FF 0%,#64D2FF 55%,#30D158 100%)', src:'S'},
+  {title:'Protovision', long:'Protovision (Live at Night)', artist:'Kavinsky', album:'OutRun', dur:296, tint:'#FF9A4D', cover:'linear-gradient(160deg,#FFD60A 0%,#FF9F0A 35%,#FF375F 75%,#3a0a14 100%)', src:'S'},
+];
+const VIDEO = {title:'Как устроен интерфейс: разбор анимаций', long:'Как устроен интерфейс: разбор анимаций', artist:'Канал «Интерфейсы»', album:'', dur:754, tint:'#64D2FF', src:'C', wide:true,
+  cover:'radial-gradient(ellipse 22% 40% at 50% 50%,#64D2FF 0 60%,transparent 62%),linear-gradient(90deg,#0b1220 0%,#1d3a57 50%,#0b1220 100%)'};
+
+const now = ()=>performance.now();
+const clamp01 = x=>Math.max(0,Math.min(1,x));
+const lerp = (a,b,p)=>a+(b-a)*p;
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmt(s){ s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return h? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}` : `${m}:${String(x).padStart(2,'0')}`; }
+function fmtShort(s){ return s>=60? fmt(s) : String(Math.max(0,s)); }
+function hexA(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+function rubber(x,L=40){ const a=Math.abs(x); return Math.sign(x)*(1-1/(a*0.55/L+1))*L; }
+const trackOf = d=> d.video? VIDEO : TRACKS[((d.trackIdx%TRACKS.length)+TRACKS.length)%TRACKS.length];
+const titleOf = d=>{ const t=trackOf(d); return d.longTitle? t.long : t.title; };
+const tintOf = d=> d.hasCover? trackOf(d).tint : 'var(--tint-neutral)';
+const nearestOf = ts=>{ let i=0; ts.forEach((t,k)=>{ if(t.left<ts[i].left) i=k; }); return i; };
+
+/* ═════════════ GLYPHS ═════════════ */
+const ICON = {
+  play:'<svg width="22" height="22" viewBox="0 0 22 22"><path d="M7 4.6v12.8a.9.9 0 0 0 1.37.77l10.2-6.4a.9.9 0 0 0 0-1.54L8.37 3.83A.9.9 0 0 0 7 4.6z" fill="currentColor"/></svg>',
+  pause:'<svg width="22" height="22" viewBox="0 0 22 22"><rect x="5.5" y="4" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="12.5" y="4" width="4" height="14" rx="1.2" fill="currentColor"/></svg>',
+  prev:'<svg width="18" height="18" viewBox="0 0 18 18"><rect x="3" y="3.5" width="2.2" height="11" rx="1" fill="currentColor"/><path d="M15 4.3v9.4a.8.8 0 0 1-1.22.68L6.9 9.68a.8.8 0 0 1 0-1.36l6.88-4.7A.8.8 0 0 1 15 4.3z" fill="currentColor"/></svg>',
+  next:'<svg width="18" height="18" viewBox="0 0 18 18"><rect x="12.8" y="3.5" width="2.2" height="11" rx="1" fill="currentColor"/><path d="M3 4.3v9.4a.8.8 0 0 0 1.22.68l6.88-4.7a.8.8 0 0 0 0-1.36L4.22 3.62A.8.8 0 0 0 3 4.3z" fill="currentColor"/></svg>',
+  phones:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="9" width="3" height="5" rx="1.2" fill="currentColor"/><rect x="11" y="9" width="3" height="5" rx="1.2" fill="currentColor"/></svg>',
+  speaker:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z" fill="currentColor"/><path d="M10.6 5.6a3.4 3.4 0 0 1 0 4.8M12.4 3.8a6 6 0 0 1 0 8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+};
+function noteGlyph(sz, video){
+  if(video) return `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="2" fill="none" stroke="#8E8E93" stroke-width="1.4"/><path d="M6.6 6v4l3.4-2z" fill="#8E8E93"/></svg>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16"><path d="M6 12V3.2l7-1.4v8.4" fill="none" stroke="#8E8E93" stroke-width="1.5" stroke-linejoin="round"/><circle cx="4.3" cy="12" r="2.1" fill="#8E8E93"/><circle cx="11.3" cy="10.4" r="2.1" fill="#8E8E93"/></svg>`;
+}
+function ring(size,sw,cv,frac,attrs=''){
+  const r=(size-sw)/2, c=2*Math.PI*r, m=size/2, f=clamp01(frac);
+  return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" data-c="${c.toFixed(3)}" ${attrs}>`+
+    `<circle cx="${m}" cy="${m}" r="${r}" fill="none" style="stroke:var(${cv})" stroke-opacity=".28" stroke-width="${sw}"/>`+
+    `<circle class="arc" cx="${m}" cy="${m}" r="${r}" fill="none" style="stroke:var(${cv});opacity:${f<=0.002?0:1}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${c.toFixed(3)}" stroke-dashoffset="${(c*(1-f)).toFixed(3)}" transform="rotate(-90 ${m} ${m})"/></svg>`;
+}
+function coverHTML(d,size,op=1){
+  if(!d.hasCover) return `<div class="cover nc" style="width:${size}px;height:${size}px">${noteGlyph(Math.round(size*.5), d.video)}</div>`;
+  const t=trackOf(d);
+  return `<div class="cover" style="width:${size}px;height:${size}px;background:${t.cover};${t.wide?'background-size:178% 100%;background-position:center;':''}opacity:${op}"></div>`;
+}
+function barsHTML(hs,w,h,bw,live){
+  return `<div class="bars${live?' live':''}" data-maxh="${h}" style="width:${w}px;height:${h}px">`+
+    hs.map(x=>`<i style="width:${bw}px;height:${x}px;border-radius:${bw/2}px"></i>`).join('')+`</div>`;
+}
+const halfBars = (a,dim)=> dim? a.map(x=>Math.max(3,Math.round(x/2))) : a;
+
+/* ═════════════ VIEWS ═════════════ */
+const V = {
+  timersC(d){
+    const ts=d.timers, n=ts[nearestOf(ts)];
+    const rings=ts.map((t,i)=>`<span data-hold="${i}" style="display:flex">${ring(11,2,t.color, d.refill===i?0:t.left/t.period, `data-ring="${i}"`)}</span>`).join('');
+    const txt=timersText(d), col = d.paused? 'var(--text-2)' : d.warn? `var(${n.color})` : 'var(--digits)';
+    return `<div class="v tc"><span class="rings" style="opacity:${d.paused?.5:1}">${rings}</span><span class="t num" data-k="time" style="color:${col}">${txt}</span></div>`;
+  },
+  timersE(d){
+    const rows=d.timers.map((t,i)=>`<div class="trow" data-hold="${i}">${ring(14,2,t.color,t.left/t.period,`data-ring="${i}"`)}<span class="nm">${esc(t.name)}</span><span class="t num dig" data-k="time${i}">${d.paused?'—':fmt(t.left)}</span></div>`).join('');
+    return `<div class="v te">${rows}<div class="tb"><button class="pbtn" data-own="btn" data-cmd="tpause">${d.paused?'Продолжить':'Пауза'}</button><button class="pbtn" data-own="btn" data-cmd="settings">Настройки</button></div></div>`;
+  },
+  playerC(d){
+    const t=trackOf(d);
+    const right = d.playing? barsHTML(halfBars(d.bars||[5,11,8,4],d.dim),14,12,2,d.live) : `<div class="pz"><i></i><i></i></div>`;
+    const time = (d.showTime && d.hasPos)? `<span class="t num dig" data-k="rem">−${fmt(t.dur-d.pos)}</span>` : '';
+    return `<div class="v pc" style="--tint:${tintOf(d)}">${coverHTML(d,18,d.playing?1:.5)}${time}${right}</div>`;
+  },
+  announce(d){
+    const t=trackOf(d);
+    const right = d.playing? barsHTML(d.barsA||[7,14,10,5],18,16,3,d.live) : `<div class="pz" style="width:18px;height:16px"><i></i><i></i></div>`;
+    return `<div class="v pa" style="--tint:${tintOf(d)}">${coverHTML(d,36)}<div class="meta"><div class="a1">${esc(titleOf(d))}</div><div class="a2">${esc(t.artist)}</div></div>${right}</div>`;
+  },
+  playerE(d){
+    const t=trackOf(d), pct=(clamp01(d.pos/t.dur)*100).toFixed(2);
+    const right = d.playing? barsHTML(d.barsE||[8,16,11,5],18,18,3,d.live)
+      : `<div class="bars idle" style="width:18px;height:18px">${'<i style="width:3px;height:3px;border-radius:1.5px"></i>'.repeat(4)}</div>`;
+    const prog = d.hasPos? `<div class="prog"><span class="num dig" data-k="el">${fmt(d.pos)}</span><div class="track" data-own="seek"><div class="fill" data-k="fill" style="width:${pct}%"></div></div><span class="num rt" data-k="rem">−${fmt(t.dur-d.pos)}</span></div>` : '';
+    const wash = d.hasCover? `<div class="wash" style="background:radial-gradient(140px 110px at 42px 42px,${hexA(t.tint,.16)},transparent 70%)"></div>` : '';
+    const art = t.album? `${t.artist} · ${t.album}` : t.artist;
+    const mq = d.marq? ` marq" style="` : '';
+    const span = d.marq? `<span style="transform:translateX(${d.marq}px)">` : '<span>';
+    return `<div class="v pe" style="--tint:${tintOf(d)}">${wash}<div class="r1">${coverHTML(d,52,d.playing?1:.75)}<div class="meta"><div class="ttl${d.marq?' marq':''}" data-marq>${span}${esc(titleOf(d))}</span></div><div class="art">${esc(art)}</div></div>${right}</div>${prog}`+
+      `<div class="ctrls${d.hasPos?'':' np'}"><span class="side">${d.device==='speakers'?ICON.speaker:ICON.phones}</span><div class="mid">`+
+      `<button class="ib" data-own="btn" data-cmd="prev" aria-label="Предыдущий">${ICON.prev}</button><button class="ib" data-own="btn" data-cmd="play" aria-label="Пауза или воспроизведение">${d.playing?ICON.pause:ICON.play}</button><button class="ib" data-own="btn" data-cmd="next" aria-label="Следующий">${ICON.next}</button>`+
+      `</div><span class="side r"><span class="srct">${t.src}</span></span></div></div>`;
+  },
+  reminder(d){
+    const t=d.timers[d.rem.i];
+    return `<div class="v rm"><div class="rw">${ring(42,4,t.color,d.rem.left/t.dur,'data-ring="rem"')}<span class="rn num" data-k="rn">${fmtShort(d.rem.left)}</span></div>`+
+      `<div class="meta"><div class="m1">${esc(t.title)}</div><div class="m2">${esc(t.sub)}</div></div><button class="done" data-own="btn" data-cmd="done" style="background:var(${t.color})">Готово</button></div>`;
+  },
+};
+function timersText(d){
+  const n=d.timers[nearestOf(d.timers)];
+  if(d.paused) return 'пауза';
+  if(d.dim) return `${Math.max(1,Math.ceil(n.left/60))} мин`;
+  return fmt(n.left);
+}
+function dyn(view,d){
+  const o={t:{},r:{},w:{}};
+  if(view==='timersC'){ o.t.time=timersText(d); d.timers.forEach((t,i)=>o.r[i]=t.left/t.period); }
+  if(view==='timersE'){ d.timers.forEach((t,i)=>{ o.t['time'+i]=d.paused?'—':fmt(t.left); o.r[i]=t.left/t.period; }); }
+  if(view==='playerC'||view==='playerE'){ const t=trackOf(d); o.t.rem='−'+fmt(t.dur-d.pos); o.t.el=fmt(d.pos); o.w.fill=clamp01(d.pos/t.dur)*100; }
+  if(view==='reminder'){ const t=d.timers[d.rem.i]; o.t.rn=fmtShort(d.rem.left); o.r.rem=d.rem.left/t.dur; }
+  return o;
+}
+function applyDyn(el,view,d){
+  const o=dyn(view,d);
+  for(const k in o.t) el.querySelectorAll(`[data-k="${k}"]`).forEach(n=>{ if(n.textContent!==o.t[k]) n.textContent=o.t[k]; });
+  for(const k in o.r) el.querySelectorAll(`[data-ring="${k}"]`).forEach(s=>{ const c=+s.dataset.c, f=clamp01(o.r[k]), a=s.querySelector('.arc');
+    a.setAttribute('stroke-dashoffset',(c*(1-f)).toFixed(3)); a.style.opacity = f<=0.002?0:1; });
+  for(const k in o.w) el.querySelectorAll(`[data-k="${k}"]`).forEach(n=>n.style.width=o.w[k].toFixed(2)+'%');
+}
+
+/* ═════════════ INDICATOR (arc on the outline) ═════════════ */
+const IND_LEN=22;
+function indInner(W,H,R,ind){
+  if(!ind) return '';
+  const w=W-1, h=H-1, r=Math.max(0,Math.min(R-.5,w/2,h/2));
+  const P=2*(w-2*r)+2*(h-2*r)+2*Math.PI*r;
+  const sR=(w-2*r)+Math.PI*r/2+(h-2*r)/2;
+  const sL=P-Math.PI*r/2-(h-2*r)/2;
+  let s='';
+  [['l',sL],['r',sR]].forEach(([k,pos])=>{
+    if(!ind[k]) return;
+    const col = ind[k+'a']? (ind[k+'c']||'var(--ind-active)') : 'var(--ind)';
+    s+=`<rect x=".5" y=".5" width="${w}" height="${h}" rx="${r}" fill="none" style="stroke:${col}" stroke-width="1" stroke-linecap="round" stroke-dasharray="${IND_LEN} ${(P-IND_LEN).toFixed(2)}" stroke-dashoffset="${(-(pos-IND_LEN/2)).toFixed(2)}"/>`;
+  });
+  return s;
+}
+const radiusOf = h=>Math.min(h/2,24);
+
+/* ═════════════ MEASURING ═════════════ */
+const measureBox=document.getElementById('measure');
+const mcache=new Map();
+function measure(html){
+  if(mcache.has(html)) return mcache.get(html);
+  measureBox.innerHTML=`<div class="island"><div class="layer" style="position:static;transform:none">${html}</div></div>`;
+  const c=measureBox.querySelector('.layer').firstElementChild;
+  const r={w:c.offsetWidth,h:c.offsetHeight};
+  mcache.set(html,r); return r;
+}
+
+/* ═════════════ STATIC FRAMES ═════════════ */
+function islandStatic(fr){
+  const L=fr.layers.map(l=>({...l, html:V[l.v](l.d)}));
+  const sz=L.map(l=>measure(l.html));
+  let w,h;
+  if(fr.p!=null && sz.length>1){ w=lerp(sz[0].w,sz[1].w,fr.p); h=lerp(sz[0].h,sz[1].h,fr.p); }
+  else { w=sz[0].w; h=sz[0].h; }
+  w=Math.round(w); h=Math.round(h);
+  const r=radiusOf(h);
+  const html=`<div class="island" style="width:${w}px;height:${h}px;border-radius:${r}px;opacity:${fr.dim?.45:1}">`+
+    L.map(l=>`<div class="layer" style="transform:translateX(calc(-50% + ${l.dx||0}px));opacity:${l.op==null?1:l.op}">${l.html}</div>`).join('')+
+    `<div class="stroke"></div><svg class="ind" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${indInner(w,h,r,fr.ind)}</svg></div>`;
+  return {html,w,h};
+}
+function tile(fr,theme,z){
+  const isl=islandStatic(fr);
+  const sw=Math.max(isl.w+48,130), sh=isl.h+20;
+  return `<figure class="tile"><div class="screen ${theme}" style="width:${sw*z}px;height:${sh*z}px"><div style="zoom:${z};width:${sw}px;height:${sh}px;position:relative">`+
+    `<div class="anchor">${isl.html}</div></div></div>${z===1&&fr.cap?`<figcaption>${fr.cap}</figcaption>`:''}</figure>`;
+}
+
+const sp=o=>({trackIdx:0,playing:true,pos:72,hasPos:true,hasCover:true,longTitle:false,video:false,showTime:false,device:'headphones',dim:false,...o});
+const st=o=>({timers:TIMERS0,paused:false,warn:false,dim:false,refill:null,...o});
+const tWarn = TIMERS0.map(t=>t.id==='eyes'?{...t,left:45}:t);
+const tDone = TIMERS0.map(t=>t.id==='eyes'?{...t,left:t.period}:t);
+const lay=(v,d,dx=0,op=1)=>({v,d,dx,op});
+const pFor=eff=>Math.min(eff/80,1);
+const opC=p=>clamp01(1-p/0.7), opN=p=>clamp01((p-0.3)/0.7);
+
+const STATES=[
+ {n:'1', title:'Свёрнут · играет музыка', desc:'P4. Обложка ⌀18 концентрично скруглению, справа живые полоски в цвете обложки. Дуга слева: там таймеры. Вариант «с временем» — настройка, по умолчанию выключена. Видео: кадр 16:9 обрезается в круг по центру.',
+  seq:false, frames:[
+   {cap:'По умолчанию · 62 × 30', layers:[lay('playerC',sp())], ind:{l:1}},
+   {cap:'Вариант «с временем» · ≈114 × 30', layers:[lay('playerC',sp({showTime:true}))], ind:{l:1}},
+   {cap:'Видео 16:9 в круге', layers:[lay('playerC',sp({video:true}))], ind:{l:1}},
+ ]},
+ {n:'2', title:'Свёрнут · таймеры напоминаний + индикатор', desc:'P5, как сейчас. Справа на обводке светлая дуга 22 px: там есть ещё активность. Когда до напоминания меньше минуты (P3), время идёт с секундами в цвете напоминания и не тускнеет.',
+  seq:false, frames:[
+   {cap:'По умолчанию · ≈112 × 30', layers:[lay('timersC',st())], ind:{r:1}},
+   {cap:'P3: до напоминания 45 с', layers:[lay('timersC',st({timers:tWarn,warn:true}))], ind:{r:1}},
+   {cap:'Раскрыт по наведению (как сейчас) + дуга', layers:[lay('timersE',st())], ind:{r:1}},
+ ]},
+ {n:'3', title:'Переход свайпом: таймеры ⇄ плеер', desc:'Содержимое едет 1:1 за курсором, соседняя активность идёт следом через 80 px, ширина капсулы интерполируется. Отпустили после 32 px — доводка: содержимое 320 мс, размер 420 мс с перелётом. Меньше — возврат за 260 мс. На краю ленты — резина и отскок.',
+  seq:false, frames:[
+   {cap:'0 px · нажали, ничего не двигается (до 6 px)', layers:[lay('timersC',st())], ind:{r:1}},
+   {cap:'Середина жеста · −34 px: p = 0,43, ширина 112 → 62 на 43%, дуга справа ярче', layers:[lay('timersC',st(),-34,opC(pFor(34))),lay('playerC',sp(),46,opN(pFor(34)))], p:pFor(34), ind:{r:1,ra:1}},
+   {cap:'Отпустили на −40 → доводка, кадр через 120 мс', layers:[lay('timersC',st(),-68,opC(.85)),lay('playerC',sp(),12,opN(.85))], p:.85, ind:{r:1,ra:1}},
+   {cap:'Доводка завершена · ручной выбор: плеер', layers:[lay('playerC',sp())], ind:{l:1}},
+   {cap:'Короткий свайп · −18 px < 32 → возврат 260 мс', layers:[lay('timersC',st(),-18,opC(pFor(18))),lay('playerC',sp(),62,opN(pFor(18)))], p:pFor(18), ind:{r:1,ra:1}},
+   {cap:'Край ленты · тянем плеер на −30 px → сдвиг −12 (резина), затем отскок 480 мс', layers:[lay('playerC',sp(),rubber(-30))], ind:{l:1}},
+ ]},
+ {n:'4', title:'Свёрнут и потускнел (45%)', desc:'Через 10 с покоя. Таймеры показывают «N мин» вместо секунд. Плеер продолжает рисовать полоски с амплитудой ×0,5: это единственный признак, что музыка играет. Ширина при тускнении меняется только у таймеров, той же анимацией размера.',
+  seq:false, frames:[
+   {cap:'Плеер · 45%, полоски ×0,5', layers:[lay('playerC',sp({dim:true}))], ind:{l:1}, dim:true},
+   {cap:'Таймеры · 45%, «13 мин»', layers:[lay('timersC',st({dim:true}))], ind:{r:1}, dim:true},
+ ]},
+ {n:'5', title:'Плеер на паузе', desc:'Вместо полосок — две статичные полосы #8E8E93, обложка 50%, ширина прежняя. 4 с после паузы плеер остаётся на экране (P4a), затем остров уходит к таймерам. Доступен свайпом 10 мин (P6).',
+  seq:false, frames:[
+   {cap:'Свёрнут · пауза', layers:[lay('playerC',sp({playing:false}))], ind:{l:1}},
+   {cap:'Раскрыт · пауза: кнопка «плей», полоски — точками', layers:[lay('playerE',sp({playing:false}))], ind:{l:1}},
+ ]},
+ {n:'6', title:'Раскрыт по наведению: карточка плеера', desc:'340 × 150. Обложка ⌀52, название 15 semibold, исполнитель · альбом 13, полоски в цвете обложки, прогресс с временем, кнопки ⏮ ⏯ ⏭. Слева устройство вывода, справа значок приложения. Длинное название — многоточие. Через 1,2 с после раскрытия — один проход бегущей строки, 40 px/с.',
+  seq:false, frames:[
+   {cap:'Музыка', layers:[lay('playerE',sp())], ind:{l:1}},
+   {cap:'Длинное название · многоточие', layers:[lay('playerE',sp({longTitle:true}))], ind:{l:1}},
+   {cap:'Бегущая строка · кадр посреди прохода, края с маской', layers:[lay('playerE',sp({longTitle:true,marq:-96}))], ind:{l:1}},
+   {cap:'Видео · вывод на колонки', layers:[lay('playerE',sp({video:true,device:'speakers',pos:311}))], ind:{l:1}},
+ ]},
+ {n:'7', title:'Раскрыт · плеер не сообщает позицию', desc:'Ряда прогресса нет, высота 124. Кнопки поднимаются, отступ сверху 12. Если позиция появится позже (некоторые плееры присылают её с задержкой), высота растёт той же анимацией размера.',
+  seq:false, frames:[
+   {cap:'Музыка без позиции · 340 × 124', layers:[lay('playerE',sp({hasPos:false}))], ind:{l:1}},
+   {cap:'Видео без позиции', layers:[lay('playerE',sp({hasPos:false,video:true}))], ind:{l:1}},
+ ]},
+ {n:'8', title:'Смена трека: анонс на 3 с и возврат', desc:'P2. Остров был на таймерах (например, по ручному выбору). Трек сменился → анонс 300 × 52 на 3 с от начала раскрытия → возврат к тому, что было. Наведение во время анонса раскрывает карточку плеера.',
+  seq:true, frames:[
+   {cap:'0 мс · таймеры, приходит событие', layers:[lay('timersC',st())], ind:{r:1}},
+   {cap:'0–420 мс раскрытие · держим до 3000 мс', layers:[lay('announce',sp({trackIdx:1}))], ind:{l:1}},
+   {cap:'3000–3420 мс · возврат к таймерам', layers:[lay('timersC',st())], ind:{r:1}},
+ ]},
+ {n:'9', title:'Напоминание во время музыки и что после «Готово»', desc:'P1 перекрывает всё, сбрасывает ручной выбор, отключает свайп; дуги нет. Музыка не останавливается. После «Готово» 1,5 с видны таймеры с заново заполняющимся кольцом (P1a), затем остров возвращается к плееру (P4).',
+  seq:true, frames:[
+   {cap:'Играет музыка', layers:[lay('playerC',sp())], ind:{l:1}},
+   {cap:'Напоминание · 340 × 66', layers:[lay('reminder',st({rem:{i:1,left:14}}))]},
+   {cap:'«Готово» → таймеры 1,5 с, кольцо заполняется 600 мс', layers:[lay('timersC',st({timers:tDone}))], ind:{r:1}},
+   {cap:'→ плеер (P4)', layers:[lay('playerC',sp({trackIdx:0,pos:96}))], ind:{l:1}},
+ ]},
+ {n:'10', title:'Нет обложки: запасной вариант', desc:'Круг #2C2C2E со значком ноты (для видео — кадр) #8E8E93. Цвет полосок и прогресса — нейтральный #D1D1D6, подкраски карточки нет.',
+  seq:false, frames:[
+   {cap:'Свёрнут · музыка', layers:[lay('playerC',sp({hasCover:false}))], ind:{l:1}},
+   {cap:'Свёрнут · видео', layers:[lay('playerC',sp({hasCover:false,video:true}))], ind:{l:1}},
+   {cap:'Раскрыт', layers:[lay('playerE',sp({hasCover:false}))], ind:{l:1}},
+   {cap:'Анонс', layers:[lay('announce',sp({hasCover:false,trackIdx:2}))], ind:{l:1}},
+ ]},
+];
+
+function buildGallery(){
+  const g=document.getElementById('gallery');
+  g.innerHTML=STATES.map(s=>{
+    const row=(theme,z)=>s.frames.map((f,i)=>(s.seq&&i?'<div class="seqarrow">→</div>':'')+tile(f,theme,z)).join('');
+    const bg=(theme,label)=>`<div class="bgrow"><div class="lbl">${label}</div><div><div class="scale-note">1:1</div><div class="strip">${row(theme,1)}</div><div class="scale-note" style="margin-top:12px">×2</div><div class="strip x2">${row(theme,2)}</div></div></div>`;
+    return `<section class="state" id="state-${s.n}"><header><span class="n">${s.n}</span><h3>${esc(s.title)}</h3></header><p>${s.desc}</p>${bg('dark','Тёмный рабочий стол')}${bg('light','Светлый рабочий стол')}</section>`;
+  }).join('');
+}
+
+/* ═════════════ COLOR TABLE ═════════════ */
+function buildColors(){
+  const rows=[
+    ['--island-bg','Заливка капсулы'],['--island-stroke','Обводка 1 px'],['--text-1','Основной текст, иконки кнопок'],['--text-2','Вторичный текст, значки, пауза'],['--digits','Цифры таймеров, время'],
+    ['--btn-bg','Кнопки «Пауза», «Настройки»'],['--track','Дорожка прогресса'],['--nocover','Круг без обложки'],['--tint-neutral','Полоски и прогресс без обложки'],
+    ['--ind','Дуга-индикатор'],['--ind-active','Дуга во время свайпа'],
+    ['--r-orange','Разминка'],['--r-cyan','Глаза'],['--r-blue','Вода'],['--p-yellow','Палитра'],['--p-green','Палитра'],['--p-purple','Палитра'],['--p-pink','Палитра'],
+  ];
+  const cs=getComputedStyle(document.documentElement);
+  document.getElementById('t-colors').innerHTML='<tr><th>Переменная</th><th>Значение</th><th>Где</th></tr>'+rows.map(([v,w])=>{
+    const val=cs.getPropertyValue(v).trim();
+    return `<tr><td class="mono">${v}</td><td class="mono"><span class="sw" style="background:${val}"></span>${val}</td><td>${w}</td></tr>`;}).join('')+
+    `<tr><td class="mono">--tint</td><td class="mono"><span class="sw" style="background:#FF5C8A"></span>из обложки</td><td>Полоски, заливка прогресса, подкраска карточки. Пример: Nightcall → #FF5C8A</td></tr>`;
+}
+
+/* ═════════════ GESTURE DIAGRAMS ═════════════ */
+function buildDiagrams(){
+  const X=t=>60+t/700*500, Y=px=>210-px/20*180;
+  let s=`<rect x="${X(0)}" y="${Y(20)}" width="${X(350)-X(0)}" height="${Y(6)-Y(20)}" fill="rgba(100,210,255,.13)"/>`+
+    `<rect x="${X(0)}" y="${Y(6)}" width="${X(350)-X(0)}" height="${Y(0)-Y(6)}" fill="rgba(255,255,255,.06)"/>`+
+    `<rect x="${X(350)}" y="${Y(6)}" width="${X(700)-X(350)}" height="${Y(0)-Y(6)}" fill="rgba(255,159,10,.16)"/>`+
+    `<rect x="${X(350)}" y="${Y(20)}" width="${X(700)-X(350)}" height="${Y(6)-Y(20)}" fill="url(#hatch)"/>`+
+    `<defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="rgba(255,255,255,.02)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(255,255,255,.08)" stroke-width="3"/></pattern></defs>`+
+    `<line x1="${X(0)}" y1="${Y(6)}" x2="${X(700)}" y2="${Y(6)}" stroke="#64D2FF" stroke-dasharray="4 3"/>`+
+    `<line x1="${X(350)}" y1="${Y(0)}" x2="${X(350)}" y2="${Y(20)}" stroke="#FF9F0A" stroke-dasharray="4 3"/>`+
+    `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(700)}" y2="${Y(0)}" stroke="#555"/><line x1="${X(0)}" y1="${Y(0)}" x2="${X(0)}" y2="${Y(20)}" stroke="#555"/>`;
+  s+=`<path d="M${X(0)} ${Y(0)} C ${X(30)} ${Y(.5)}, ${X(55)} ${Y(3)}, ${X(70)} ${Y(7)} S ${X(100)} ${Y(18)}, ${X(115)} ${Y(20)}" fill="none" stroke="#64D2FF" stroke-width="2.2"/>`+
+     `<circle cx="${X(67)}" cy="${Y(6)}" r="4" fill="#64D2FF"/>`+
+     `<path d="M${X(0)} ${Y(0)} C ${X(80)} ${Y(1)}, ${X(160)} ${Y(1.6)}, ${X(260)} ${Y(1.3)} S ${X(500)} ${Y(1.8)}, ${X(660)} ${Y(1.5)}" fill="none" stroke="#FF9F0A" stroke-width="2.2"/>`+
+     `<circle cx="${X(350)}" cy="${Y(1.45)}" r="4" fill="#FF9F0A"/>`;
+  const T=(x,y,t,c='#9b9ba5',a='start',w=400)=>`<text x="${x}" y="${y}" fill="${c}" font-size="12" font-weight="${w}" text-anchor="${a}" font-family="Segoe UI,system-ui,sans-serif">${t}</text>`;
+  s+=T(X(135),Y(16.5),'СВАЙП','#64D2FF','start',700)+T(X(135),Y(14.5),'ушли за 6 px')+T(X(135),Y(14.5)+15,'раньше 350 мс')+
+     T(X(135),Y(3.6),'ждём: ничего не двигается','#9b9ba5')+
+     T(X(370),Y(2.6)+18,'','#FF9F0A')+
+     T(X(370),Y(4.2),'УДЕРЖАНИЕ → перемотка','#FF9F0A','start',700)+T(X(370),Y(4.2)+15,'только на кольце / строке')+
+     T(X(370),Y(16.5),'после защёлки движение','#9b9ba5')+T(X(370),Y(16.5)+15,'игнорируется до отпускания')+
+     T(X(0)-6,Y(6)+4,'6 px','#64D2FF','end')+T(X(350),Y(20)-6,'350 мс','#FF9F0A','middle')+
+     T(X(700),Y(0)+18,'время, мс','#6d6d77','end')+T(X(0)-6,Y(20)+4,'|dx|','#6d6d77','end')+
+     T(X(0),Y(0)+18,'0','#6d6d77','middle')+T(X(700),Y(0)+18,'','#6d6d77','middle');
+  document.getElementById('dg1').innerHTML=s;
+
+  const Z=px=>40+px/130*530;
+  let q=`<line x1="${Z(0)}" y1="120" x2="${Z(130)}" y2="120" stroke="#555"/>`;
+  const seg=(a,b,c,y=100,h=40)=>`<rect x="${Z(a)}" y="${y}" width="${Z(b)-Z(a)}" height="${h}" fill="${c}"/>`;
+  q+=seg(0,6,'rgba(255,255,255,.10)')+seg(6,38,'rgba(255,255,255,.04)')+seg(38,86,'rgba(100,210,255,.18)')+seg(86,130,'rgba(255,159,10,.14)');
+  [[6,'6','порог'],[38,'38','доводка'],[86,'86','страница']].forEach(([x,l,t])=>{
+    q+=`<line x1="${Z(x)}" y1="88" x2="${Z(x)}" y2="152" stroke="#9b9ba5" stroke-dasharray="3 3"/>`+T(Z(x),80,l+' px','#e9e9ee','middle',600)+T(Z(x),168,t,'#9b9ba5','middle');
+  });
+  q+=T((Z(6)+Z(38))/2,124,'возврат','#9b9ba5','middle')+T((Z(38)+Z(86))/2,124,'доводка','#64D2FF','middle',600)+T((Z(86)+Z(130))/2,124,'резина','#FF9F0A','middle',600);
+  q+=T(Z(0),40,'Смещение от точки нажатия →','#9b9ba5')+T(Z(0),210,'Или бросок: скорость ≥ 0,4 px/мс за последние 80 мс и ≥ 12 px после порога → доводка','#9b9ba5');
+  q+=T(Z(0),232,'На краю ленты нет соседа: всё смещение — резина, максимум ≈ 40 px','#9b9ba5');
+  document.getElementById('dg2').innerHTML=q;
+}
+
+/* ═════════════ PROTOTYPE ═════════════ */
+const PAUSE_TTL=10*60*1000, PIN_IDLE=30000, ANN=3000, DIM_AFTER=10000, WARN_S=60, HOVER_IN=250, HOVER_OUT=300, HOLD=350,
+      SLOP=6, COMMIT=32, FLICK=0.4, FLICK_MIN=12, PAGE=80, POSTPAUSE=4000, AFTERDONE=1500;
+const EASE_ISL='cubic-bezier(0.32,1.28,0.5,1)', EASE_OUT='cubic-bezier(0.22,1,0.36,1)';
+const island=document.getElementById('island'), anchor=document.getElementById('anchor'), indEl=document.getElementById('ind'), strokeEl=island.querySelector('.stroke');
+let S, P, G, D=null, hoverT=0, leaveT=0, wheelLock=0, wheelStep=0, dbgText='—';
+
+function freshState(){
+  return {
+    timers:TIMERS0.map(t=>({...t})), tPaused:false,
+    pl:{exists:true,playing:true,trackIdx:0,pos:72,hasPos:true,hasCover:true,longTitle:false,video:false,showTime:false,device:'headphones',pausedAt:0},
+    rem:null, afterDoneUntil:0, refill:null, announceUntil:0, annHover:false, postPauseUntil:0,
+    pin:null, lastInteract:now(), lastChange:now(), hover:false, inside:false, prevWarn:false,
+  };
+}
+const avail=()=>{ const a=['timers'], p=S.pl; if(p.exists && (p.playing || now()-p.pausedAt<PAUSE_TTL)) a.push('player'); return a; };
+const nearest=()=>nearestOf(S.timers);
+const isWarn=()=>!S.tPaused && !S.rem && S.timers[nearest()].left<WARN_S;
+function resolve(){
+  const a=avail(), t=now(), m=S.hover?'e':'c';
+  if(S.rem) return {act:'timers',mode:'reminder',why:'P1'};
+  if(S.afterDoneUntil>t) return {act:'timers',mode:'c',why:'DONE'};
+  if((S.announceUntil>t||S.annHover) && a.includes('player')) return {act:'player',mode:S.hover?'e':'announce',why:'P2'};
+  if(S.pin && a.includes(S.pin.act)) return {act:S.pin.act,mode:m,why:'PIN'};
+  if(isWarn()) return {act:'timers',mode:m,why:'P3'};
+  if(S.pl.exists && S.pl.playing) return {act:'player',mode:m,why:'P4'};
+  if(S.postPauseUntil>t && a.includes('player')) return {act:'player',mode:m,why:'PAUSED4'};
+  return {act:'timers',mode:m,why:'P5'};
+}
+function viewOf(act,mode){
+  if(act==='timers') return mode==='reminder'?'reminder': mode==='e'?'timersE':'timersC';
+  return mode==='announce'?'announce': mode==='e'?'playerE':'playerC';
+}
+function dataOf(view,dim){
+  if(view.startsWith('timers')||view==='reminder') return {timers:S.timers,paused:S.tPaused,warn:isWarn(),dim,refill:S.refill,rem:S.rem};
+  return {...S.pl,dim,live:true};
+}
+function keyOf(view,d){
+  if(view.startsWith('timers')) return view+'|'+[d.paused,d.dim,d.warn].join();
+  if(view==='reminder') return view+'|'+d.rem.i;
+  return view+'|'+[d.playing,d.trackIdx,d.video,d.hasPos,d.hasCover,d.longTitle,d.showTime,d.device,d.dim].join();
+}
+
+function setSize(w,h,anim,ease=EASE_ISL,dur=420){
+  const r=radiusOf(h);
+  island.style.transition = anim? `width ${dur}ms ${ease},height ${dur}ms ${ease},border-radius ${dur}ms ${ease}` : 'none';
+  island.style.width=w+'px'; island.style.height=h+'px'; island.style.borderRadius=r+'px';
+  P.w=w; P.h=h;
+  drawInd();
+}
+function drawInd(){
+  const w=P.w,h=P.h,r=radiusOf(h);
+  indEl.setAttribute('width',w); indEl.setAttribute('height',h); indEl.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  indEl.innerHTML=indInner(w,h,r,P.ind);
+}
+function computeInd(act){
+  if(S.rem) return null;
+  const a=avail(), i=a.indexOf(act); if(i<0||a.length<2) return null;
+  return {l:i>0, r:i<a.length-1};
+}
+function setLayerT(el,dx,op,trans){
+  el.style.transition=trans||'none';
+  el.style.transform=`translateX(calc(-50% + ${dx}px))`;
+  if(op!=null) el.style.opacity=op;
+}
+
+function transitionTo(view,d,key,act){
+  const el=document.createElement('div'); el.className='layer'; el.innerHTML=V[view](d); el.style.opacity=0;
+  island.insertBefore(el,strokeEl);
+  P.layers.forEach(o=>{ o.style.transition=`opacity 120ms ease-in`; o.style.opacity=0; setTimeout(()=>o.remove(),140); });
+  const c=el.firstElementChild, w=c.offsetWidth, h=c.offsetHeight;
+  P.ind=computeInd(act);
+  setSize(w,h,true);
+  el.style.transition='opacity 220ms ease-out 60ms'; el.style.opacity=1;
+  P.layers=[el]; P.cur={view,key,el,act};
+  S.lastChange=now();
+  afterInsert(view,el);
+}
+function afterInsert(view,el){
+  if(view==='timersC' && S.refill!=null){
+    const i=S.refill; S.refill=null;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>applyDyn(el,view,dataOf(view,false))));
+  }
+  if(view==='playerE') scheduleMarquee(el);
+}
+let marqT=0;
+function scheduleMarquee(el){
+  clearTimeout(marqT);
+  marqT=setTimeout(()=>{
+    const box=el.querySelector('[data-marq]'); if(!box||!el.isConnected) return;
+    const sp=box.firstElementChild, over=sp.offsetWidth-box.clientWidth;
+    if(over<=2) return;
+    box.classList.add('marq');
+    const dist=over+16;
+    const a=sp.animate([{transform:'translateX(0)'},{transform:`translateX(${-dist}px)`}],{duration:dist/40*1000,easing:'linear',fill:'forwards'});
+    a.onfinish=()=>setTimeout(()=>{
+      if(!el.isConnected) return;
+      sp.animate([{opacity:1},{opacity:0}],{duration:150,fill:'forwards'}).onfinish=()=>{
+        a.cancel(); box.classList.remove('marq');
+        sp.animate([{opacity:0},{opacity:1}],{duration:220,fill:'none'});
+      };
+    },1000);
+  },1200);
+}
+function fitIsland(){
+  const c=P.cur.el.firstElementChild; const w=c.offsetWidth, h=c.offsetHeight;
+  if(w!==P.w||h!==P.h) setSize(w,h,true);
+}
+
+function render(){
+  if(!P) return;
+  if(G.active||G.anim){ updateRead(); return; }
+  const res=resolve(), view=viewOf(res.act,res.mode);
+  const changing=!P.cur||P.cur.view!==view;
+  const t=now();
+  const dim = !changing && res.mode==='c' && !S.inside && t-Math.max(S.lastChange,S.lastInteract)>=DIM_AFTER && res.why!=='P3' && res.why!=='DONE';
+  const d=dataOf(view,dim), key=keyOf(view,d);
+  if(changing) transitionTo(view,d,key,res.act);
+  else if(P.cur.key!==key){ P.cur.el.innerHTML=V[view](d); P.cur.key=key; if(view==='playerE') scheduleMarquee(P.cur.el); fitIsland(); }
+  else { applyDyn(P.cur.el,view,d); fitIsland(); }
+  P.cur.act=res.act; P.why=res.why; P.dim=dim;
+  const ind=computeInd(res.act);
+  if(JSON.stringify(ind)!==JSON.stringify(P.ind)){ P.ind=ind; drawInd(); }
+  anchor.style.transition = dim? 'opacity 600ms ease' : 'opacity 160ms ease';
+  anchor.style.opacity = dim? .45 : 1;
+  updateRead();
+}
+
+/* ── reading the state ── */
+const WHY={P1:'P1 · напоминание перекрывает всё',DONE:'P1a · после «Готово» — 1,5 с таймеры',P2:'P2 · анонс трека, 3 с',PIN:'Ручной выбор свайпом',P3:'P3 · до напоминания меньше минуты',P4:'P4 · играет музыка',PAUSED4:'P4a · только что пауза — 4 с плеер',P5:'P5 · таймеры по умолчанию'};
+const VIEWNAME={timersC:'Таймеры, свёрнут',timersE:'Таймеры, раскрыт',playerC:'Плеер, свёрнут',playerE:'Плеер, раскрыт',announce:'Плеер, анонс',reminder:'Напоминание'};
+function updateRead(){
+  const a=avail(), t=now();
+  const pinLeft = S.pin? (S.inside? 'пока курсор на острове' : `сброс через ${Math.max(0,Math.ceil((PIN_IDLE-(t-S.lastInteract))/1000))} с`) : 'нет';
+  const p=S.pl;
+  const plState = !p.exists? 'нет сессии' : p.playing? 'играет' : (a.includes('player')? `пауза, исчезнет через ${Math.ceil((PAUSE_TTL-(t-p.pausedAt))/60000)} мин` : 'пауза > 10 мин — скрыт');
+  document.getElementById('read').innerHTML=
+    `<div class="row"><span>На экране</span><b>${P.cur?VIEWNAME[P.cur.view]:'—'}${P.dim?' · 45%':''}</b></div>`+
+    `<div class="row"><span>Причина</span><span>${WHY[P.why]||'—'}</span></div>`+
+    `<div class="row"><span>Лента</span><span>${a.map(x=>x==='timers'?'Таймеры':'Плеер').join(' · ')}</span></div>`+
+    `<div class="row"><span>Плеер</span><span>${plState}</span></div>`+
+    `<div class="row"><span>Ручной выбор</span><span>${S.pin?(S.pin.act==='timers'?'Таймеры':'Плеер')+' · '+pinLeft:'нет'}</span></div>`+
+    `<div class="row"><span>Ближайшее</span><span>${S.timers[nearest()].name} через ${fmt(S.timers[nearest()].left)}${S.tPaused?' (пауза)':''}</span></div>`;
+  let why=P.why;
+  if(why==='P5' && a.includes('player') && !S.pl.playing) why='P6';
+  document.querySelectorAll('#plist [data-p]').forEach(el=>el.classList.toggle('on',el.dataset.p===why||(why==='P6'&&el.dataset.p==='P5')));
+  document.getElementById('dbg').innerHTML=`Жест: <b>${dbgText}</b>`;
+}
+
+/* ── swipe ── */
+function gBegin(){
+  clearTimeout(hoverT);
+  G.active=true; G.samples=[]; G.nb=null; G.nbJ=null; G.edge=false; G.eff=0; G.dx=0;
+  G.list=avail(); G.idx=Math.max(0,G.list.indexOf(P.cur.act));
+  G.mode=(P.cur.view==='timersE'||P.cur.view==='playerE')?'e':'c';
+  G.wC=P.w; G.hC=P.h;
+  P.layers.forEach(l=>{ if(l!==P.cur.el) l.remove(); });
+  P.layers=[P.cur.el];
+  setLayerT(P.cur.el,0,1);
+  setSize(G.wC,G.hC,false);
+  S.lastInteract=now(); anchor.style.transition='opacity 160ms ease'; anchor.style.opacity=1;
+}
+function dropNb(){ if(G.nb){ G.nb.remove(); G.nb=null; G.nbJ=null; } }
+function gUpdate(dx){
+  G.dx=dx; const t=now(); G.samples.push([t,dx]); while(G.samples.length>2 && t-G.samples[0][0]>80) G.samples.shift();
+  const dir=dx<0?1:-1, j=G.idx+dir, cur=P.cur.el;
+  if(dx===0||j<0||j>=G.list.length){
+    dropNb(); G.edge=dx!==0;
+    setLayerT(cur,rubber(dx),1); setSize(G.wC,G.hC,false);
+    P.ind=computeInd(G.list[G.idx]); drawInd();
+    dbgText=G.edge?`край ленты · тянем ${Math.round(dx)} → сдвиг ${Math.round(rubber(dx))} px`:'свайп';
+    updateRead(); return;
+  }
+  G.edge=false;
+  if(!G.nb||G.nbJ!==j){
+    dropNb();
+    const view=viewOf(G.list[j],G.mode), d=dataOf(view,false);
+    const el=document.createElement('div'); el.className='layer'; el.innerHTML=V[view](d);
+    island.insertBefore(el,strokeEl);
+    const c=el.firstElementChild; G.wN=c.offsetWidth; G.hN=c.offsetHeight;
+    G.nb=el; G.nbJ=j; G.nbView=view; G.nbKey=keyOf(view,d);
+  }
+  const a=Math.abs(dx), eff= a<=PAGE? a : PAGE+Math.abs(rubber(a-PAGE));
+  const p=Math.min(eff/PAGE,1), offC=-dir*eff, offN=offC+dir*PAGE;
+  setLayerT(cur,offC,opC(p)); setLayerT(G.nb,offN,opN(p));
+  setSize(Math.round(lerp(G.wC,G.wN,p)),Math.round(lerp(G.hC,G.hN,p)),false);
+  G.eff=eff; G.dir=dir;
+  const ind=computeInd(G.list[G.idx])||{}; ind[dir>0?'r':'l']=true; ind[dir>0?'ra':'la']=true; P.ind=ind; drawInd();
+  dbgText=`свайп · ${Math.round(dx)} px · p = ${p.toFixed(2)} · ${eff>=COMMIT?'отпустите → доводка':'отпустите → возврат'}`;
+  updateRead();
+}
+function velocity(){ const s=G.samples; if(s.length<2) return 0; const a=s[0], b=s[s.length-1]; return (b[1]-a[1])/Math.max(1,b[0]-a[0]); }
+function gRelease(force){
+  const v=velocity(), dx=G.dx, cur=P.cur.el;
+  const commit = !!G.nb && !G.edge && (force || G.eff>=COMMIT || (Math.abs(v)>=FLICK && G.eff>=FLICK_MIN && Math.sign(v)===Math.sign(dx)));
+  G.active=false; G.anim=true;
+  if(commit){
+    const dir=G.dir, nb=G.nb, act=G.list[G.nbJ], view=G.nbView, key=G.nbKey;
+    setLayerT(cur,-dir*PAGE,0,`transform 320ms ${EASE_OUT},opacity 200ms ease-in`);
+    setLayerT(nb,0,1,`transform 320ms ${EASE_OUT},opacity 220ms ease-out`);
+    P.ind=computeInd(act)||null;
+    setSize(G.wN,G.hN,true);
+    dbgText=force?'шаг колесом → доводка':`доводка (${Math.abs(v)>=FLICK&&G.eff<COMMIT?'бросок':'≥ 32 px'})`;
+    setTimeout(()=>{ cur.remove(); P.layers=[nb]; P.cur={view,key,el:nb,act}; S.pin={act,at:now()}; S.lastInteract=S.lastChange=now(); if(view==='playerE') scheduleMarquee(nb); finish(); },340);
+  } else if(G.nb){
+    const nb=G.nb;
+    setLayerT(cur,0,1,`transform 260ms ${EASE_OUT},opacity 200ms ease-out`);
+    setLayerT(nb,G.dir*PAGE,0,`transform 260ms ${EASE_OUT},opacity 160ms ease-in`);
+    P.ind=computeInd(P.cur.act);
+    setSize(G.wC,G.hC,true,EASE_OUT,260);
+    dbgText='возврат (меньше 32 px)';
+    setTimeout(()=>{ nb.remove(); G.nb=null; finish(); },280);
+  } else {
+    setLayerT(cur,0,1,`transform 480ms ${EASE_ISL}`);
+    P.ind=computeInd(P.cur.act); drawInd();
+    if(G.edge) dbgText='отскок на краю';
+    setTimeout(finish,500);
+  }
+  updateRead();
+}
+function finish(){ G.anim=false; G.nb=null; island.classList.remove('fast'); render(); if(S.inside) armHover(600); }
+function step(dir){
+  if(G.active||G.anim||S.rem) return;
+  gBegin();
+  const j=G.idx+dir;
+  if(j<0||j>=G.list.length){
+    G.active=false; G.anim=true;
+    setLayerT(P.cur.el,-dir*12,1,`transform 140ms ${EASE_OUT}`);
+    dbgText='колесо: край ленты → отскок';
+    setTimeout(()=>{ setLayerT(P.cur.el,0,1,`transform 480ms ${EASE_ISL}`); setTimeout(finish,500); },140);
+    updateRead(); return;
+  }
+  gUpdate(-dir); gRelease(true);
+}
+
+/* ── hold ── */
+let holdIv=0;
+function startHold(){
+  if(!D||D.mode!=='pending') return;
+  D.mode='hold'; island.classList.add('fast');
+  const i=D.holdI, t0=now();
+  island.querySelectorAll(`[data-hold="${i}"] .ring, [data-hold="${i}"].ring`).forEach(r=>r.classList.add('holding'));
+  dbgText=`удержание → перемотка «${S.timers[i].name}»`;
+  holdIv=setInterval(()=>{
+    const el=now()-t0, stepS=Math.min(90,Math.round(3*Math.pow(1+el/300,1.6)));
+    const t=S.timers[i]; t.left=Math.max(1,t.left-stepS); S.lastInteract=now();
+    render();
+  },50);
+  render();
+}
+function stopHold(){ clearInterval(holdIv); island.classList.remove('fast'); island.querySelectorAll('.holding').forEach(r=>r.classList.remove('holding')); dbgText='—'; render(); }
+
+/* ── pointer ── */
+island.addEventListener('pointerdown',e=>{
+  if(e.button!==0||S.rem) return;
+  if(e.target.closest('[data-own]')) return;
+  if(G.active||G.anim) return;
+  clearTimeout(hoverT);
+  const h=e.target.closest('[data-hold]');
+  D={id:e.pointerId,x0:e.clientX,y0:e.clientY,mode:'pending',holdI:(h&&P.cur.act==='timers')?+h.dataset.hold:null};
+  try{ island.setPointerCapture(e.pointerId); }catch(_){}
+  if(D.holdI!=null) D.ht=setTimeout(startHold,HOLD);
+  dbgText = D.holdI!=null? 'нажатие на кольце: ждём 6 px или 350 мс' : 'нажатие: ждём 6 px';
+  updateRead();
+});
+island.addEventListener('pointermove',e=>{
+  if(!D||e.pointerId!==D.id) return;
+  const dx=e.clientX-D.x0, dy=e.clientY-D.y0;
+  if(D.mode==='pending'){
+    if(Math.abs(dx)>SLOP && Math.abs(dx)>=Math.abs(dy)){ clearTimeout(D.ht); D.mode='swipe'; D.sign=Math.sign(dx); gBegin(); }
+    else return;
+  }
+  if(D.mode==='swipe') gUpdate(dx-D.sign*SLOP);
+});
+function endPointer(e){
+  if(!D||e.pointerId!==D.id) return;
+  clearTimeout(D.ht);
+  const m=D.mode; D=null;
+  if(m==='swipe') gRelease(false);
+  else if(m==='hold') stopHold();
+  else { dbgText='клик'; if(!S.hover && !S.rem){ clearTimeout(hoverT); S.hover=true; S.lastInteract=now(); render(); } updateRead(); }
+}
+island.addEventListener('pointerup',endPointer);
+island.addEventListener('pointercancel',endPointer);
+function armHover(ms){
+  clearTimeout(hoverT);
+  hoverT=setTimeout(()=>{
+    if(D||G.active||G.anim||S.rem||!S.inside||S.hover) return;
+    if(S.announceUntil>now()) S.annHover=true;
+    S.hover=true; S.lastInteract=now(); render();
+  },ms);
+}
+island.addEventListener('pointerenter',()=>{ S.inside=true; clearTimeout(leaveT); S.lastInteract=now(); if(!D) armHover(HOVER_IN); render(); });
+island.addEventListener('pointerleave',()=>{
+  S.inside=false; clearTimeout(hoverT);
+  leaveT=setTimeout(()=>{
+    if(G.active||G.anim||D){ return; }
+    if(S.annHover){ S.annHover=false; S.announceUntil=now()+600; later(620); }
+    S.hover=false; S.lastInteract=now(); render();
+  },HOVER_OUT);
+});
+/* ── wheel and touchpad ── */
+let WD=null;
+island.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(S.rem) return;
+  const t=now();
+  if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){
+    if(!WD){ if(t<wheelLock||G.active||G.anim) return; WD={dx:0,mode:'pending'}; }
+    WD.dx -= e.deltaX;
+    if(WD.mode==='pending' && Math.abs(WD.dx)>SLOP){ WD.mode='swipe'; WD.sign=Math.sign(WD.dx); gBegin(); }
+    if(WD.mode==='swipe') gUpdate(WD.dx-WD.sign*SLOP);
+    clearTimeout(WD.end);
+    WD.end=setTimeout(()=>{ if(WD&&WD.mode==='swipe') gRelease(false); WD=null; wheelLock=now()+300; },120);
+  } else {
+    const notch = e.deltaMode===1 || Math.abs(e.deltaY)>=50;
+    if(!notch){ dbgText='вертикальная прокрутка тачпада — игнор'; updateRead(); return; }
+    if(t<wheelStep) return; wheelStep=t+300;
+    step(e.deltaY>0?1:-1);
+  }
+},{passive:false});
+/* ── clicks ── */
+island.addEventListener('click',e=>{
+  const b=e.target.closest('[data-cmd]'); if(!b) return;
+  S.lastInteract=now();
+  const c=b.dataset.cmd, p=S.pl;
+  if(c==='play') setPlaying(!p.playing,true);
+  if(c==='next') changeTrack(1,true);
+  if(c==='prev'){ if(p.hasPos&&p.pos>3){ p.pos=0; render(); } else changeTrack(-1,true); }
+  if(c==='tpause'){ S.tPaused=!S.tPaused; render(); }
+  if(c==='settings'){ b.textContent='…'; setTimeout(()=>{ if(b.isConnected) b.textContent='Настройки'; },500); }
+  if(c==='done') done();
+});
+/* ── seeking by the bar ── */
+island.addEventListener('pointerdown',e=>{
+  const tr=e.target.closest('[data-own="seek"]'); if(!tr||!S.pl.hasPos) return;
+  e.stopPropagation(); tr.classList.add('seeking');
+  const set=x=>{ const r=tr.getBoundingClientRect(); S.pl.pos=Math.round(clamp01((x-r.left)/r.width)*trackOf(S.pl).dur); applyDyn(P.cur.el,P.cur.view,dataOf(P.cur.view,false)); };
+  set(e.clientX);
+  const mv=ev=>set(ev.clientX), up=()=>{ tr.classList.remove('seeking'); window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); render(); };
+  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+},true);
+
+/* ── events ── */
+function later(ms){ setTimeout(render,ms); }
+function setPlaying(v,fromIsland){
+  const p=S.pl;
+  if(!p.exists){ p.exists=true; p.pos=0; }
+  if(p.playing===v){ render(); return; }
+  p.playing=v; S.pin=null;
+  if(v){ if(!(fromIsland&&S.hover)){ S.announceUntil=now()+ANN; later(ANN+20); } }
+  else { p.pausedAt=now(); S.postPauseUntil=now()+POSTPAUSE; later(POSTPAUSE+20); }
+  render();
+}
+function changeTrack(dir,fromIsland){
+  const p=S.pl;
+  if(!p.exists){ p.exists=true; }
+  p.trackIdx+=dir; p.pos=0;
+  if(!p.playing){ p.playing=true; S.pin=null; }
+  if(!(fromIsland&&S.hover)){ S.announceUntil=now()+ANN; later(ANN+20); }
+  render();
+}
+function startReminder(i){
+  S.rem={i,left:S.timers[i].dur}; S.timers[i].left=0;
+  S.pin=null; S.hover=false; S.annHover=false; S.announceUntil=0;
+  render();
+}
+function done(){
+  if(!S.rem) return;
+  const i=S.rem.i; S.timers[i].left=S.timers[i].period; S.rem=null;
+  S.afterDoneUntil=now()+AFTERDONE; S.refill=i; S.pin=null; S.hover=false;
+  later(AFTERDONE+20);
+  render();
+}
+setInterval(()=>{
+  const t=now();
+  if(!S.tPaused) S.timers.forEach((x,i)=>{ if(S.rem&&S.rem.i===i) return; if(x.left>0 && !(D&&D.mode==='hold'&&D.holdI===i)) x.left--; });
+  if(S.rem){ if(S.rem.left>0) S.rem.left--; }
+  else if(!(D&&D.mode==='hold')){ const z=S.timers.findIndex(x=>x.left<=0); if(z>=0){ startReminder(z); } }
+  const p=S.pl; if(p.exists&&p.playing){ p.pos++; if(p.pos>=trackOf(p).dur) changeTrack(1,false); }
+  const w=isWarn(); if(w && !S.prevWarn) S.pin=null; S.prevWarn=w;
+  if(S.pin && !S.inside && t-S.lastInteract>PIN_IDLE) S.pin=null;
+  render();
+},1000);
+
+/* ── bars ── */
+const LV=[.4,.8,.6,.3], TG=[.4,.8,.6,.3]; let lastTg=0, lastF=0;
+function eq(t){
+  requestAnimationFrame(eq);
+  if(t-lastF<33) return; const dt=t-lastF; lastF=t;
+  if(!S||!S.pl.playing) return;
+  if(t-lastTg>110){ lastTg=t; const beat=(Math.sin(t/250)+1)/2; for(let i=0;i<4;i++) TG[i]=clamp01(.15+Math.random()*.6+beat*.35*(i===1||i===2?1:.5)); }
+  for(let i=0;i<4;i++){ const k = TG[i]>LV[i]? 1-Math.exp(-dt/60) : 1-Math.exp(-dt/180); LV[i]+=(TG[i]-LV[i])*k; }
+  const amp=P&&P.dim?.5:1;
+  island.querySelectorAll('.bars.live').forEach(b=>{ const mh=+b.dataset.maxh; b.querySelectorAll('i').forEach((el,i)=>{ el.style.height=(3+(mh-3)*LV[i]*amp).toFixed(1)+'px'; }); });
+}
+
+/* ── panel ── */
+document.querySelectorAll('[data-sc]').forEach(b=>b.addEventListener('click',()=>{
+  const c=b.dataset.sc, p=S.pl;
+  if(c==='play') setPlaying(true,false);
+  if(c==='pause'){ if(p.exists) setPlaying(false,false); }
+  if(c==='next') changeTrack(1,false);
+  if(c==='soon'){ S.tPaused=false; if(!S.rem) S.timers[nearest()].left=45; render(); }
+  if(c==='remind'){ if(!S.rem) startReminder(nearest()); }
+  if(c==='stale'){ if(p.exists&&!p.playing){ p.pausedAt=now()-PAUSE_TTL-1; S.postPauseUntil=0; render(); } else { dbgText='сначала поставьте плеер на паузу'; updateRead(); } }
+  if(c==='close'){ p.exists=false; p.playing=false; S.announceUntil=0; S.postPauseUntil=0; render(); }
+  if(c==='dim'){ S.lastChange=S.lastInteract=now()-DIM_AFTER-1; render(); }
+  if(c==='reset'){ const bg=S.bg; S=freshState(); syncToggles(); render(); }
+}));
+document.querySelectorAll('[data-tg]').forEach(cb=>cb.addEventListener('change',()=>{
+  const k=cb.dataset.tg;
+  if(k==='speakers') S.pl.device=cb.checked?'speakers':'headphones'; else S.pl[k]=cb.checked;
+  render();
+}));
+function syncToggles(){ document.querySelectorAll('[data-tg]').forEach(cb=>{ const k=cb.dataset.tg; cb.checked = k==='speakers'? S.pl.device==='speakers' : !!S.pl[k]; }); }
+document.querySelectorAll('[data-bg]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-bg]').forEach(x=>x.classList.toggle('on',x===b));
+  const st=document.getElementById('stage'); st.classList.toggle('dark',b.dataset.bg==='dark'); st.classList.toggle('light',b.dataset.bg==='light');
+}));
+
+/* ═════════════ START ═════════════ */
+function init(){
+  buildColors(); buildDiagrams(); buildGallery();
+  S=freshState(); P={layers:[],cur:null,w:0,h:0,ind:null,why:'',dim:false}; G={active:false,anim:false};
+  render();
+  requestAnimationFrame(eq);
+}
+(document.fonts&&document.fonts.ready? document.fonts.ready : Promise.resolve()).then(init);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+:root {
+  --bg: #f3f3f3;
+  --card: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6e6e73;
+  --border: rgb(0 0 0 / 0.09);
+  --field: #f5f5f7;
+  --accent: #0a84ff;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --border: rgb(255 255 255 / 0.08);
+    --field: #3a3a3c;
+  }
+}
+
+html[data-window="settings"] body {
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.settings {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 8px 16px 72px;
+}
+
+h1 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 18px 4px 8px;
+}
+
+.reminders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.reminder {
+  border-left: 4px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reminder.disabled > :not(.head) {
+  opacity: 0.45;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input.name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+input.name:hover,
+input.name:focus,
+input.number,
+select {
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+input.name:focus,
+input.number:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+input.number {
+  width: 52px;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+select {
+  padding: 3px 6px;
+}
+
+.colors {
+  display: flex;
+  gap: 4px;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.swatch.selected {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--text);
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.choice legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.choice .options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.choice .hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+  width: 180px;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 6px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(0.96);
+}
+
+button.icon {
+  border: 0;
+  background: transparent;
+  padding: 2px 6px;
+  color: var(--muted);
+}
+
+button.icon:hover {
+  color: var(--text);
+}
+
+button.add {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.general {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder .path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.status {
+  flex: 1;
+  color: var(--muted);
+}
+
+.hotkey {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hotkey .keys {
+  flex: 1;
+  min-width: 0;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-weight: 600;
+}
+
+.hotkey .keys.recording {
+  border-color: var(--accent);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.choice .hint.warn {
+  color: #c93400;
+}
+
+@media (prefers-color-scheme: dark) {
+  .choice .hint.warn {
+    color: #ff9f0a;
+  }
+}
+
+button.link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+}

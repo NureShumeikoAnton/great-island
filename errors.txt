@@ -1,0 +1,112 @@
+Places that depend not on our code (Windows, the video card, the disk, other programs) and may fail.
+Format: file — what can fail. Paths are relative to src-tauri/src.
+
+== Screen recording ==
+gpu.rs — creating the Direct3D video device for the recording and the player (no video card, remote desktop, driver failure)
+record/adapters/engine.rs — capturing the monitor via Windows.Graphics.Capture (Windows older than 1903, the monitor was unplugged at the moment of start)
+record/adapters/engine.rs — the "no yellow frame" request (Windows 10 can't, an organization policy forbids it)
+record/adapters/engine.rs — starting Media Foundation (Windows N/KN without the media components)
+record/adapters/engine.rs — copying a frame from the screen into our own texture (the driver reset the device: a driver update, sleep, a video card change)
+record/adapters/engine.rs — a resolution change or monitor unplug mid-recording (now: the recording stops, the file is saved)
+record/adapters/engine.rs — reading the last frame for the card thumbnail (now: a dark placeholder)
+record/adapters/encoder.rs — creating the H.264 encoder on the video card (the driver doesn't allow it; now: try without the "by quality" mode, then via the CPU)
+record/adapters/engine.rs — HEVC encoder (the video card or Windows can't encode HEVC; now: REC-HEVC, the recording goes in H.264)
+record/adapters/scale.rs — drawing the frame smaller for "Medium"/"Low" quality, Direct2D on the recording's video card (driver failure at start: REC-START/GRAPHICS; mid-recording: the recording breaks off, the file is kept)
+record/adapters/encoder.rs — creating the AAC sound track (now: without it, a video without sound → Telegram takes it for a GIF)
+record/adapters/sound.rs — capturing every program's sound but the island's (process loopback, Windows older than 10 2004; now: the whole output is recorded, the island's sounds included, journal only)
+record/adapters/sound.rs — that fallback: the default output device in loopback (no output device; the device changed: reopened on the new default)
+record/adapters/sound.rs — opening the chosen microphone (unplugged: the Windows default is used instead) or the default one (no microphone, Windows privacy blocks desktop apps; at the press: REC-MIC, the next press records without it; mid-recording: REC-MIC-LOST, then the new default microphone or none)
+record/adapters/microphones.rs — listing the microphones for the panel (the audio service doesn't answer; now: only "as in Windows" is listed, journal)
+record/adapters/microphones.rs — listening to the checked microphone in the panel (busy in exclusive mode, privacy blocks it, unplugged; now: "No signal" instead of the bars, journal)
+record/adapters/sound.rs — reading a sound packet (the device was unplugged: reopened every second; the computer's sound gone: REC-SOUND)
+record/adapters/encoder.rs — writing sound into the AAC track (like a frame: the recording breaks off, the file is kept)
+record/adapters/encoder.rs — writing a frame to the encoder (the encoder fell off mid-recording: now the recording breaks off, the file is closed and what was recorded stays)
+record/adapters/encoder.rs — closing the file at the end (the disk is full, the file is locked by an antivirus)
+record/adapters/fade.rs — the smooth transition after a pause: Direct2D on the recording's video card (driver failure; now: the transition is skipped, the recording goes on)
+record/adapters/files.rs — creating the "Screen Recordings" folder (no rights, the disk is disconnected, the path from settings doesn't exist)
+record/adapters/files.rs — checking free disk space (a network drive doesn't answer)
+record/adapters/files.rs — moving the file to the temporary folder on Ctrl+X (the file is open in a player, another disk and not enough space)
+record/adapters/files.rs — cleaning old recordings in the temporary folder (the file is busy)
+island/record.rs — the recording didn't start, broke off or stopped by itself (now: reported on the island as REC-START, REC-BROKEN, REC-LOST, REC-STOPPED; sound: REC-MIC, REC-MIC-LOST, REC-SOUND; codec: REC-HEVC)
+island/config.rs — saving a recording panel choice to settings.json (the file is locked or read-only; SET-SAVE, the choice still holds until the island restarts)
+
+== Video playback ==
+play/adapters/engine.rs — starting Media Foundation and creating Media Engine (Windows N/KN without the media components)
+play/adapters/engine.rs — opening the file (it was moved or deleted, no reader for its container)
+play/adapters/engine.rs — no decoder for the picture or the sound (HEVC without its Store extension, AC3/DTS sound; the picture: nothing to watch, the sound: plays silent)
+play/adapters/engine.rs — the video device was lost mid-playback (a driver update, sleep, a video card change)
+play/adapters/engine.rs — taking the frame on screen (the driver refuses to copy it; frame to screenshot: SHOT-TAKE, the flight home: the last frame instead)
+island/viewer/video.rs — showing the engine's swap chain as a surface (Composition refuses the handle; now: journal, the still stays in the window)
+island/watch.rs — the window can't open or play (REC-OPEN, the window closes, the card comes back), stops mid-way (VIDEO-STOPPED), plays without sound (VIDEO-SOUND), a press the engine refused (VIDEO-CONTROL)
+record/adapters/files.rs — deleting a recording from the video window (still busy: retried for 0.3 s; then REC-DELETE and the card comes back)
+island/config.rs — keeping the video window's volume in settings.json (SET-SAVE)
+
+== Video editor ==
+island/viewer/montage/mod.rs — opening the editor's two Media Engines (the same causes as playback; now: VIDEO-CONTROL, the window stays a viewer)
+island/viewer/montage/mod.rs — showing a deck's swap chain, a deck that fails or refuses a press, e.g. a rate it can't play (VIDEO-CONTROL)
+island/viewer/montage/pictures.rs — reading the timeline's thumbnails (on the video card) and the sound's wave on their own threads (now: journal only, the blocks stay plain)
+montage/adapters/writer.rs — saving the edit: the video card's video processor (crop, scale, transitions), the H.264 encoder, the AAC sound, the disk (VIDEO-SAVE; the window's editor stays with the edits, Save glints)
+island/watch.rs — replacing the recording with the saved edit while something still holds it (retried for 0.5 s; then VIDEO-SAVE and the edit stays in a file of its own next to it)
+montage/adapters/reader.rs — the recording's frame rate for the frame step and the size estimates (now: 30 fps)
+
+== Screenshot ==
+shot/adapters/screen.rs — screen capture via GDI (protected content, a locked screen, HDR gives washed-out colors)
+shot/adapters/folder.rs — creating the "Screenshots" folder, writing the PNG (no rights, the disk is full)
+shot/adapters/folder.rs — deleting and overwriting a shot (the file is open in another program)
+island/screenshot.rs — the shot's flight window and the viewer window (Composition failure)
+island/viewer/mod.rs — building a shot with edits, opening the editor, showing the saved shot (Direct2D failure)
+
+== Screen capture: shared by the screenshot and the recording ==
+capture/adapters/clipboard.rs — a picture, a file or text to the clipboard (the clipboard is held by another program)
+capture/adapters/files.rs — finding Windows' Pictures and Videos folders (now: the current folder)
+capture/adapters/files.rs — showing a shot in Explorer (the file is gone: its folder opens; the folder is gone too: a notice), opening a video in a player (no program for MP4)
+capture/adapters/screen.rs — hiding the island from shots and recording (Windows older than 2004)
+capture/adapters/screen.rs — the monitor's rectangle for the capture (the monitor was unplugged between calls)
+island/hotkeys.rs — taking the screenshot, area screenshot and record keys (held by another program, PrtSc belongs to Snipping Tool; SHOT-KEY, AREA-KEY, REC-KEY)
+island/hotkeys.rs — taking Ctrl+C and Ctrl+X for the duration of the card (held globally by another program)
+island/hotkeys.rs — taking Esc for the duration of the countdown, the area selection and the recording panel waiting after it (Esc is held globally by another program; the selection still takes Esc while it has the focus)
+
+== Area selection ==
+select/adapters/desktop.rs — listing the windows on the monitor and their visible bounds (now: the selection works, nothing lights up, journal)
+island/selector.rs — the selection window over the monitor (Composition failure: AREA-OPEN; the screenshot is dropped, the panel comes back)
+island/selector.rs — taking the focus for Esc and Alt (Windows refuses to bring the window forward: Esc still works as a global key, Alt is read with each mouse move)
+island/marks.rs — the corner marks around the area being recorded (Composition failure; now: the recording goes without them, journal)
+
+== The island and windows ==
+island/comp.rs — creating Composition and the Direct3D/Direct2D device for text (driver failure, remote desktop)
+island/window.rs — creating the island, flight and viewer windows
+island/window.rs — marking the flight, selection and marks windows as not fullscreen (the shell ignores the mark: the island steps aside while they are on screen, as for a fullscreen app)
+island/tray.rs — the tray icon (Explorer restarts or isn't running yet at autostart)
+island/mod.rs — saving timers to disk every 15 s and at exit (the folder is unavailable; reported once per run of failures)
+island/config.rs — saving settings to disk from the tray's "show always" (the folder is unavailable)
+island/config.rs — launching the settings window as a separate process (the exe was moved or deleted)
+island/mod.rs — starting a new island for "Restart" in the tray (the exe was moved or deleted)
+island/controls.rs — connecting the sound and microphone buttons to the default devices at start (no device: the button is unavailable)
+platform.rs — registering global keys (the combination is taken)
+platform.rs — reading and writing the registry: autostart, PrtSc in Snipping Tool (an organization policy forbids it)
+platform.rs — reading the Windows display-language list at start (the call fails or lists nothing: English is used and the island reports LANG)
+platform.rs — monitor and scale information, the list of displays for the settings window (a monitor was unplugged between calls; a pinned monitor that is gone means the main one)
+platform.rs — detecting fullscreen mode
+persist.rs — reading and writing settings.json and timers.json (the file is damaged, no rights)
+sound.rs — playing the reminder sound (no output device)
+
+== Control center ==
+control/adapters/audio.rs — muting sound and the microphone (no device, the device changed, the driver doesn't answer; the notice and the journal name the device id and the Windows error: how a tester's machine is told apart)
+control/adapters/awake.rs — the sleep block (an organization's power policy)
+
+== Now playing ==
+media/worker.rs — getting Windows media sessions (the service is unavailable)
+media/worker.rs — commands to the player: pause, seek, next track (the player refused)
+media/cover.rs — reading the cover (the player gave a broken picture)
+media/icon.rs — the app icon
+media/meter.rs — the player's loudness for the bars (no output device, the sound goes through another process, the device was unplugged or changed; journal, reconnects by itself, after ~30 s of failed retries the island reports PLAYER-LEVEL)
+media/meter.rs, media/worker.rs — which player was found (a Yandex Browser-like player whose audio session is not matched by exe name: the journal has the app id and what was looked for)
+media/app.rs — bringing the player window to the front (the window is minimized to the tray, a Microsoft Store app)
+
+== The installer ==
+windows/hooks.nsh — the PrtSc question uses $LANGUAGE (1049 = Russian, otherwise English), and the chosen language goes to the registry (HKCU\Software\Great Island\Language, read by platform.rs at the first start); tauri.conf.json — installer languages and the language picker (not checked by a live installer run)
+
+== The settings window ==
+settings_app.rs — launching the window on WebView2 (WebView2 isn't installed or is broken)
+settings_app.rs — the system folder-picker dialog
+settings_app.rs — checking whether a key combination is free
