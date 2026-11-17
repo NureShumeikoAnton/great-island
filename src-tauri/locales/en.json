@@ -183,6 +183,7 @@
   "journal.button_failed": "button %{id} did not switch",
   "journal.device_unavailable": "no access to the %{device} device: %{error}",
   "journal.shot_flight_failed": "screenshot flight failed: %{error}",
+  "journal.shot_hdr_failed": "screenshot of an HDR monitor failed, taken the usual way: %{error}",
   "journal.windows_failed": "area selection: the windows could not be listed, none will light up: %{error}",
   "journal.marks_failed": "the corners of the recorded area could not be shown: %{error}",
   "journal.shot_transfer_failed": "screenshot hand-over flight failed: %{error}",

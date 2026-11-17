@@ -5,6 +5,15 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.7.3 — 2026-11-17
+
+### Fixed
+
+- Screenshot editor: the back arrow leaves the editor after edits.
+- Screenshot editor: when the window widens to fit the toolbar, the buttons and the picture settle to the new size.
+- Touchpad: a two-finger swipe in the opposite direction works at once, without a pause.
+- Screenshot on an HDR monitor: the colors are no longer washed out.
+
 ## 0.7.2 — 2026-11-17
 
 ### Changed

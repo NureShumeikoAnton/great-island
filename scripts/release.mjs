@@ -183,6 +183,34 @@ function releaseChangelog(file, heading, version, date) {
   write(lines.join(eol), file);
 }
 
+// ---- what goes into the commit
+// The release stages by name only the files it changes itself. Everything else is what the author has
+// already staged. Anything left unstaged is built into the installer but not committed: the author is
+// warned and decides.
+const RELEASE_FILES = [
+  'package.json',
+  'package-lock.json',
+  'src-tauri/tauri.conf.json',
+  'src-tauri/Cargo.toml',
+  'src-tauri/Cargo.lock',
+  'CHANGELOG.md',
+  'CHANGELOG.en.md',
+];
+
+function treeState() {
+  // Not gitOut: its trim() would eat the leading space of the first status line.
+  const lines = (git('status', '--porcelain').stdout ?? '').split(/\r?\n/).filter(Boolean);
+  const staged = [];
+  const left = [];
+  for (const entry of lines) {
+    if (RELEASE_FILES.includes(entry.slice(3))) continue;
+    if (entry[0] !== ' ' && entry[0] !== '?') staged.push(entry);
+    if (entry[1] !== ' ') left.push(entry);
+  }
+  return { staged, left };
+}
+let staged = [];
+
 // ---- the questions and the checks that need no changes yet
 console.log(`Релиз Great Island. Сообщение коммита: «${message}»`);
 step('Проверяю, что всё на месте');
@@ -202,6 +230,15 @@ if (!options.dryRun) {
   if (Number(gitOut('rev-list', '--count', 'HEAD..origin/main')) > 0) {
     fail('на GitHub есть коммиты, которых у вас нет: сначала git pull');
   }
+  const state = treeState();
+  if (state.left.length > 0) {
+    console.log('\nВнимание: есть изменения вне индекса. Установщик соберётся с ними, а в коммит они не попадут:');
+    console.log(state.left.map((l) => `    ${l}`).join('\n'));
+    console.log('Чтобы они попали в коммит, остановитесь и выполните git add.');
+    const answer = (await line('Продолжить всё равно? [y/N] ')).trim().toLowerCase();
+    if (answer !== 'y' && answer !== 'д') fail('остановлено: ничего не менялось и не публиковалось');
+  }
+  staged = state.staged;
 }
 
 const found = versionsInFiles();
@@ -257,9 +294,8 @@ if (!options.dryRun) {
   console.log(`  версия:    ${version}  (в файлах сейчас ${inFiles})`);
   console.log(`  коммит:    «${message}»`);
   console.log(`  тег:       v${version}`);
-  console.log('  что попадёт в коммит (git add -A):');
-  const status = gitOut('status', '--short');
-  console.log(status ? status.replace(/^/gm, '    ') : '    (ничего нового)');
+  console.log('  что попадёт в коммит: то, что уже в индексе, и файлы самого релиза (версии, списки изменений):');
+  console.log(staged.length ? staged.map((l) => `    ${l}`).join('\n') : '    (в индексе больше ничего нет)');
   const answer = (await line('\nНачинаем? Дальше коммит, push и публикация релиза. [y/N] ')).trim().toLowerCase();
   if (answer !== 'y' && answer !== 'д') fail('остановлено: ничего не менялось и не публиковалось');
 }
@@ -336,7 +372,7 @@ if (options.dryRun) {
 }
 
 step('Коммит, push и тег');
-run('git', ['add', '-A']);
+run('git', ['add', '--', ...RELEASE_FILES]);
 // Nothing to commit is fine: the changes may have been committed by hand before the release.
 if (git('diff', '--cached', '--quiet').status !== 0) run('git', ['commit', '-m', message]);
 run('git', ['push', 'origin', 'main']);

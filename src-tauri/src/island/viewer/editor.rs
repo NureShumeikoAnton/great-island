@@ -590,7 +590,10 @@ impl Editor {
     /// Left press at window point `p`; `at` is the same in shot pixels if it is on the shot.
     /// True = the editor took the press, the window needs mouse capture.
     pub fn press(&mut self, comp: &Comp, p: (f32, f32), at: Option<Point>) -> bool {
-        self.disarm(comp);
+        // Back is the second press of "leave without saving": the release must still see the pulse.
+        if self.hidden || self.panel.at(p) != Some(Key::Back) {
+            self.disarm(comp);
+        }
         if let Some(pop) = &mut self.popover {
             if pop.panel.press(comp, p) || pop.contains(p) {
                 return true;

@@ -415,7 +415,7 @@ impl Viewer {
                     .panel
                     .slide(comp, false, self.metrics.slide_distance());
                 self.editor = Some(editor);
-                self.make_room();
+                self.make_room(comp);
             }
             Err(e) => crate::journal::warn(tr!("journal.viewer_editor_failed", error = e)),
         }
@@ -426,7 +426,7 @@ impl Viewer {
         (MIN_SIZE.0.max(panel), MIN_SIZE.1 + self.metrics.strip)
     }
 
-    fn make_room(&self) {
+    fn make_room(&mut self, comp: &Comp) {
         let need = self.min_size().0;
         if self.size.0 >= need {
             return;
@@ -452,6 +452,15 @@ impl Viewer {
                 SWP_NOZORDER | SWP_NOACTIVATE,
             );
         }
+        // The WM_SIZE of the call above arrives while the state is busy and is dropped: take the size here.
+        let mut client = RECT::default();
+        unsafe {
+            if GetClientRect(self.hwnd, &mut client).is_err() {
+                return;
+            }
+        }
+        let size = self.logical((client.right, client.bottom));
+        log(self.resize(comp, size));
     }
 
     fn leave_edit(&mut self, comp: &Comp) {

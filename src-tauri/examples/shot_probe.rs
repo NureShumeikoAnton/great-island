@@ -6,14 +6,14 @@
 //! Doesn't touch the clipboard.
 
 use great_island_lib::{
-    capture::adapters::hide_from_capture,
+    capture::{Area, Source, adapters::hide_from_capture},
     shot::{Gallery, adapters},
 };
 use std::time::{Duration, Instant};
 use windows::{
     Win32::{
-        Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM},
-        Graphics::Gdi::CreateSolidBrush,
+        Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
+        Graphics::Gdi::{CreateSolidBrush, MONITOR_DEFAULTTOPRIMARY, MonitorFromPoint},
         System::LibraryLoader::GetModuleHandleW,
         UI::WindowsAndMessaging::{
             CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetSystemMetrics,
@@ -25,14 +25,17 @@ use windows::{
     core::w,
 };
 
+fn primary() -> isize {
+    unsafe { MonitorFromPoint(POINT::default(), MONITOR_DEFAULTTOPRIMARY) }.0 as isize
+}
+
 fn main() {
     let dir = std::env::args().nth(1).expect("укажите папку для PNG");
-    let screen = RECT {
-        left: 0,
-        top: 0,
-        right: unsafe { GetSystemMetrics(SM_CXSCREEN) },
-        bottom: unsafe { GetSystemMetrics(SM_CYSCREEN) },
-    };
+    let screen = Source::whole(
+        primary(),
+        unsafe { GetSystemMetrics(SM_CXSCREEN) } as u32,
+        unsafe { GetSystemMetrics(SM_CYSCREEN) } as u32,
+    );
 
     let t = Instant::now();
     let (image, stamp) = adapters::capture(screen).expect("снимок");
@@ -85,7 +88,16 @@ fn main() {
 }
 
 fn red_share(area: RECT) -> f32 {
-    let (image, _) = adapters::capture(area).expect("снимок квадрата");
+    let source = Source {
+        monitor: primary(),
+        area: Area {
+            x: area.left as u32,
+            y: area.top as u32,
+            width: (area.right - area.left) as u32,
+            height: (area.bottom - area.top) as u32,
+        },
+    };
+    let (image, _) = adapters::capture(source).expect("снимок квадрата");
     let red = image
         .pixels
         .as_chunks::<4>()

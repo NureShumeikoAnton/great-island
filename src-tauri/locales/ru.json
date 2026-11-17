@@ -183,6 +183,7 @@
   "journal.button_failed": "кнопка %{id} не переключилась",
   "journal.device_unavailable": "нет доступа к устройству %{device}: %{error}",
   "journal.shot_flight_failed": "полёт скриншота не удался: %{error}",
+  "journal.shot_hdr_failed": "скриншот HDR-монитора не удался, снят обычным способом: %{error}",
   "journal.windows_failed": "выбор области: не удалось получить список окон, подсветки не будет: %{error}",
   "journal.marks_failed": "не удалось показать уголки записываемой области: %{error}",
   "journal.shot_transfer_failed": "перелёт скриншота не удался: %{error}",

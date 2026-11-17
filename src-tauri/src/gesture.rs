@@ -196,6 +196,8 @@ pub struct Gestures {
     state: State,
     edges: Edges,
     touchpad_quiet_until: u64,
+    /// Axis (true = menu pull) and direction of the last touchpad gesture, to tell its inertia from a new swipe.
+    touchpad_tail: Option<(bool, i32)>,
     wheel_quiet_until: u64,
 }
 
@@ -211,6 +213,7 @@ impl Gestures {
             state: State::Idle,
             edges: Edges::default(),
             touchpad_quiet_until: 0,
+            touchpad_tail: None,
             wheel_quiet_until: 0,
         }
     }
@@ -368,9 +371,13 @@ impl Gestures {
         match &self.state {
             State::Idle => {
                 if now < self.touchpad_quiet_until {
-                    // Inertia tail: swallow it until it dies down.
-                    self.touchpad_quiet_until = now + TOUCHPAD_INERTIA_MS;
-                    return None;
+                    // Inertia tail: swallow it until it dies down. Inertia never turns around,
+                    // so the opposite direction is a new swipe.
+                    let turned = self.touchpad_tail == Some((pull.is_some(), -delta.signum()));
+                    if !turned {
+                        self.touchpad_quiet_until = now + TOUCHPAD_INERTIA_MS;
+                        return None;
+                    }
                 }
                 self.edges = edges;
                 self.state = State::Dragging(Drag::new(pull, 0.0, now, true));
@@ -405,7 +412,10 @@ impl Gestures {
     /// Touchpad gesture ended: settle, then stay quiet until the inertia dies down.
     fn end_touchpad(&mut self, now: u64) -> Output {
         let output = match &self.state {
-            State::Dragging(drag) => self.finish(drag),
+            State::Dragging(drag) => {
+                self.touchpad_tail = Some((drag.pull.is_some(), drag.last_delta.signum()));
+                self.finish(drag)
+            }
             _ => Output::Release(Settle::Cancel),
         };
         self.state = State::Idle;
@@ -761,6 +771,16 @@ mod tests {
             assert_eq!(g.hscroll(t, 12, BOTH), None);
         }
         assert!(g.hscroll(2000 + TOUCHPAD_INERTIA_MS, 24, BOTH).is_some());
+    }
+
+    #[test]
+    fn touchpad_swipe_back_starts_at_once_but_the_same_way_stays_swallowed() {
+        let mut g = Gestures::new();
+        for i in 0..4 {
+            g.hscroll(i * 10, 24, BOTH);
+        }
+        assert_eq!(g.hscroll(50, 12, BOTH), None);
+        assert!(matches!(g.hscroll(66, -24, BOTH), Some(Output::Drag(_))));
     }
 
     #[test]

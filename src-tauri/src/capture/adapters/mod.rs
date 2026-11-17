@@ -3,6 +3,7 @@
 
 mod clipboard;
 mod files;
+pub mod graphics;
 mod screen;
 
 pub use clipboard::SystemClipboard;

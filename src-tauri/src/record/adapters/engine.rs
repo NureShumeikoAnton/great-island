@@ -17,7 +17,10 @@ use super::{
     sound::{self, Heard, Listening, Note},
 };
 use crate::{
-    capture::{Image, Source},
+    capture::{
+        Image, Source,
+        adapters::{graphics, graphics::item as capture_item},
+    },
     fault::{Cause, Failed},
     gpu, journal,
     lang::tr,
@@ -34,30 +37,12 @@ use std::{
     time::{Duration, Instant},
 };
 use windows::{
-    Foundation::TypedEventHandler,
-    Graphics::{
-        Capture::{
-            Direct3D11CaptureFramePool, GraphicsCaptureAccess, GraphicsCaptureAccessKind,
-            GraphicsCaptureItem,
-        },
-        DirectX::{Direct3D11::IDirect3DDevice, DirectXPixelFormat},
-    },
     Win32::{
-        Graphics::{
-            Direct3D11::{D3D11_BOX, ID3D11Texture2D},
-            Dxgi::IDXGIDevice,
-            Gdi::HMONITOR,
-        },
+        Graphics::Direct3D11::{D3D11_BOX, ID3D11Texture2D},
         Media::MediaFoundation::{MF_VERSION, MFSTARTUP_NOSOCKET, MFShutdown, MFStartup},
-        System::{
-            Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize},
-            WinRT::{
-                Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
-                Graphics::Capture::IGraphicsCaptureItemInterop,
-            },
-        },
+        System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize},
     },
-    core::{Error, IInspectable, Interface, Result},
+    core::{Error, Result},
 };
 
 const DISK_CHECK: Duration = Duration::from_secs(2);
@@ -320,41 +305,21 @@ fn record(
     .ok_or_else(|| Failed::because(Cause::Missing, tr!("journal.empty_area")))?;
     let crop = (plan.crop.width, plan.crop.height);
 
-    let capture = || -> Result<_> {
-        let winrt: IDirect3DDevice =
-            unsafe { CreateDirect3D11DeviceFromDXGIDevice(&device.cast::<IDXGIDevice>()?)? }
-                .cast()?;
-        let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
-            &winrt,
-            DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            2,
-            size,
-        )?;
-        let on_frame = frames.clone();
-        pool.FrameArrived(&TypedEventHandler::new(move |_, _| {
+    let (on_frame, lost) = (frames.clone(), frames.clone());
+    let opened = graphics::open(
+        &device,
+        &item,
+        size,
+        move || {
             let _ = on_frame.send(Msg::Frame);
-            Ok(())
-        }))?;
-        let lost = frames.clone();
-        item.Closed(
-            &TypedEventHandler::<GraphicsCaptureItem, IInspectable>::new(move |_, _| {
-                let _ = lost.send(Msg::Lost);
-                Ok(())
-            }),
-        )?;
-        let session = pool.CreateCaptureSession(&item)?;
-        Ok((pool, session))
-    };
-    let (pool, session) = step(capture(), Cause::Unsupported)?;
+        },
+        move || {
+            let _ = lost.send(Msg::Lost);
+        },
+    );
+    let (pool, session) = step(opened, Cause::Unsupported)?;
     let _ = session.SetIsCursorCaptureEnabled(true);
-    // Without this Windows draws a yellow frame around the recorded monitor. Windows 10
-    // has no such switch: the frame stays there.
-    if GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless)
-        .and_then(|op| op.join())
-        .is_ok()
-    {
-        let _ = session.SetIsBorderRequired(false);
-    }
+    graphics::borderless(&session);
 
     let mut encoder = match Encoder::new(&device, path, &plan) {
         // Not every video card encodes HEVC: a recording in H.264 beats none.
@@ -428,12 +393,7 @@ fn record(
                         if frame.ContentSize()? != size {
                             changed = true;
                         }
-                        let surface: ID3D11Texture2D = unsafe {
-                            frame
-                                .Surface()?
-                                .cast::<IDirect3DDxgiInterfaceAccess>()?
-                                .GetInterface()?
-                        };
+                        let surface = graphics::texture(&frame)?;
                         let area = D3D11_BOX {
                             left: plan.crop.x,
                             top: plan.crop.y,
@@ -623,9 +583,4 @@ impl Out<'_> {
         }
         Ok(())
     }
-}
-
-fn capture_item(monitor: isize) -> Result<GraphicsCaptureItem> {
-    let interop = windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
-    unsafe { interop.CreateForMonitor(HMONITOR(monitor as *mut _)) }
 }

@@ -3,7 +3,7 @@ Format: file — what can fail. Paths are relative to src-tauri/src.
 
 == Screen recording ==
 gpu.rs — creating the Direct3D video device for the recording and the player (no video card, remote desktop, driver failure)
-record/adapters/engine.rs — capturing the monitor via Windows.Graphics.Capture (Windows older than 1903, the monitor was unplugged at the moment of start)
+record/adapters/engine.rs, capture/adapters/graphics.rs — capturing the monitor via Windows.Graphics.Capture (Windows older than 1903, the monitor was unplugged at the moment of start)
 record/adapters/engine.rs — the "no yellow frame" request (Windows 10 can't, an organization policy forbids it)
 record/adapters/engine.rs — starting Media Foundation (Windows N/KN without the media components)
 record/adapters/engine.rs — copying a frame from the screen into our own texture (the driver reset the device: a driver update, sleep, a video card change)
@@ -50,7 +50,8 @@ island/watch.rs — replacing the recording with the saved edit while something 
 montage/adapters/reader.rs — the recording's frame rate for the frame step and the size estimates (now: 30 fps)
 
 == Screenshot ==
-shot/adapters/screen.rs — screen capture via GDI (protected content, a locked screen, HDR gives washed-out colors)
+shot/adapters/screen.rs — screen capture via GDI (protected content, a locked screen)
+shot/adapters/screen.rs — screen capture of a monitor in HDR mode via Windows.Graphics.Capture (no frame within a second, the resolution changed after the area was chosen, Windows older than 1803): falls back to GDI, with a line in the journal, the colors are then washed out
 shot/adapters/folder.rs — creating the "Screenshots" folder, writing the PNG (no rights, the disk is full)
 shot/adapters/folder.rs — deleting and overwriting a shot (the file is open in another program)
 island/screenshot.rs — the shot's flight window and the viewer window (Composition failure)
