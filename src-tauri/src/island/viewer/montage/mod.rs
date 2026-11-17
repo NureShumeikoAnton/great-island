@@ -18,7 +18,8 @@
 //! - unsaved edits raise no dialog: the first Esc, Back or closing the window makes Save glint,
 //!   the second discards them, as in the screenshot editor.
 //!
-//! Watching the edit is [`Program`] (`montage::watch`) over two Media Engines in turns; every edit
+//! Watching the edit is [`Program`] (`montage::watch`) over two Media Engines in turns, on the
+//! window's video device (the window's own engine lets the video go meanwhile); every edit
 //! is a whole [`Montage`] kept for undo. The panels come at once: the engines open a moment later
 //! (a spinner on the picture until the first frame), the thumbnails and the wave in the background
 //! (a glint over the timeline until they come).
@@ -38,6 +39,7 @@ use super::Metrics;
 use super::lens::Room;
 use crate::capture::Image;
 use crate::fault::Failed;
+use crate::gpu::Card;
 use crate::lang::tr;
 use crate::montage::{
     Montage, SPEEDS,
@@ -46,7 +48,7 @@ use crate::montage::{
     watch::Program,
 };
 use crate::play::{
-    Engine, Event,
+    Event,
     adapters::{Note, Video},
     clock, clock_tenths,
 };
@@ -85,11 +87,11 @@ pub const TIMER_READY: usize = 26;
 /// The engines open once the editor's panels are on their way: their start doesn't hold them.
 const OPEN_MS: u32 = 30;
 /// After the first frame's seek: the engine presents it a moment later.
-const READY_MS: u32 = 120;
+pub const READY_MS: u32 = 120;
 /// Until the recording's own is read on the thumbnails' thread.
 const DEFAULT_FPS: u32 = 30;
-/// The editor's pictures fade in over the viewer's this long.
-pub const REVEAL_MS: u32 = screen::REVEAL.ms;
+/// The editor's pictures fade in over the viewer's, and back.
+pub const REVEAL: Motion = screen::REVEAL;
 /// A click on the transition tool shows the joins it can be dragged to this long.
 const HINT_MS: u32 = 1200;
 /// The editor's panels and picture coming and going.
@@ -107,58 +109,7 @@ const SKIP: f64 = 5.0;
 const FIRST_FRAME: f64 = 0.5;
 
 /// An engine of the program: not open in the editor's first moment.
-enum Deck {
-    Waiting,
-    Open(Video),
-}
-
-impl Deck {
-    fn video(&self) -> Option<&Video> {
-        match self {
-            Deck::Open(video) => Some(video),
-            Deck::Waiting => None,
-        }
-    }
-}
-
-impl Engine for Deck {
-    fn play(&mut self) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.play(),
-            Deck::Waiting => Ok(()),
-        }
-    }
-    fn pause(&mut self) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.pause(),
-            Deck::Waiting => Ok(()),
-        }
-    }
-    fn seek(&mut self, to: f64, exact: bool) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.seek(to, exact),
-            Deck::Waiting => Ok(()),
-        }
-    }
-    fn set_rate(&mut self, rate: f64) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.set_rate(rate),
-            Deck::Waiting => Ok(()),
-        }
-    }
-    fn set_volume(&mut self, volume: f64, muted: bool) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.set_volume(volume, muted),
-            Deck::Waiting => Ok(()),
-        }
-    }
-    fn step(&mut self, forward: bool) -> Result<(), Failed> {
-        match self {
-            Deck::Open(v) => v.step(forward),
-            Deck::Waiting => Ok(()),
-        }
-    }
-}
+type Deck = Option<Video>;
 
 pub enum Effect {
     Exit,
@@ -176,6 +127,7 @@ pub struct Order {
 
 pub struct Setup<'a> {
     pub path: &'a Path,
+    pub card: &'a Card,
     pub full: (u32, u32),
     pub duration: f64,
     pub volume: (f64, bool),
@@ -230,6 +182,7 @@ pub struct MontageEditor {
     menu: Option<Menu>,
     program: Program<Deck>,
     path: std::path::PathBuf,
+    card: Card,
     base: Montage,
     history: History<Montage>,
     pictures: Pictures,
@@ -263,7 +216,7 @@ impl MontageEditor {
     ) -> Result<Self, Failed> {
         let base = Montage::new(setup.duration);
         let program = Program::new(
-            [Deck::Waiting, Deck::Waiting],
+            [None, None],
             base.clone(),
             setup.at,
             setup.volume.0,
@@ -319,6 +272,7 @@ impl MontageEditor {
             history: History::default(),
             pictures: setup.pictures,
             path: setup.path.to_path_buf(),
+            card: setup.card.clone(),
             source,
             squeeze: Squeeze::AsIs,
             began: Instant::now(),
@@ -343,7 +297,7 @@ impl MontageEditor {
     fn open_decks(&mut self) -> Result<(), Failed> {
         let deck = |d: usize| {
             let address = self.hwnd.0 as isize;
-            Video::open(&self.path, move |note: Note| {
+            Video::open(&self.path, &self.card, move |note: Note| {
                 let (wparam, lparam) = note.pack();
                 unsafe {
                     let _ = PostMessageW(
@@ -355,7 +309,7 @@ impl MontageEditor {
                 }
             })
         };
-        let decks = [Deck::Open(deck(0)?), Deck::Open(deck(1)?)];
+        let decks = [Some(deck(0)?), Some(deck(1)?)];
         *self.program.decks_mut() = decks;
         Ok(())
     }
@@ -587,10 +541,8 @@ impl MontageEditor {
 
     /// The engines let the recording go: it is about to be replaced by the saved edit.
     pub fn close_engines(&self) {
-        for deck in self.program.decks() {
-            if let Some(video) = deck.video() {
-                video.close();
-            }
+        for video in self.program.decks().iter().flatten() {
+            video.close();
         }
     }
 
@@ -675,10 +627,10 @@ impl MontageEditor {
         lparam: LPARAM,
     ) -> Option<Effect> {
         let note = Note::unpack(wparam.0, lparam.0);
-        let event = self.program.decks()[deck].video()?.event(note)?;
+        let event = self.program.decks()[deck].as_ref()?.event(note)?;
         if matches!(event, Event::Loaded(_)) {
             let attached = self.program.decks()[deck]
-                .video()?
+                .as_ref()?
                 .swap_chain()
                 .map_err(Failed::from)
                 .and_then(|handle| Ok(self.screen.attach(comp, deck, handle)?));
@@ -730,7 +682,7 @@ impl MontageEditor {
     /// The frame on screen, of the fragment under the caret.
     pub fn frame(&self) -> Option<Image> {
         let deck = self.current % 2;
-        self.program.decks()[deck].video()?.frame().ok()
+        self.program.decks()[deck].as_ref()?.frame().ok()
     }
 
     fn seek(&mut self, comp: &Comp, to: f64, exact: bool) -> Option<Effect> {

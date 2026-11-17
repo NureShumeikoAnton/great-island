@@ -5,13 +5,13 @@ pub mod reader;
 pub mod writer;
 
 use crate::fault::Failed;
-pub use crate::gpu::video_device;
+pub use crate::gpu::{Card, video_device};
 use windows::{
     Win32::{
         Graphics::Direct3D11::ID3D11Device,
         Media::MediaFoundation::{
             IMFAttributes, IMFDXGIDeviceManager, MF_VERSION, MFCreateAttributes,
-            MFCreateDXGIDeviceManager, MFSTARTUP_NOSOCKET, MFShutdown, MFStartup,
+            MFSTARTUP_NOSOCKET, MFShutdown, MFStartup,
         },
         System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize},
     },
@@ -54,14 +54,7 @@ fn attributes(count: u32) -> Result<IMFAttributes, Failed> {
 }
 
 fn manager(device: &ID3D11Device) -> Result<IMFDXGIDeviceManager, Failed> {
-    unsafe {
-        let mut token = 0;
-        let mut manager = None;
-        MFCreateDXGIDeviceManager(&mut token, &mut manager)?;
-        let manager = manager.ok_or_else(Error::empty)?;
-        manager.ResetDevice(device, token)?;
-        Ok(manager)
-    }
+    Ok(crate::gpu::manager(device)?)
 }
 
 fn pack(hi: u32, lo: u32) -> u64 {

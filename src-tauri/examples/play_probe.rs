@@ -7,7 +7,7 @@
 
 use great_island_lib::play::{
     Event, Phase, Player, SPEEDS,
-    adapters::{Note, Video},
+    adapters::{Card, Note, Video},
     clock,
 };
 use std::{
@@ -74,7 +74,8 @@ fn main() {
     }
     let (tx, notes) = channel();
     let began = Instant::now();
-    let video = Video::open(&path, move |note| {
+    let card = Card::new().expect("video device");
+    let video = Video::open(&path, &card, move |note| {
         let _ = tx.send(note);
     })
     .expect("Media Engine did not open the file");

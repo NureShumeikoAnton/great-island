@@ -1,12 +1,11 @@
 //! Reading a recording: its facts, thumbnails (decoded and scaled on the video card) and its
 //! sound as floats for the wave. A source reader per job; each runs on the caller's thread.
 
-use super::{SECOND, attributes, manager, pack, unpack};
+use super::{SECOND, attributes, pack, unpack};
 use crate::fault::Failed;
 use std::path::Path;
 use windows::{
     Win32::{
-        Graphics::Direct3D11::ID3D11Device,
         Media::MediaFoundation::{
             IMF2DBuffer, IMFDXGIDeviceManager, IMFSample, IMFSourceReader,
             MF_MT_AUDIO_NUM_CHANNELS, MF_MT_AUDIO_SAMPLES_PER_SECOND, MF_MT_FRAME_RATE,
@@ -111,13 +110,12 @@ pub(super) fn next(
 /// BGRA thumbnails `size` big at `times` (keyframes decode fastest). A time past the end gives
 /// no thumbnail, so the list may be shorter.
 pub fn thumbnails(
-    device: &ID3D11Device,
+    device: &IMFDXGIDeviceManager,
     path: &Path,
     times: &[f64],
     (width, height): (u32, u32),
 ) -> Result<Vec<Vec<u8>>, Failed> {
-    let manager = manager(device)?;
-    let reader = open(path, Some(&manager))?;
+    let reader = open(path, Some(device))?;
     unsafe {
         reader.SetStreamSelection(VIDEO, true)?;
         let kind = MFCreateMediaType()?;

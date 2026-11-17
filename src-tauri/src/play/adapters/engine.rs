@@ -8,7 +8,7 @@ use super::super::{Engine, Event, Info};
 use crate::{
     capture::Image,
     fault::{Cause, Failed},
-    gpu,
+    gpu::{self, Card},
 };
 use std::{cell::Cell, os::windows::ffi::OsStrExt, path::Path};
 use windows::{
@@ -16,7 +16,7 @@ use windows::{
         Foundation::{HANDLE, RECT},
         Graphics::{Direct3D11::ID3D11Device, Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM},
         Media::MediaFoundation::{
-            CLSID_MFMediaEngineClassFactory, IMFAttributes, IMFDXGIDeviceManager, IMFMediaEngine,
+            CLSID_MFMediaEngineClassFactory, IMFAttributes, IMFMediaEngine,
             IMFMediaEngineClassFactory, IMFMediaEngineEx, IMFMediaEngineNotify,
             IMFMediaEngineNotify_Impl, MF_MEDIA_ENGINE_CALLBACK, MF_MEDIA_ENGINE_DXGI_MANAGER,
             MF_MEDIA_ENGINE_ERR, MF_MEDIA_ENGINE_ERR_DECODE, MF_MEDIA_ENGINE_ERR_NETWORK,
@@ -28,7 +28,7 @@ use windows::{
             MF_MEDIA_ENGINE_EVENT_STREAMRENDERINGERROR, MF_MEDIA_ENGINE_EVENT_TIMEUPDATE,
             MF_MEDIA_ENGINE_SEEK_MODE_APPROXIMATE, MF_MEDIA_ENGINE_SEEK_MODE_NORMAL,
             MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, MF_VERSION, MFCreateAttributes,
-            MFCreateDXGIDeviceManager, MFSTARTUP_NOSOCKET, MFShutdown, MFStartup,
+            MFSTARTUP_NOSOCKET, MFShutdown, MFStartup,
         },
         System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance},
     },
@@ -64,23 +64,20 @@ pub struct Video {
     engine: IMFMediaEngine,
     extended: IMFMediaEngineEx,
     device: ID3D11Device,
-    _manager: IMFDXGIDeviceManager,
     size: Cell<(u32, u32)>,
     // Last: Media Foundation stops after the engine is gone.
     _started: Started,
 }
 
 impl Video {
-    /// Starts loading `path`; [`Event::Loaded`] or [`Event::Failed`] follows through `notify`.
-    pub fn open(path: &Path, notify: impl Fn(Note) + Send + Sync + 'static) -> Result<Self> {
+    /// Starts loading `path` on `card`; [`Event::Loaded`] or [`Event::Failed`] follows through
+    /// `notify`.
+    pub fn open(
+        path: &Path,
+        card: &Card,
+        notify: impl Fn(Note) + Send + Sync + 'static,
+    ) -> Result<Self> {
         let started = Started::new()?;
-        let device = gpu::video_device()?;
-        let mut token = 0;
-        let mut manager = None;
-        unsafe { MFCreateDXGIDeviceManager(&mut token, &mut manager)? };
-        let manager = manager.ok_or_else(Error::empty)?;
-        unsafe { manager.ResetDevice(&device, token)? };
-
         let callback: IMFMediaEngineNotify = Notify {
             send: Box::new(notify),
         }
@@ -90,7 +87,7 @@ impl Video {
         let attributes = attributes.ok_or_else(Error::empty)?;
         let engine = unsafe {
             attributes.SetUnknown(&MF_MEDIA_ENGINE_CALLBACK, &callback)?;
-            attributes.SetUnknown(&MF_MEDIA_ENGINE_DXGI_MANAGER, &manager)?;
+            attributes.SetUnknown(&MF_MEDIA_ENGINE_DXGI_MANAGER, &card.manager)?;
             attributes.SetUINT32(
                 &MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT,
                 DXGI_FORMAT_B8G8R8A8_UNORM.0 as u32,
@@ -109,8 +106,7 @@ impl Video {
         Ok(Self {
             engine,
             extended,
-            device,
-            _manager: manager,
+            device: card.device.clone(),
             size: Cell::new((0, 0)),
             _started: started,
         })

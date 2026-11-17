@@ -16,6 +16,7 @@ use windows::{
             },
             Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC},
         },
+        Media::MediaFoundation::{IMFDXGIDeviceManager, MFCreateDXGIDeviceManager},
     },
     core::{Error, Interface, Result},
 };
@@ -43,6 +44,38 @@ pub fn video_device() -> Result<ID3D11Device> {
         }
     }
     Err(last)
+}
+
+pub fn manager(device: &ID3D11Device) -> Result<IMFDXGIDeviceManager> {
+    let mut token = 0;
+    let mut manager = None;
+    unsafe {
+        MFCreateDXGIDeviceManager(&mut token, &mut manager)?;
+        let manager = manager.ok_or_else(Error::empty)?;
+        manager.ResetDevice(device, token)?;
+        Ok(manager)
+    }
+}
+
+/// One video device for every engine and reader of a window. A device of their own each costs
+/// the driver memory: three engines took ~65 MB more on Intel Iris Xe (measured).
+#[derive(Clone)]
+pub struct Card {
+    pub device: ID3D11Device,
+    pub manager: IMFDXGIDeviceManager,
+}
+
+// SAFETY: both are free-threaded. The device is multithread protected (`video_device`), and the
+// manager exists to share it between components on different threads: Media Foundation's own
+// pipeline takes it from its worker threads and serializes the device through `LockDevice`.
+unsafe impl Send for Card {}
+
+impl Card {
+    pub fn new() -> Result<Self> {
+        let device = video_device()?;
+        let manager = manager(&device)?;
+        Ok(Self { device, manager })
+    }
 }
 
 fn create_device(flags: D3D11_CREATE_DEVICE_FLAG) -> Result<ID3D11Device> {

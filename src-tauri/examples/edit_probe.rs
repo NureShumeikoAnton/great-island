@@ -6,7 +6,7 @@
 
 use great_island_lib::montage::{
     Montage,
-    adapters::{reader, video_device, writer},
+    adapters::{Card, reader, writer},
     curve::{Frame, Transition, Zoom},
     squeeze::{Source, Squeeze, plan},
     strip::{Peaks, thumb_times},
@@ -30,7 +30,8 @@ fn main() {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET).expect("MFStartup");
     }
-    let device = video_device().expect("video device");
+    let card = Card::new().expect("video device");
+    let device = &card.device;
 
     let started = Instant::now();
     let info = reader::info(&path).expect("info");
@@ -45,7 +46,7 @@ fn main() {
 
     let started = Instant::now();
     let times = thumb_times(info.duration);
-    let thumbs = reader::thumbnails(&device, &path, &times, THUMB).expect("thumbnails");
+    let thumbs = reader::thumbnails(&card.manager, &path, &times, THUMB).expect("thumbnails");
     println!(
         "thumbnails: {} of {} in {} ms",
         thumbs.len(),
@@ -102,7 +103,7 @@ fn main() {
         let out = dir.join(format!("edit_probe_{squeeze:?}.mp4"));
         let started = Instant::now();
         let mut last = 0.0;
-        let saved = writer::save(&device, &path, &out, &montage, &output, |done| last = done);
+        let saved = writer::save(device, &path, &out, &montage, &output, |done| last = done);
         let took = started.elapsed().as_secs_f64();
         if let Err(e) = saved {
             println!("{squeeze:?}: save failed: {e:?}");
@@ -125,7 +126,7 @@ fn main() {
         ];
         let size = ((output.width / 4) & !1, (output.height / 4) & !1);
         let times: Vec<f64> = moments.iter().map(|m| m.1).collect();
-        if let Ok(frames) = reader::thumbnails(&device, &out, &times, size) {
+        if let Ok(frames) = reader::thumbnails(&card.manager, &out, &times, size) {
             for ((name, _), pixels) in moments.iter().zip(frames) {
                 let file = dir.join(format!("edit_probe_{squeeze:?}_{name}.png"));
                 if let Err(e) = png(&pixels, size, &file) {

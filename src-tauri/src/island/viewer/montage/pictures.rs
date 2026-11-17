@@ -4,8 +4,9 @@
 
 use super::super::super::window::WM_STRIP;
 use crate::fault::Failed;
+use crate::gpu::Card;
 use crate::montage::{
-    adapters::{Session, reader, video_device},
+    adapters::{Session, reader},
     strip::{Peaks, thumb_times},
 };
 use std::path::{Path, PathBuf};
@@ -71,8 +72,9 @@ impl Drop for Pictures {
 }
 
 impl Pictures {
-    /// Starts reading once; `size` is the video's own size, for the thumbnails' proportions.
-    pub fn load(&mut self, hwnd: HWND, path: &Path, duration: f64, size: (u32, u32)) {
+    /// Starts reading once, on the window's `card`; `size` is the video's own size, for the
+    /// thumbnails' proportions.
+    pub fn load(&mut self, hwnd: HWND, card: &Card, path: &Path, duration: f64, size: (u32, u32)) {
         if self.loading.is_some() || self.thumbs.is_some() {
             return;
         }
@@ -85,9 +87,10 @@ impl Pictures {
         let file = path.to_path_buf();
         let sender = tx.clone();
         let stop = self.stop.clone();
+        let card = card.clone();
         let spawned = std::thread::Builder::new()
             .name("timeline thumbnails".into())
-            .spawn(move || read_thumbs(&file, duration, thumb, &sender, address, &stop));
+            .spawn(move || read_thumbs(&card, &file, duration, thumb, &sender, address, &stop));
         if let Err(e) = spawned {
             let _ = tx.send(Arrival::Failed(e.into()));
         }
@@ -148,6 +151,7 @@ fn post(address: isize) {
 }
 
 fn read_thumbs(
+    card: &Card,
     path: &Path,
     duration: f64,
     size: (u32, u32),
@@ -164,13 +168,12 @@ fn read_thumbs(
         if let Ok(info) = reader::info(path) {
             send(Arrival::Fps(info.fps));
         }
-        let device = video_device()?;
         let times = thumb_times(duration);
         for (i, batch) in times.chunks(BATCH).enumerate() {
             if stop.load(Ordering::Acquire) {
                 break;
             }
-            let pixels = reader::thumbnails(&device, path, batch, size)?;
+            let pixels = reader::thumbnails(&card.manager, path, batch, size)?;
             let last = pixels.len() < batch.len();
             let all = if i == 0 { times.clone() } else { Vec::new() };
             send(Arrival::Thumbs(all, size, pixels));

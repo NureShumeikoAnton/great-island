@@ -35,6 +35,29 @@ pub trait Engine {
     fn step(&mut self, forward: bool) -> Result<(), Failed>;
 }
 
+/// An engine not open yet, or let go meanwhile: a press reaches nothing.
+impl<E: Engine> Engine for Option<E> {
+    fn play(&mut self) -> Result<(), Failed> {
+        self.as_mut().map_or(Ok(()), E::play)
+    }
+    fn pause(&mut self) -> Result<(), Failed> {
+        self.as_mut().map_or(Ok(()), E::pause)
+    }
+    fn seek(&mut self, to: f64, exact: bool) -> Result<(), Failed> {
+        self.as_mut().map_or(Ok(()), |e| e.seek(to, exact))
+    }
+    fn set_rate(&mut self, rate: f64) -> Result<(), Failed> {
+        self.as_mut().map_or(Ok(()), |e| e.set_rate(rate))
+    }
+    fn set_volume(&mut self, volume: f64, muted: bool) -> Result<(), Failed> {
+        self.as_mut()
+            .map_or(Ok(()), |e| e.set_volume(volume, muted))
+    }
+    fn step(&mut self, forward: bool) -> Result<(), Failed> {
+        self.as_mut().map_or(Ok(()), |e| e.step(forward))
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Info {
     pub duration: f64,
@@ -117,6 +140,8 @@ pub struct Player<E> {
     muted: bool,
     /// Start as soon as the video is loaded.
     start: bool,
+    /// The engine was replaced: once loaded it goes back to `at`, and the sound was already told.
+    resume: bool,
     scrub: Option<Scrub>,
     /// A seek the engine is busy with, and the one that waits for it.
     seeking: bool,
@@ -139,6 +164,7 @@ impl<E: Engine> Player<E> {
             volume: volume.clamp(0.0, 1.0),
             muted,
             start: false,
+            resume: false,
             scrub: None,
             seeking: false,
             queued: None,
@@ -149,6 +175,21 @@ impl<E: Engine> Player<E> {
 
     pub fn engine(&self) -> &E {
         &self.engine
+    }
+
+    /// Another engine of the same video takes over: once it loads, the video stands paused at
+    /// `at` with its speed and sound. Returns the engine it replaces.
+    pub fn replace(&mut self, engine: E, at: f64, now: u64) -> E {
+        self.anchor(at, now);
+        self.phase = Phase::Loading;
+        self.resume = true;
+        self.start = false;
+        self.scrub = None;
+        self.seeking = false;
+        self.queued = None;
+        self.hidden = false;
+        self.boost = None;
+        std::mem::replace(&mut self.engine, engine)
     }
 
     pub fn phase(&self) -> Phase {
@@ -547,20 +588,26 @@ impl<E: Engine> Player<E> {
             return problem(Problem::NoPicture);
         }
         self.phase = Phase::Paused;
-        self.anchor(0.0, now);
+        let resume = std::mem::take(&mut self.resume);
+        self.anchor(if resume { self.at } else { 0.0 }, now);
         let mut update = Update {
             bar: true,
             problem: None,
         };
-        let sound = self.engine.set_volume(self.volume, self.muted);
-        let start = if std::mem::take(&mut self.start) {
-            self.play(now)
-        } else {
-            Ok(())
-        };
-        if let Err(failed) = start.and(sound) {
+        let mut done = self.engine.set_volume(self.volume, self.muted);
+        if resume {
+            if self.rate() != 1.0 {
+                done = done.and(self.engine.set_rate(self.rate()));
+            }
+            let to = self.at;
+            done = done.and(self.seek(Seek { to, exact: true }));
+        }
+        if std::mem::take(&mut self.start) {
+            done = done.and(self.play(now));
+        }
+        if let Err(failed) = done {
             update.problem = Some(Problem::Failed(failed));
-        } else if !info.sound {
+        } else if !info.sound && !resume {
             update.problem = Some(Problem::NoSound);
         }
         update
@@ -706,6 +753,72 @@ mod tests {
         let (player, _) = loaded();
         assert_eq!(player.phase(), Phase::Paused);
         assert_eq!(player.position(5000), 0.0);
+    }
+
+    #[test]
+    fn a_replaced_engine_stands_where_the_old_one_was_once_it_loads() {
+        let (mut player, old) = loaded();
+        player.set_speed(3, 0).unwrap();
+        player.start(0).unwrap();
+        old.take();
+        let fresh = Fake::default();
+        let back = player.replace(fresh.clone(), 12.5, 4000);
+        assert!(Rc::ptr_eq(&back.calls, &old.calls));
+        assert_eq!(player.phase(), Phase::Loading);
+        assert_eq!(player.position(9000), 12.5);
+        assert_eq!(player.bar(9000).fraction, 12.5 / 60.0);
+        let silent = Info {
+            sound: false,
+            ..info(60.0)
+        };
+        let update = player.on_event(Event::Loaded(silent), 9000);
+        // The missing sound was said when the video first opened.
+        assert_eq!(update.problem, None);
+        assert_eq!(
+            fresh.take(),
+            vec![
+                Call::Volume(0.8, false),
+                Call::Rate(1.5),
+                Call::Seek(12.5, true)
+            ]
+        );
+        assert_eq!(player.phase(), Phase::Paused);
+        assert_eq!(player.position(9000), 12.5);
+        assert!(old.take().is_empty());
+    }
+
+    #[test]
+    fn a_play_pressed_while_the_engine_reloads_plays_from_its_place() {
+        let (mut player, _) = loaded();
+        let fresh = Fake::default();
+        player.replace(fresh.clone(), 7.0, 0);
+        player.toggle(100).unwrap();
+        assert!(fresh.take().is_empty());
+        player.on_event(Event::Loaded(info(60.0)), 500);
+        assert_eq!(
+            fresh.take(),
+            vec![Call::Volume(0.8, false), Call::Seek(7.0, true), Call::Play]
+        );
+        assert_eq!(player.phase(), Phase::Playing);
+        assert_eq!(player.position(1500), 8.0);
+    }
+
+    #[test]
+    fn a_video_let_go_keeps_its_place_and_takes_presses_without_an_engine() {
+        let fake = Fake::default();
+        let mut player = Player::new(Some(fake.clone()), 0.8, false);
+        player.on_event(Event::Loaded(info(60.0)), 0);
+        player.start(0).unwrap();
+        fake.take();
+        let old = player.replace(None, 20.0, 1000);
+        assert!(old.is_some());
+        player.toggle(2000).unwrap();
+        player.toggle(3000).unwrap();
+        player.skip(true, 3000).unwrap();
+        assert!(fake.take().is_empty());
+        assert_eq!(player.phase(), Phase::Loading);
+        assert_eq!(player.position(5000), 20.0);
+        assert_eq!(player.duration(), 60.0);
     }
 
     #[test]

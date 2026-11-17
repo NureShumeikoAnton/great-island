@@ -2,4 +2,5 @@
 
 mod engine;
 
+pub use crate::gpu::Card;
 pub use engine::{Note, Video};

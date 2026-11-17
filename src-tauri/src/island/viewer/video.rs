@@ -21,6 +21,10 @@
 //! Playback is [`Player`] (`crate::play`) over Media Engine, which presents into its own swap chain
 //! shown here as a surface: nothing runs per frame in our process. The window decides nothing about
 //! the file: it answers with a request ([`VideoRequest`]), the island carries it out (`watch.rs`).
+//!
+//! The window's engine and the editor's decode on one video device of the window. While the editor
+//! shows the edit, the window's engine lets the video go (it holds ~125 MB of decoded frames); when
+//! the editor closes, it opens again at the caret, the editor's frame standing in until it shows.
 
 use super::super::comp::{Comp, Motion, color, scale, v2, v3};
 use super::super::flight::Place;
@@ -37,10 +41,11 @@ use super::{
 };
 use crate::capture::Image;
 use crate::fault::{Cause, Failed};
+use crate::gpu::Card;
 use crate::lang::tr;
 use crate::platform;
 use crate::play::{
-    Phase, Player, Problem,
+    Event, Phase, Player, Problem,
     adapters::{Note, Video},
     clock,
 };
@@ -92,6 +97,12 @@ const ROW_MS: u32 = 500;
 const TIMER_HOLD: usize = 9;
 /// The editor's panels have left: the window takes its place after the editor.
 const TIMER_EDIT: usize = 10;
+/// The window's picture under the editor's is gone: its engine lets the video go.
+const TIMER_SLEEP: usize = 11;
+/// After the canvas has faded out under the editor's pictures.
+const SLEEP_MS: u32 = montage::REVEAL.ms + 50;
+/// The reopened engine shows the frame it was sought to: its picture comes in.
+const TIMER_LIVE: usize = 12;
 /// The bottom panel and the timeline travel this far when they swap.
 const BOTTOM_TRAVEL: f32 = 28.0;
 /// A press on the picture held still this long runs the video fast; let go earlier, it is a click.
@@ -148,7 +159,11 @@ pub struct VideoViewer {
     bottom: ContainerVisual,
     bottom_strip: SpriteVisual,
     transport: Transport,
-    player: Player<Video>,
+    /// No engine while the editor shows the edit.
+    player: Player<Option<Video>>,
+    card: Card,
+    /// The engine opens again after the editor: its picture is hidden until the frame is there.
+    waking: bool,
     /// The take's length until the engine says its own.
     duration: f64,
     metrics: Metrics,
@@ -298,20 +313,9 @@ impl VideoViewer {
         bottom.Children()?.InsertAtTop(&transport.root)?;
         root.Children()?.InsertAtTop(&bottom)?;
 
-        // A HWND can't cross threads, a number can: the engine's notes come back as messages.
-        let address = hwnd.0 as isize;
-        let video = Video::open(opening.path, move |note: Note| {
-            let (wparam, lparam) = note.pack();
-            unsafe {
-                let _ = PostMessageW(
-                    Some(HWND(address as *mut _)),
-                    WM_VIDEO,
-                    WPARAM(wparam),
-                    LPARAM(lparam),
-                );
-            }
-        })?;
-        let player = Player::new(video, opening.volume.0, opening.volume.1);
+        let card = Card::new()?;
+        let video = open_video(hwnd, &card, opening.path)?;
+        let player = Player::new(Some(video), opening.volume.0, opening.volume.1);
 
         let mut viewer = Self {
             hwnd,
@@ -329,6 +333,8 @@ impl VideoViewer {
             bottom_strip,
             transport,
             player,
+            card,
+            waking: false,
             duration,
             metrics,
             scale: k,
@@ -438,14 +444,19 @@ impl VideoViewer {
         }
         self.finish_leaving(comp);
         let info = self.player.info()?;
+        // Back before the video opened again: the editor turns its own spinner.
+        if self.waking {
+            self.signs.spinner.hide(comp);
+        }
         let now = self.now();
         let _ = self.player.pause(now);
         let at = self.player.position(now);
         self.sync(comp);
         self.pictures
-            .load(self.hwnd, &self.path, info.duration, self.full);
+            .load(self.hwnd, &self.card, &self.path, info.duration, self.full);
         let setup = Setup {
             path: &self.path,
+            card: &self.card,
             full: self.full,
             duration: self.duration(),
             volume: self.volume(),
@@ -571,15 +582,20 @@ impl VideoViewer {
 
     /// The editor goes: its panels leave and its picture fades, the viewer's come back and the
     /// picture glides to where it will be; the window takes back what the editor added when they
-    /// are there (`TIMER_EDIT`). The viewer stands where the caret was.
-    fn leave_edit(&mut self, comp: &Comp) {
-        let Some(mut editor) = self.editor.take() else {
-            return;
-        };
+    /// are there (`TIMER_EDIT`). The viewer stands where the caret was; a request if its video
+    /// couldn't open again.
+    fn leave_edit(&mut self, comp: &Comp) -> Option<VideoRequest> {
+        let mut editor = self.editor.take()?;
+        self.stop_timer(TIMER_SLEEP);
+        let asleep = self.player.engine().is_none();
+        let frame = if asleep { editor.frame() } else { None };
         let (pictures, source) = editor.retire(comp);
         self.pictures = pictures;
+        let mut woken = Ok(());
         let d = self.duration();
-        if d > 0.0 {
+        if asleep {
+            woken = self.wake_player(comp, source, frame);
+        } else if d > 0.0 {
             let f = (source / d).clamp(0.0, 1.0);
             let now = self.now();
             let _ = self.player.grab(f, now);
@@ -622,6 +638,88 @@ impl VideoViewer {
         log(self.move_bottom(comp, (shift.0, bottom), (0.0, BOTTOM_TRAVEL), true));
         self.leaving = Some((editor, target));
         self.start_timer(TIMER_EDIT, EDIT_MOTION.ms);
+        woken
+            .err()
+            .map(|failed| VideoRequest::Trouble(Trouble::Open(failed)))
+    }
+
+    /// The editor shows the edit and the window's picture under it is gone: the window's engine
+    /// lets the video go until the editor closes.
+    fn sleep_player(&mut self, comp: &Comp) {
+        if !self.canvas_hidden || self.editor.is_none() {
+            return;
+        }
+        // The picture first: its swap chain is the engine's.
+        if let Some(picture) = self.picture.take()
+            && let Ok(children) = self.canvas.Children()
+        {
+            let _ = children.Remove(&picture);
+        }
+        let now = self.now();
+        let at = self.player.position(now);
+        drop(self.player.replace(None, at, now));
+        self.stop_waking(comp);
+    }
+
+    /// The reopened engine won't come in: it went again, or another file took its place.
+    fn stop_waking(&mut self, comp: &Comp) {
+        self.stop_timer(TIMER_LIVE);
+        if std::mem::take(&mut self.waking) {
+            self.signs.spinner.hide(comp);
+        }
+    }
+
+    /// The video opens again at `at`, `frame` standing in; the spinner comes only if that takes
+    /// longer than the editor's leaving.
+    fn wake_player(
+        &mut self,
+        comp: &Comp,
+        at: f64,
+        frame: Option<Image>,
+    ) -> std::result::Result<(), Failed> {
+        let video = open_video(self.hwnd, &self.card, &self.path)?;
+        self.show_still(comp, frame);
+        let now = self.now();
+        self.player.replace(Some(video), at, now);
+        self.waking = true;
+        self.signs.spinner.show(comp, EDIT_MOTION.ms);
+        Ok(())
+    }
+
+    fn go_live(&mut self, comp: &Comp) {
+        self.stop_timer(TIMER_LIVE);
+        if !std::mem::take(&mut self.waking) {
+            return;
+        }
+        if let Some(picture) = &self.picture {
+            log(comp.animate_scalar(picture, "Opacity", 1.0, montage::REVEAL));
+        }
+        self.signs.spinner.hide(comp);
+    }
+
+    /// `frame` takes the picture's place until the video draws itself again.
+    fn show_still(&mut self, comp: &Comp, frame: Option<Image>) {
+        let Ok(children) = self.canvas.Children() else {
+            return;
+        };
+        if let Some(picture) = self.picture.take() {
+            let _ = children.Remove(&picture);
+        }
+        if let Some(old) = self.still.take() {
+            let _ = children.Remove(&old);
+        }
+        if let Some(frame) = frame
+            && let Ok(still) = comp.image_rounded(
+                &frame.pixels,
+                (frame.width, frame.height),
+                (self.full.0 as f32, self.full.1 as f32),
+                0.0,
+                1.0,
+            )
+        {
+            let _ = children.InsertAtBottom(&still);
+            self.still = Some(still);
+        }
     }
 
     /// The closing editor's panels are gone: it goes, the window takes its place.
@@ -643,10 +741,7 @@ impl VideoViewer {
 
     fn on_effect(&mut self, comp: &Comp, effect: Option<Effect>) -> Option<VideoRequest> {
         match effect? {
-            Effect::Exit => {
-                self.leave_edit(comp);
-                None
-            }
+            Effect::Exit => self.leave_edit(comp),
             Effect::Full => {
                 self.toggle_full(comp);
                 None
@@ -677,7 +772,9 @@ impl VideoViewer {
         if let Some((editor, _)) = &self.leaving {
             editor.close_engines();
         }
-        self.player.engine().close();
+        if let Some(video) = self.player.engine() {
+            video.close();
+        }
     }
 
     /// The edit is saved as `path`: the editor closes and the window plays the new file, from its
@@ -687,48 +784,20 @@ impl VideoViewer {
         if let Some(editor) = &mut self.editor {
             editor.set_saving(comp, None);
         }
-        self.leave_edit(comp);
-        self.path = path.to_path_buf();
-        log(self.bar.set_file(comp, Some(name)));
-        // A HWND can't cross threads, a number can: the engine's notes come back as messages.
-        let address = self.hwnd.0 as isize;
-        let video = Video::open(path, move |note: Note| {
-            let (wparam, lparam) = note.pack();
-            unsafe {
-                let _ = PostMessageW(
-                    Some(HWND(address as *mut _)),
-                    WM_VIDEO,
-                    WPARAM(wparam),
-                    LPARAM(lparam),
-                );
-            }
-        });
-        let video = match video {
+        let video = match open_video(self.hwnd, &self.card, path) {
             Ok(video) => video,
             Err(e) => return Some(VideoRequest::Trouble(Trouble::Open(e.into()))),
         };
-        if let Ok(children) = self.canvas.Children() {
-            if let Some(picture) = self.picture.take() {
-                let _ = children.Remove(&picture);
-            }
-            if let Some(old) = self.still.take() {
-                let _ = children.Remove(&old);
-            }
-            if let Some(frame) = frame
-                && let Ok(still) = comp.image_rounded(
-                    &frame.pixels,
-                    (frame.width, frame.height),
-                    (self.full.0 as f32, self.full.1 as f32),
-                    0.0,
-                    1.0,
-                )
-            {
-                let _ = children.InsertAtBottom(&still);
-                self.still = Some(still);
-            }
-        }
+        self.path = path.to_path_buf();
         let (volume, muted) = self.volume();
-        self.player = Player::new(video, volume, muted);
+        // Before the editor leaves: the window's engine is the new file's, nothing to reopen.
+        self.player = Player::new(Some(video), volume, muted);
+        self.stop_waking(comp);
+        self.leave_edit(comp);
+        // The timeline's thumbnails and wave were the old file's.
+        self.pictures = Pictures::default();
+        log(self.bar.set_file(comp, Some(name)));
+        self.show_still(comp, frame);
         self.sync(comp);
         None
     }
@@ -745,9 +814,10 @@ impl VideoViewer {
             "Opacity",
             0.0,
             Motion::linear(1),
-            montage::REVEAL_MS,
+            montage::REVEAL.ms,
         ));
         log(self.signs.root.SetOpacity(0.0));
+        self.start_timer(TIMER_SLEEP, SLEEP_MS);
     }
 
     /// The editor's share of the window's messages; `None` = the window's own handling.
@@ -859,7 +929,7 @@ impl VideoViewer {
             return editor.frame();
         }
         self.picture.as_ref()?;
-        self.player.engine().frame().ok()
+        self.player.engine().as_ref()?.frame().ok()
     }
 
     pub fn place(&self, monitor: RECT) -> Place {
@@ -965,15 +1035,21 @@ impl VideoViewer {
     }
 
     fn on_note(&mut self, comp: &Comp, note: Note) -> Option<VideoRequest> {
-        let event = self.player.engine().event(note)?;
+        let event = self.player.engine().as_ref()?.event(note)?;
         // The engine plays: the video draws itself, the still under it is no longer needed.
-        let drawing = matches!(event, crate::play::Event::Playing(_));
+        let drawing = matches!(event, Event::Playing(_));
+        let seeked = matches!(event, Event::Seeked(_));
         let now = self.now();
         let was = self.player.phase();
         let update = self.player.on_event(event, now);
         let phase = self.player.phase();
         if was == Phase::Loading && phase != Phase::Loading && phase != Phase::Broken {
             self.loaded(comp);
+        }
+        if drawing {
+            self.go_live(comp);
+        } else if seeked && self.waking {
+            self.start_timer(TIMER_LIVE, montage::READY_MS);
         }
         if drawing
             && let Some(still) = self.still.take()
@@ -1010,12 +1086,18 @@ impl VideoViewer {
         let duration = self.duration();
         self.transport.set_duration(comp, duration);
         self.bar.set_editable(true);
-        let picture =
-            self.player.engine().swap_chain().and_then(|handle| {
-                comp.swap_chain(handle, (self.full.0 as f32, self.full.1 as f32))
-            });
+        let Some(video) = self.player.engine() else {
+            return;
+        };
+        let picture = video
+            .swap_chain()
+            .and_then(|handle| comp.swap_chain(handle, (self.full.0 as f32, self.full.1 as f32)));
         match picture {
             Ok(picture) => {
+                // Until the frame it is sought to: it would show the video's first one.
+                if self.waking {
+                    log(picture.SetOpacity(0.0));
+                }
                 if let Ok(children) = self.canvas.Children() {
                     let _ = children.InsertAtTop(&picture);
                 }
@@ -1023,7 +1105,10 @@ impl VideoViewer {
             }
             Err(e) => crate::journal::warn(tr!("journal.video_surface_failed", error = e)),
         }
-        log(self.resize(comp, self.size));
+        // Waking: a layout now would stop the window's glide and snap it to the editor's size.
+        if !self.waking {
+            log(self.resize(comp, self.size));
+        }
     }
 
     /// Returns Windows' answer (`None` = default handler) and a request to the island.
@@ -1262,6 +1347,11 @@ impl VideoViewer {
                 self.end_turn(comp);
             }
             TIMER_EDIT => self.finish_leaving(comp),
+            TIMER_SLEEP => {
+                self.stop_timer(id);
+                self.sleep_player(comp);
+            }
+            TIMER_LIVE => self.go_live(comp),
             TIMER_ROW => {
                 self.fold_row(comp);
                 self.start_timer(TIMER_IDLE, IDLE_MS);
@@ -1674,7 +1764,10 @@ impl VideoViewer {
     }
 
     fn shot(&self) -> VideoRequest {
-        let frame = self.player.engine().frame().map_err(Failed::from);
+        let frame = match self.player.engine() {
+            Some(video) => video.frame().map_err(Failed::from),
+            None => Err(Failed::because(Cause::Busy, "video engine let go")),
+        };
         VideoRequest::Frame(frame)
     }
 
@@ -2080,7 +2173,23 @@ fn window_rect(hwnd: HWND) -> RECT {
     rect
 }
 
-fn show_of(player: Option<&Player<Video>>, (volume, muted): (f64, bool)) -> Show {
+fn open_video(hwnd: HWND, card: &Card, path: &Path) -> Result<Video> {
+    // A HWND can't cross threads, a number can: the engine's notes come back as messages.
+    let address = hwnd.0 as isize;
+    Video::open(path, card, move |note: Note| {
+        let (wparam, lparam) = note.pack();
+        unsafe {
+            let _ = PostMessageW(
+                Some(HWND(address as *mut _)),
+                WM_VIDEO,
+                WPARAM(wparam),
+                LPARAM(lparam),
+            );
+        }
+    })
+}
+
+fn show_of(player: Option<&Player<Option<Video>>>, (volume, muted): (f64, bool)) -> Show {
     Show {
         running: player.is_some_and(Player::running),
         ended: player.is_some_and(|p| p.phase() == Phase::Ended),

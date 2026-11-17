@@ -5,6 +5,16 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.7.4 — 2026-11-17
+
+### Changed
+
+- The video editor takes almost half the memory.
+
+### Fixed
+
+- After a save, the video editor's timeline shows the frames and the wave of the saved video, not the original one.
+
 ## 0.7.3 — 2026-11-17
 
 ### Fixed

@@ -7,6 +7,7 @@
 use super::super::super::comp::{Comp, Motion, color, scale, v2, v3};
 use super::super::super::log;
 use super::super::lens::{Lens, Room};
+use super::super::signs::{SPINNER, Spinner};
 use crate::montage::curve::{Frame, Layer, MIN_SIDE};
 use crate::montage::watch::Look;
 use windows::{
@@ -29,7 +30,7 @@ pub struct Screen {
     pub root: ContainerVisual,
     /// The decks' pictures: hidden until the first frame is there.
     stage: ContainerVisual,
-    spinner: ContainerVisual,
+    spinner: Spinner,
     decks: [Deck; 2],
     full: (u32, u32),
     /// The fitted picture inside the area, in the area's coordinates.
@@ -44,8 +45,9 @@ impl Screen {
         let stage = comp.container()?;
         stage.SetOpacity(0.0)?;
         root.Children()?.InsertAtTop(&stage)?;
-        let spinner = make_spinner(comp)?;
-        root.Children()?.InsertAtTop(&spinner)?;
+        let spinner = Spinner::new(comp)?;
+        spinner.show(comp, 0);
+        root.Children()?.InsertAtTop(&spinner.root)?;
         let deck = || -> Result<Deck> {
             let layer = comp.container()?;
             layer.SetClip(&comp.compositor.CreateInsetClip()?)?;
@@ -93,7 +95,7 @@ impl Screen {
         lens.fit((0.0, 0.0, area.2, area.3), content);
         let (w, h) = (content.0 * lens.zoom, content.1 * lens.zoom);
         self.picture = (lens.offset.0, lens.offset.1, w, h);
-        self.spinner.SetOffset(v3(
+        self.spinner.root.SetOffset(v3(
             lens.offset.0 + (w - SPINNER) / 2.0,
             lens.offset.1 + (h - SPINNER) / 2.0,
         ))?;
@@ -156,7 +158,7 @@ impl Screen {
     /// The first frame is there: the pictures fade in over the viewer's, the spinner goes.
     pub fn reveal(&self, comp: &Comp) {
         log(comp.animate_scalar(&self.stage, "Opacity", 1.0, REVEAL));
-        log(comp.animate_scalar(&self.spinner, "Opacity", 0.0, REVEAL));
+        self.spinner.hide(comp);
     }
 
     pub fn set_shown(&self, comp: &Comp, shown: bool, motion: Motion) {
@@ -255,45 +257,6 @@ fn run_scalar(
 }
 
 pub const REVEAL: Motion = Motion::curve(180, 0.25, 0.1, 0.25, 1.0);
-const SPINNER: f32 = 36.0;
-const SPIN_MS: u32 = 900;
-
-/// A dark disc with a light arc turning in it, by the compositor.
-fn make_spinner(comp: &Comp) -> Result<ContainerVisual> {
-    let c = &comp.compositor;
-    let root = comp.container()?;
-    let disc = c.CreateShapeVisual()?;
-    disc.SetSize(v2(SPINNER, SPINNER))?;
-    let back = c.CreateEllipseGeometry()?;
-    back.SetCenter(v2(SPINNER / 2.0, SPINNER / 2.0))?;
-    back.SetRadius(v2(SPINNER / 2.0, SPINNER / 2.0))?;
-    let fill = c.CreateSpriteShapeWithGeometry(&back)?;
-    fill.SetFillBrush(&comp.brush(color("#1C1C1E", 0.72))?)?;
-    disc.Shapes()?.Append(&fill)?;
-    root.Children()?.InsertAtTop(&disc)?;
-    let arc = c.CreateShapeVisual()?;
-    arc.SetSize(v2(SPINNER, SPINNER))?;
-    arc.SetCenterPoint(v3(SPINNER / 2.0, SPINNER / 2.0))?;
-    let ring = c.CreateEllipseGeometry()?;
-    ring.SetCenter(v2(SPINNER / 2.0, SPINNER / 2.0))?;
-    ring.SetRadius(v2(9.0, 9.0))?;
-    ring.SetTrimEnd(0.28)?;
-    let stroke = c.CreateSpriteShapeWithGeometry(&ring)?;
-    stroke.SetStrokeBrush(&comp.brush(color("#F5F5F7", 1.0))?)?;
-    stroke.SetStrokeThickness(2.4)?;
-    stroke.SetStrokeStartCap(windows::UI::Composition::CompositionStrokeCap::Round)?;
-    stroke.SetStrokeEndCap(windows::UI::Composition::CompositionStrokeCap::Round)?;
-    arc.Shapes()?.Append(&stroke)?;
-    root.Children()?.InsertAtTop(&arc)?;
-    let turn = Motion::linear(0);
-    comp.loop_scalar(
-        &arc,
-        "RotationAngleInDegrees",
-        &[(0.0, 0.0, turn), (1.0, 360.0, turn)],
-        SPIN_MS,
-    )?;
-    Ok(root)
-}
 
 const DIM: (&str, f32) = ("#000000", 0.5);
 const FRAME_LINE: f32 = 1.5;

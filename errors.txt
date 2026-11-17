@@ -45,6 +45,7 @@ island/config.rs — keeping the video window's volume in settings.json (SET-SAV
 island/viewer/montage/mod.rs — opening the editor's two Media Engines (the same causes as playback; now: VIDEO-CONTROL, the window stays a viewer)
 island/viewer/montage/mod.rs — showing a deck's swap chain, a deck that fails or refuses a press, e.g. a rate it can't play (VIDEO-CONTROL)
 island/viewer/montage/pictures.rs — reading the timeline's thumbnails (on the video card) and the sound's wave on their own threads (now: journal only, the blocks stay plain)
+island/viewer/video.rs — opening the video again on Back from the editor (the window's engine let it go while editing; the same causes as playback, e.g. the file was moved meanwhile; now: REC-OPEN, the window closes, the card comes back)
 montage/adapters/writer.rs — saving the edit: the video card's video processor (crop, scale, transitions), the H.264 encoder, the AAC sound, the disk (VIDEO-SAVE; the window's editor stays with the edits, Save glints)
 island/watch.rs — replacing the recording with the saved edit while something still holds it (retried for 0.5 s; then VIDEO-SAVE and the edit stays in a file of its own next to it)
 montage/adapters/reader.rs — the recording's frame rate for the frame step and the size estimates (now: 30 fps)
