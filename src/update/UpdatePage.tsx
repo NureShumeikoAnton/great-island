@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import { api, type UpdateView } from "../api";
+import { AppIcon } from "../AppIcon";
 import "./update.css";
 
 // The notes are the changelog's text: "### Heading" and "- item" lines are all it uses.
@@ -28,7 +30,15 @@ export function UpdatePage() {
   // The height of the page with the choices: the pages after it keep it, so the window does not jump.
   const [floor, setFloor] = useState(0);
   const card = useRef<HTMLDivElement>(null);
+  const notes = useRef<HTMLDivElement>(null);
   const idle = useRef(0);
+  // The notes' edges fade where there is more to scroll.
+  const [fade, setFade] = useState({ top: false, bottom: false });
+  const measureFade = useCallback(() => {
+    const el = notes.current;
+    if (!el) return;
+    setFade({ top: el.scrollTop > 2, bottom: el.scrollTop + el.clientHeight < el.scrollHeight - 2 });
+  }, []);
 
   useEffect(() => {
     const poll = () => void api.updateStatus().then(setView);
@@ -74,13 +84,22 @@ export function UpdatePage() {
     if (!card.current) return;
     const height = Math.ceil(card.current.getBoundingClientRect().height);
     setFloor((before) => (choosing && height > before ? height : before));
-    void api.updateFit(height).then(() => setShown(true));
-  }, [choosing, working, failed, offer?.latest]);
+    // The window is shown by this call. Two frames later the hidden look has been painted on screen,
+    // so the fade-in runs where it can be seen instead of before the window appears.
+    void api.updateFit(height).then(() => requestAnimationFrame(() => requestAnimationFrame(() => setShown(true))));
+    measureFade();
+  }, [choosing, working, failed, offer?.latest, measureFade]);
+
+  // Dragged by any empty spot; buttons and the notes' text keep their clicks.
+  const drag = (e: MouseEvent) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest("button, .notes")) return;
+    void getCurrentWindow().startDragging();
+  };
 
   if (!status) return null;
 
   const lang = i18n.language.startsWith("ru") ? "ru" : "en";
-  const notes = offer ? offer.notes[lang] || offer.notes.en || offer.notes.ru : "";
+  const notesText = offer ? offer.notes[lang] || offer.notes.en || offer.notes.ru : "";
   const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "");
   const share = status.total > 0 ? Math.min(100, (status.done / status.total) * 100) : 0;
   const version = offer?.latest ?? "";
@@ -90,6 +109,7 @@ export function UpdatePage() {
       className={`win ${shown ? "shown" : ""} ${leaving ? "out" : ""}`}
       ref={card}
       style={floor > 0 && !choosing ? { minHeight: floor } : undefined}
+      onMouseDown={drag}
     >
       {choosing && offer.canPostpone && (
         <button className="close" onClick={postpone} aria-label={t("update.postpone")}>
@@ -97,9 +117,7 @@ export function UpdatePage() {
         </button>
       )}
       <div className="head">
-        <span className="app">
-          <i />
-        </span>
+        <AppIcon className="app" />
         <div>
           <h3>
             {choosing && t("update.title")}
@@ -118,11 +136,13 @@ export function UpdatePage() {
 
       {choosing && (
         <>
-          <div className="notes">
-            <b className="title">{t("update.notes")}</b>
-            <ul>
-              <Notes text={notes} />
-            </ul>
+          <div className={`notes-wrap ${fade.top ? "fade-top" : ""} ${fade.bottom ? "fade-bottom" : ""}`}>
+            <div className="notes" ref={notes} onScroll={measureFade}>
+              <b className="title">{t("update.notes")}</b>
+              <ul>
+                <Notes text={notesText} />
+              </ul>
+            </div>
           </div>
           <div className="row">
             <button

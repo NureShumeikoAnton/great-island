@@ -2,9 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Settings window and update window",
-  "windows": ["settings", "update"],
+  "windows": [
+    "settings",
+    "update"
+  ],
   "permissions": [
     "core:default",
-    "core:window:allow-close"
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-destroy"
   ]
 }

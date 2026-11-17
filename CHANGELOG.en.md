@@ -5,6 +5,24 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.7.5 — 2026-11-17
+
+### Added
+
+- Five new reminder sounds (Kalimba, Breath, Bowl, Bubble, Chime) and a "No sound" choice.
+- A journal in the settings: problems by day with the code and Windows' answer; a click on a line copies it; the journal can be cleared.
+
+### Changed
+
+- The settings are laid out in sections, and changes are saved at once.
+- The update window fades in, can be dragged with the mouse and shows the app's icon.
+- An update found opens its window at once, without waiting for a minute with no mouse or keyboard.
+
+### Fixed
+
+- The update check at start no longer ends in silence.
+- Pressing "Check for updates" during the check at start is no longer lost.
+
 ## 0.7.4 — 2026-11-17
 
 ### Changed

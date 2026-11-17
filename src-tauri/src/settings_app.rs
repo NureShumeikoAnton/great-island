@@ -67,9 +67,15 @@ pub(crate) fn select_language(choice: Language) {
     }
 }
 
+/// `end`: the sound of a break that is over, not of one that begins.
 #[tauri::command]
-fn preview_sound(tone: String, volume: f32) {
-    sound::play(&tone, sound::Kind::Start, volume);
+fn preview_sound(tone: String, volume: f32, end: bool) {
+    let kind = if end {
+        sound::Kind::End
+    } else {
+        sound::Kind::Start
+    };
+    sound::play(&tone, kind, volume);
 }
 
 #[derive(serde::Serialize)]
@@ -144,6 +150,20 @@ fn open_journal() -> bool {
         )
     };
     platform::shell_result(result).is_ok()
+}
+
+/// The journal page. An error is the reason the file could not be read, shown in its place.
+#[tauri::command]
+fn read_journal(problems_only: bool) -> Result<Vec<journal::entries::Entry>, String> {
+    journal::read()
+        .map(|text| journal::entries::parse(&text, problems_only))
+        .map_err(|failed| failed.detail)
+}
+
+/// An error is the reason, for the toast.
+#[tauri::command]
+fn clear_journal() -> Result<(), String> {
+    journal::clear().map_err(|failed| failed.detail)
 }
 
 /// `false` = the setting could not be written.
@@ -230,6 +250,8 @@ pub(crate) fn context() -> tauri::Context {
 struct AppInfo {
     version: &'static str,
     license: &'static str,
+    /// The Windows build number: the journal's copied lines carry it.
+    windows: u32,
 }
 
 #[tauri::command]
@@ -237,6 +259,7 @@ fn app_info() -> AppInfo {
     AppInfo {
         version: env!("CARGO_PKG_VERSION"),
         license: "GPL-3.0-or-later",
+        windows: platform::windows_build(),
     }
 }
 
@@ -302,7 +325,9 @@ pub fn run(island_lang: Option<Lang>) {
             crate::update_app::update_status,
             crate::update_app::update_command,
             open_project_page,
-            open_journal
+            open_journal,
+            read_journal,
+            clear_journal
         ])
         .run(context())
         // The panic hook tells the user: without WebView2 there is no window to say it in.

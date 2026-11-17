@@ -58,23 +58,84 @@ const DROP: Voice = Voice {
     glide: Some(1.6),
 };
 
-fn voice(tone: &str) -> &'static Voice {
-    match tone {
+const KALIMBA: Voice = Voice {
+    start: &[(587.33, 0.0), (880.0, 0.14)],
+    end: &[(880.0, 0.0), (587.33, 0.15)],
+    decay: 0.95,
+    attack: 0.002,
+    partials: &[(1.0, 1.0), (2.0, 0.05), (6.27, 0.06)],
+    glide: None,
+};
+
+/// A slow swell with no strike: the quietest one.
+const BREATH: Voice = Voice {
+    start: &[(392.0, 0.0), (587.33, 0.22)],
+    end: &[(587.33, 0.0), (392.0, 0.28)],
+    decay: 1.9,
+    attack: 0.22,
+    partials: &[(1.0, 0.75), (2.0, 0.05)],
+    glide: None,
+};
+
+/// A singing bowl: pairs of slightly detuned partials beat against each other, so the tone shimmers.
+const BOWL: Voice = Voice {
+    start: &[(392.0, 0.0)],
+    end: &[(329.63, 0.0)],
+    decay: 2.6,
+    attack: 0.008,
+    partials: &[
+        (1.0, 0.7),
+        (1.006, 0.5),
+        (2.71, 0.28),
+        (2.717, 0.2),
+        (5.2, 0.06),
+    ],
+    glide: None,
+};
+
+/// A glide below 1 slides up: the bubble rises.
+const BUBBLE: Voice = Voice {
+    start: &[(587.33, 0.0), (880.0, 0.13)],
+    end: &[(880.0, 0.0), (587.33, 0.14)],
+    decay: 0.28,
+    attack: 0.004,
+    partials: &[(1.0, 1.0)],
+    glide: Some(0.55),
+};
+
+const CHIME: Voice = Voice {
+    start: &[(1174.66, 0.0), (1567.98, 0.1), (1318.51, 0.21)],
+    end: &[(1567.98, 0.0), (1318.51, 0.11), (1174.66, 0.23)],
+    decay: 1.3,
+    attack: 0.003,
+    partials: &[(1.0, 0.6), (2.4, 0.06)],
+    glide: None,
+};
+
+/// `None` for "none"; the settings never keep an unknown tone, the bell stands in for it anyway.
+fn voice(tone: &str) -> Option<&'static Voice> {
+    Some(match tone {
+        "none" => return None,
         "soft" => &SOFT,
         "drop" => &DROP,
+        "kalimba" => &KALIMBA,
+        "breath" => &BREATH,
+        "bowl" => &BOWL,
+        "bubble" => &BUBBLE,
+        "chime" => &CHIME,
         _ => &BELL,
-    }
+    })
 }
 
 /// The buffer that is playing now: PlaySound reads it asynchronously.
 static PLAYING: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
 pub fn play(tone: &str, kind: Kind, volume: f32) {
-    if volume <= 0.0 {
+    let Some(voice) = voice(tone).filter(|_| volume > 0.0) else {
         return;
-    }
+    };
     let gain = volume.min(1.0) * MASTER_GAIN * if kind == Kind::End { END_GAIN } else { 1.0 };
-    let wav = to_wav(&render(voice(tone), kind, gain));
+    let wav = to_wav(&render(voice, kind, gain));
 
     let mut playing = PLAYING.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
@@ -159,4 +220,31 @@ fn to_wav(samples: &[f32]) -> Vec<u8> {
         put(&((s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16).to_le_bytes());
     }
     wav
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::TONES;
+
+    #[test]
+    fn every_tone_but_silence_has_a_voice_of_its_own() {
+        let voices: Vec<_> = TONES.iter().filter_map(|tone| voice(tone)).collect();
+        assert_eq!(voices.len(), TONES.len() - 1);
+        for (i, a) in voices.iter().enumerate() {
+            assert!(voices[i + 1..].iter().all(|b| !std::ptr::eq(*a, *b)));
+        }
+    }
+
+    #[test]
+    fn every_voice_sounds_and_stays_in_range() {
+        for tone in TONES {
+            let Some(voice) = voice(tone) else { continue };
+            for kind in [Kind::Start, Kind::End] {
+                let samples = render(voice, kind, MASTER_GAIN);
+                let peak = samples.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+                assert!(peak > 0.05 && peak <= 1.0, "{tone}: peak {peak}");
+            }
+        }
+    }
 }

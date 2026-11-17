@@ -5,9 +5,10 @@
 //! the user asked for and a check by the clock therefore look the same everywhere.
 //!
 //! A check by the clock is due at start and then once a day. The one at start runs as soon as nothing
-//! important goes on; the daily one and the update window also wait for a minute without input
-//! (`update::calm`). A release found opens the update window in the next calm moment (at once after a
-//! manual check). The window sends commands ([`Command`]): install,
+//! important goes on; the daily one also waits for a minute without input (`update::calm`). Every check
+//! shows a spinner and ends with an answer: a release found opens the update window at once (if something
+//! important started meanwhile, in the next calm moment), a skipped or postponed one gets a notice. A press
+//! of "check" during the clock's check makes it the user's. The window sends commands ([`Command`]): install,
 //! postpone, skip. Installing: download on a thread, signature, then the installer is run silently and the
 //! island leaves; the installer puts the new version in place and starts the island again.
 //!
@@ -180,7 +181,7 @@ impl App {
         let now = persist::now_ms();
         match command {
             Command::Check if !self.updates.working() => self.start_check(true),
-            Command::Check => {}
+            Command::Check => self.make_check_manual(),
             Command::OpenWindow => {
                 if let Some(offer) = self.updates.offer.clone() {
                     self.open_update_window(&offer, now);
@@ -251,6 +252,19 @@ impl App {
         );
     }
 
+    /// The user asked while the clock's check was under way: its answer becomes theirs, so a release found
+    /// opens the window at once and a skipped or postponed one is offered again.
+    fn make_check_manual(&mut self) {
+        if self.updates.check.is_none() && self.updates.answered.is_none() {
+            return;
+        }
+        if let Some((_, manual)) = self.updates.answered.as_mut() {
+            *manual = true;
+        }
+        self.updates.status.manual = true;
+        self.publish_update();
+    }
+
     /// A thread has something to say.
     pub(super) fn on_update_message(&mut self) {
         self.take_check();
@@ -311,7 +325,15 @@ impl App {
                         };
                         changed |= self.say_done();
                     }
-                    Verdict::Skipped => self.updates.status = Status::default(),
+                    // The spinner was up: it ends with an answer, never in silence.
+                    Verdict::Skipped => {
+                        self.updates.status = Status::default();
+                        self.say(
+                            UpdateLook::Skipped,
+                            tr!("update.skipped", version = manifest.version).into_owned(),
+                            tr!("update.skipped_hint").into_owned(),
+                        );
+                    }
                     Verdict::Offer(_) | Verdict::Waiting { .. } => {
                         journal::info(tr!("journal.update_found", version = manifest.version));
                         if let Err(failed) = adapters::save_offer(&manifest) {
@@ -319,8 +341,14 @@ impl App {
                         }
                         self.updates.offer = Some(manifest.clone());
                         self.set_available(&manifest, manual);
-                        if manual && matches!(verdict, Verdict::Offer(_)) {
-                            self.open_update_window(&manifest, now);
+                        match verdict {
+                            // Something that started meanwhile (a recording, a selection) is not
+                            // covered: then the window waits for the next calm moment.
+                            Verdict::Offer(_) if manual || !self.update_busy() => {
+                                self.open_update_window(&manifest, now)
+                            }
+                            Verdict::Waiting { .. } => self.say_postponed(),
+                            _ => {}
                         }
                     }
                 }

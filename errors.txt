@@ -117,3 +117,5 @@ windows/hooks.nsh — the PrtSc question uses $LANGUAGE (1049 = Russian, otherwi
 settings_app.rs — launching the window on WebView2 (WebView2 isn't installed or is broken)
 settings_app.rs — the system folder-picker dialog
 settings_app.rs — checking whether a key combination is free
+journal/mod.rs — reading island.log for the Journal page (no access, the disk; now: the page says so in place of the list)
+journal/mod.rs — clearing island.log and removing island.old.log (locked by another program, no access; now: a toast with the reason, the journal stays)

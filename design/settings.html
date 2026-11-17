@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — настройки 0.7.5</title>
+<style>
+:root{
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --page-accent:#0a84ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;font-weight:700}
+h2{font-size:19px;margin:48px 0 6px;font-weight:700}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 16px}
+.tools{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:14px 0 18px}
+.tools .grp{display:flex;align-items:center;gap:8px;color:var(--page-dim);font-size:13px}
+.pick{display:inline-flex;background:#1d1d22;border-radius:9px;padding:2px}
+.pick button{font:inherit;font-size:13px;color:var(--page-dim);background:none;border:0;border-radius:7px;padding:4px 12px;cursor:pointer}
+.pick button.on{background:#34343c;color:#fff}
+.pbtn{font:inherit;font-size:13px;color:#fff;background:#2c2c32;border:0;border-radius:8px;padding:6px 14px;cursor:pointer}
+.pbtn:hover{background:#3a3a42}
+.stage{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.side{flex:1;min-width:280px;max-width:520px;color:var(--page-dim);font-size:13.5px}
+.side b{color:var(--page-text);font-weight:600}
+.side ol,.side ul{padding-left:18px;margin:6px 0 14px}
+.side li{margin:3px 0}
+.side .box{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+
+/* ═════ the settings window ═════ */
+.frame{
+  --bg:#f2f2f5;--card:#fff;--text:#1c1c1e;--muted:#6e6e73;--sep:rgb(0 0 0 / .08);--field:#ececf0;
+  --hover:rgb(0 0 0 / .035);--press:rgb(0 0 0 / .06);--accent:#007aff;--danger:#ff3b30;--off:#d1d1d6;
+  --title:#f9f9fb;
+  --c-orange:#ff9500;--c-indigo:#5856d6;--c-pink:#ff2d55;--c-blue:#007aff;--c-red:#ff3b30;
+  --c-green:#34c759;--c-teal:#30b0c7;--c-gray:#8e8e93;--c-brown:#a2845e;--c-purple:#af52de;
+  width:520px;max-width:100%;height:660px;flex:none;border-radius:8px;overflow:hidden;
+  background:var(--bg);color:var(--text);font-size:13px;
+  box-shadow:0 0 0 1px rgb(255 255 255 / .08),0 24px 60px rgb(0 0 0 / .5);
+  display:flex;flex-direction:column;
+}
+.frame.dark{
+  --bg:#1c1c1e;--card:#2c2c2e;--text:#f5f5f7;--muted:#98989d;--sep:rgb(255 255 255 / .08);--field:#3a3a3c;
+  --hover:rgb(255 255 255 / .04);--press:rgb(255 255 255 / .07);--accent:#0a84ff;--danger:#ff453a;--off:#48484a;
+  --title:#202022;
+  --c-orange:#ff9f0a;--c-indigo:#5e5ce6;--c-pink:#ff375f;--c-blue:#0a84ff;--c-red:#ff453a;
+  --c-green:#30d158;--c-teal:#40c8e0;--c-gray:#98989d;--c-brown:#ac8e68;--c-purple:#bf5af2;
+}
+.titlebar{height:32px;flex:none;display:flex;align-items:center;background:var(--title);font-size:12px;color:var(--muted);user-select:none}
+.titlebar .t{flex:1;padding-left:12px;display:flex;align-items:center;gap:8px}
+.titlebar .t svg{width:16px;height:16px}
+.titlebar .wb{width:46px;height:32px;display:grid;place-items:center;font-size:11px}
+.viewport{position:relative;flex:1;overflow:hidden}
+.page{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;will-change:transform}
+.page.top{box-shadow:-10px 0 30px rgb(0 0 0 / .10)}
+.bar{height:50px;flex:none;display:flex;align-items:center;gap:4px;padding:0 12px;font-size:15px;font-weight:600}
+.bar .back{width:32px;height:32px;border:0;border-radius:8px;background:none;color:var(--text);display:grid;place-items:center;cursor:pointer;margin-left:-4px}
+.bar .back:hover{background:var(--hover)}
+.bar.root{padding-left:16px;font-size:18px;font-weight:700}
+.body{flex:1;overflow-y:auto;padding:0 16px 28px}
+.body::-webkit-scrollbar{width:12px}
+.body::-webkit-scrollbar-thumb{background:transparent;border:4px solid transparent;background-clip:padding-box;border-radius:8px}
+.body:hover::-webkit-scrollbar-thumb{background-color:rgb(128 128 128 / .35)}
+
+.group{margin-top:16px}
+.group:first-child{margin-top:2px}
+.gtitle{font-size:12px;color:var(--muted);padding:0 12px 6px;font-weight:600}
+.card{background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--sep)}
+.gfoot{font-size:12px;color:var(--muted);padding:6px 12px 0;line-height:1.45}
+.row{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;padding:7px 12px;user-select:none}
+.row + .row::before{content:"";position:absolute;top:0;right:0;left:52px;height:1px;background:var(--sep)}
+.row.noicon + .row::before,.card.plain .row + .row::before{left:12px}
+.row.go,.row.tap{cursor:pointer;transition:background .12s}
+.row.go:hover,.row.tap:hover{background:var(--hover)}
+.row.go:active,.row.tap:active{background:var(--press)}
+.row .label{flex:1;min-width:0}
+.row .label small{display:block;font-size:12px;color:var(--muted);line-height:1.35;margin-top:1px}
+.row .val{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;display:flex;align-items:center;gap:6px}
+.row .chev{color:var(--muted);flex:none;opacity:.7}
+.row.accent{color:var(--accent)}
+.row.danger{color:var(--danger);justify-content:center}
+.row.block{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px}
+.row.block .top{display:flex;align-items:center;gap:12px}
+
+.tile{flex:none;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:var(--c);color:#fff}
+.tile svg{width:17px;height:17px}
+.del{flex:none;width:30px;height:30px;border:0;border-radius:8px;background:none;color:var(--danger);display:grid;place-items:center;cursor:pointer;margin-right:-6px}
+.del:hover{background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.row.gone{transition:opacity .16s,transform .2s;opacity:0;transform:translateX(24px)}
+
+/* the journal */
+.jday{font-size:12px;color:var(--muted);font-weight:600;padding:0 12px 6px}
+/* One grid for every row: time | level | text | count. */
+.jhead,.jrow{display:grid;grid-template-columns:40px 20px minmax(0,1fr) 64px;column-gap:10px;align-items:center;padding:0 12px}
+.jhead{font-size:11.5px;color:var(--muted);font-weight:600;padding-bottom:6px}
+.jhead span:last-child{text-align:right}
+.jrow{position:relative;row-gap:3px;padding-top:9px;padding-bottom:9px;cursor:pointer;transition:background .12s}
+.jrow + .jrow::before{content:"";position:absolute;top:0;right:0;left:0;height:1px;background:var(--sep)}
+.jrow:hover{background:var(--hover)}
+.jrow:active{background:var(--press)}
+.jtime{font:12px "Cascadia Mono",Consolas,monospace;color:var(--muted)}
+.jmark{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;background:var(--c);color:#fff}
+.jmark svg{width:13px;height:13px}
+.jrow.info .jmark{background:none;color:var(--muted)}
+.jtitle{font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jrow.info .jtitle{font-weight:400;color:var(--muted)}
+.jend{text-align:right;font-size:11.5px}
+.times{font-weight:600;color:var(--muted);background:var(--field);border-radius:5px;padding:1px 6px}
+.jcopy{display:none;color:var(--accent)}
+.jrow:hover .jend .times{display:none}
+.jrow:hover .jcopy{display:inline}
+.jrow.copied .jcopy{display:inline;color:var(--c-green)}
+.jsub{grid-column:3 / 5;display:grid;grid-template-columns:minmax(0,1fr);row-gap:2px;font-size:12px;color:var(--muted)}
+.jsub .why{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline}
+.code{font:11.5px "Cascadia Mono",Consolas,monospace;color:var(--text);background:var(--field);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.jsub .det{font:11.5px "Cascadia Mono",Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast{position:absolute;left:50%;bottom:16px;transform:translate(-50%,12px);opacity:0;background:rgb(30 30 32 / .92);color:#fff;font-size:12.5px;
+  padding:7px 14px;border-radius:999px;pointer-events:none;transition:opacity .18s,transform .22s cubic-bezier(.2,.9,.25,1);display:flex;gap:6px;align-items:center;z-index:5}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.jempty{text-align:center;color:var(--muted);padding:28px 0}
+pre.clip{margin:6px 0 0;white-space:pre-wrap;font:12px/1.5 "Cascadia Mono",Consolas,monospace;color:var(--page-text);background:#0b0b0c;border-radius:8px;padding:10px 12px;min-height:90px}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 18px}
+.toc a{color:var(--page-text);text-decoration:none;background:#1d1d22;border-radius:8px;padding:5px 12px;font-size:13px}
+.toc a:hover{background:#2c2c32}
+
+.sw{flex:none;width:38px;height:22px;border-radius:11px;background:var(--off);position:relative;cursor:pointer;transition:background .18s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform .2s cubic-bezier(.3,.7,.3,1)}
+.sw.on{background:var(--c-green)}
+.sw.on::after{transform:translateX(16px)}
+
+.seg{display:flex;background:var(--field);border-radius:8px;padding:2px;gap:2px}
+.seg button{flex:1;font:inherit;font-size:12.5px;color:var(--text);background:none;border:0;border-radius:6px;padding:5px 8px;cursor:pointer;transition:background .15s,box-shadow .15s}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .14),0 0 0 .5px var(--sep)}
+
+input.num{font:inherit;color:inherit;width:52px;text-align:center;background:var(--field);border:1px solid transparent;border-radius:6px;padding:3px 4px;outline:none}
+input.num:focus,input.text:focus{border-color:var(--accent)}
+input.text{font:inherit;color:inherit;font-size:15px;font-weight:600;width:100%;background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;outline:none}
+input.text:hover{background:var(--field)}
+.unit{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.kbd{font-weight:600;font-size:12px;background:var(--field);border-radius:6px;padding:3px 9px;color:var(--text)}
+.kbd.none{font-weight:400;color:var(--muted)}
+.mini{font:inherit;font-size:12.5px;color:var(--accent);background:none;border:0;padding:2px 4px;cursor:pointer}
+.radio{width:20px;height:20px;flex:none;display:grid;place-items:center;color:var(--accent)}
+.badge{font-size:10.5px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.swatches{display:flex;gap:8px;padding:2px 0}
+.swatches button{width:22px;height:22px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--c)}
+.swatches button.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
+input[type=range].vol{flex:1;accent-color:var(--accent)}
+.hero{display:flex;align-items:center;gap:14px;padding:12px 14px;cursor:pointer;transition:background .12s}
+.hero:hover{background:var(--hover)}
+.hero .ic{width:52px;height:52px;flex:none}
+.hero .name{font-size:16px;font-weight:700}
+.hero .sub{color:var(--muted);font-size:12.5px}
+.spin{width:14px;height:14px;border:2px solid var(--sep);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ok{color:var(--c-green)}
+.about{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px;gap:2px}
+.about .ic{width:76px;height:76px}
+.about .name{font-size:18px;font-weight:700;margin-top:6px}
+.about .sub{color:var(--muted)}
+
+/* ═════ sounds ═════ */
+.sounds{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.snd{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.snd.taken{border-color:var(--page-accent);box-shadow:0 0 0 1px var(--page-accent) inset}
+.snd .h{display:flex;align-items:center;gap:8px}
+.snd .h b{font-size:15px;flex:1}
+.snd .n{font-size:12px;color:var(--page-dim);background:#24242a;border-radius:6px;padding:1px 7px}
+.snd .n.now{color:#30d158}
+.snd p{margin:0;color:var(--page-dim);font-size:13px}
+.snd .btns{display:flex;gap:8px;align-items:center}
+.snd .btns label{margin-left:auto;font-size:13px;color:var(--page-dim);display:flex;gap:6px;align-items:center;cursor:pointer}
+.snd .btns input{accent-color:var(--page-accent)}
+.vol-line{display:flex;align-items:center;gap:10px;color:var(--page-dim);font-size:13px;margin:6px 0 14px}
+.vol-line input{width:200px;accent-color:var(--page-accent)}
+.count{color:var(--page-text);font-weight:600}
+
+/* ═════ the update window ═════ */
+.desk{position:relative;height:620px;border-radius:14px;overflow:hidden;
+  background:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);border:1px solid var(--page-line)}
+.desk .pill{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:150px;height:30px;border-radius:15px;background:#000;box-shadow:0 0 0 1px rgb(255 255 255 / .06)}
+.uwin{position:absolute;width:460px;max-width:calc(100% - 32px);background:#000;border-radius:22px;padding:20px 20px 18px;color:#f5f5f7;font-size:13px;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .08),0 20px 50px rgb(0 0 0 / .45);user-select:none;touch-action:none;
+  opacity:0;transform:translateY(16px) scale(.96);filter:blur(4px)}
+.uwin.shown{opacity:1;transform:none;filter:none;
+  transition:opacity .26s ease,transform .42s cubic-bezier(.2,.9,.25,1),filter .3s ease}
+.uwin.out{opacity:0;transform:scale(.97);filter:blur(2px);transition:opacity .16s ease,transform .18s ease,filter .16s ease}
+.uwin.dragging{cursor:default}
+.uwin .x{position:absolute;top:10px;right:12px;width:28px;height:28px;border:0;background:none;color:#8e8e93;font-size:20px;line-height:1;cursor:pointer;border-radius:50%}
+.uwin .x:hover{color:#f5f5f7;background:#1c1c1e}
+.uwin .head{display:flex;gap:12px;align-items:center;padding-right:18px}
+.uwin .head svg{width:46px;height:46px;flex:none}
+.uwin h3{margin:0;font-size:17px;font-weight:700;line-height:22px}
+.uwin .ver{font-size:12.5px;color:#8e8e93}
+.notes-wrap{position:relative;margin-top:14px;border-radius:12px;background:#0b0b0c;overflow:hidden}
+.notes-wrap::before,.notes-wrap::after{content:"";position:absolute;left:0;right:12px;height:18px;pointer-events:none;z-index:1;transition:opacity .2s}
+.notes-wrap::before{top:0;background:linear-gradient(#0b0b0c,transparent);opacity:var(--fade-top,0)}
+.notes-wrap::after{bottom:0;background:linear-gradient(transparent,#0b0b0c);opacity:var(--fade-bottom,1)}
+.notes{max-height:170px;overflow-y:auto;padding:10px 12px;font-size:12.5px;line-height:18px;color:#d1d1d6;user-select:text}
+.notes::-webkit-scrollbar{width:12px}
+.notes::-webkit-scrollbar-track{background:transparent}
+.notes::-webkit-scrollbar-thumb{background:rgb(255 255 255 / .14);border:4px solid transparent;background-clip:padding-box;border-radius:8px;min-height:30px}
+.notes:hover::-webkit-scrollbar-thumb{background-color:rgb(255 255 255 / .28)}
+.notes::-webkit-scrollbar-thumb:active{background-color:rgb(255 255 255 / .42)}
+.notes b{display:block;margin:8px 0 3px;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#8e8e93;font-weight:600}
+.notes b:first-child{margin-top:0}
+.notes ul{margin:0;padding-left:16px}
+.notes li{margin:0 0 4px}
+.urow{display:flex;gap:8px;margin-top:12px}
+.urow.first{margin-top:16px}
+.ubtn{flex:1;font:inherit;font-size:13px;font-weight:600;color:#f5f5f7;background:#2c2c2e;border:0;border-radius:999px;padding:8px 16px;cursor:pointer;white-space:nowrap}
+.ubtn:hover{background:#3a3a3c}
+.ubtn.main{background:#0a84ff;color:#fff}
+.ubtn.main:hover{background:#2f95ff}
+.ubar{height:6px;border-radius:3px;background:#2c2c2e;overflow:hidden;margin-top:16px}
+.ubar i{display:block;height:100%;width:0;border-radius:3px;background:#0a84ff;transition:width .3s linear}
+.ustat{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:#8e8e93;font-variant-numeric:tabular-nums}
+.cmp{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 14px}
+.cmp figure{margin:0;display:flex;align-items:center;gap:10px;color:var(--page-dim);font-size:13px}
+.cmp svg,.cmp .old{width:44px;height:44px}
+.cmp .old{border-radius:11px;background:linear-gradient(135deg,#ffb340,#ff7a00);display:grid;place-items:center}
+.cmp .old i{display:block;width:22px;height:11px;border-radius:6px;background:#000}
+@media (prefers-reduced-motion:reduce){.uwin.shown,.uwin.out{transition-duration:.01s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Настройки 0.7.5 — макет, раунд 2</h1>
+  <nav class="toc"><a href="#s-settings">Окно настроек</a><a href="#s-journal">Журнал</a><a href="#s-sounds">Звуки</a><a href="#s-update">Окно обновления</a></nav>
+
+  <h2 id="s-settings" style="margin-top:8px">Окно настроек</h2>
+  <p class="lead">Живое: строки открывают разделы, переключатели переключаются, звуки играют. Назад — стрелка, Esc или боковая кнопка мыши.</p>
+  <div class="tools">
+    <div class="grp">Тема окна
+      <div class="pick" id="pick-theme"><button data-v="light">Светлая</button><button data-v="dark">Тёмная</button></div>
+    </div>
+    <button class="pbtn" id="open-journal">Открыть журнал</button>
+  </div>
+
+  <div class="stage">
+    <div class="frame" id="frame">
+      <div class="titlebar"><span class="t"><svg viewBox="0 0 1024 1024" id="tb-icon"></svg>Настройки Great Island</span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
+      <div class="viewport" id="vp"></div>
+    </div>
+    <div class="side" id="s-journal">
+      <div class="box">
+        <b>Журнал</b>
+        <ul>
+          <li>Сверху — проблемы: красная плитка — не получилось, оранжевая — получилось с оговоркой. Повторы одной ошибки подряд складываются в одну строку с «×5».</li>
+          <li>Вторая строка — код и ответ Windows: по ним я нахожу место в коде.</li>
+          <li>«Всё» добавляет обычные события (запуск, запись сохранена) — серым, в одну строку.</li>
+          <li>Клик по строке копирует её. Вот что попадёт в буфер:</li>
+        </ul>
+        <pre class="clip" id="clip">Кликните по строке журнала.</pre>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="s-sounds">Звуки</h2>
+  <p class="lead">Три нынешних и пять выбранных. В настройках клик по звуку проигрывает начало перерыва; здесь можно послушать и конец.</p>
+  <div class="vol-line">Громкость <input type="range" id="page-vol" min="0" max="1" step="0.05" value="0.7"></div>
+  <div class="sounds" id="sounds"></div>
+
+  <h2 id="s-update">Окно обновления</h2>
+  <p class="lead">Плавно проявляется (поднимается и проступает из лёгкого размытия), уходит быстрее. Тянется мышью за любое пустое место.
+    Прокрутка «Что нового» — тонкая, видна при наведении, края списка мягко гаснут. Иконка — настоящая, как у приложения.</p>
+  <div class="cmp">
+    <figure><span class="old"><i></i></span>Сейчас: упрощённая — без двух колец и полоски</figure>
+    <figure><svg viewBox="0 0 1024 1024" class="appicon"></svg>Будет: значок приложения</figure>
+  </div>
+  <div class="tools"><button class="pbtn" id="replay">Показать окно ещё раз</button></div>
+  <div class="desk" id="desk">
+    <div class="pill"></div>
+    <div class="uwin" id="uwin"></div>
+  </div>
+</div>
+
+<script>
+/* ═════ icons ═════ */
+const APP_ICON = `<defs><linearGradient id="gi-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB340"/><stop offset="1" stop-color="#FF7A00"/></linearGradient></defs>
+<rect x="32" y="32" width="960" height="960" rx="220" fill="url(#gi-bg)"/><rect x="172" y="392" width="680" height="240" rx="120" fill="#000"/>
+<circle cx="312" cy="512" r="52" fill="none" stroke="#FF9F0A" stroke-width="26"/><circle cx="452" cy="512" r="52" fill="none" stroke="#64D2FF" stroke-width="26"/>
+<rect x="560" y="490" width="180" height="44" rx="22" fill="#F5F5F7"/>`;
+const appIcon = (cls) => `<svg viewBox="0 0 1024 1024" class="${cls}">${APP_ICON}</svg>`;
+document.getElementById("tb-icon").innerHTML = APP_ICON;
+document.querySelectorAll(".appicon").forEach((s) => (s.innerHTML = APP_ICON));
+
+const I = {
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  island:'<rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="7.6" cy="12" r="1.4" fill="currentColor" stroke="none"/><path d="M12 12h5"/>',
+  music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  rec:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/>',
+  zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+  lang:'<path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/>',
+  power:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+  doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  chev:'<path d="m9 18 6-6-6-6"/>',
+  back:'<path d="m15 18-6-6 6-6"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  volLow:'<path d="M11 5 6 9H2v6h4l5 4V5z"/>',
+  volHigh:'<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  play:'<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  warn:'<path d="M12 8v5"/><path d="M12 17h.01"/>',
+  dotI:'<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>',
+  copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+};
+const toneName = (t) => (t === "none" ? "Без звука" : VOICES[t].name);
+const svg = (n, s = 18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
+const tile = (n, c) => `<span class="tile" style="--c:var(--c-${c})">${svg(n)}</span>`;
+const chev = `<span class="chev">${svg("chev", 16)}</span>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+
+/* ═════ sounds: the same synth as src-tauri/src/sound.rs ═════ */
+const VOICES = {
+  bell:   { name:"Колокольчик", now:true, about:"Две ноты, светлый звон.",
+            start:[[659.25,0],[987.77,.13]], end:[[987.77,0],[659.25,.15]], decay:1.4, attack:.006, partials:[[1,1],[2,.22],[3.01,.08]] },
+  soft:   { name:"Аккорд", now:true, about:"Три ноты мажора, мягкая атака.",
+            start:[[523.25,0],[659.25,.09],[783.99,.18]], end:[[783.99,0],[523.25,.16]], decay:1.1, attack:.03, partials:[[1,1],[2,.1]] },
+  drop:   { name:"Капля", now:true, about:"Короткие капли с соскальзыванием вниз.",
+            start:[[1046.5,0],[1318.5,.12]], end:[[1318.5,0],[880,.14]], decay:.35, attack:.004, partials:[[1,1]], glide:1.6 },
+  kalimba:{ name:"Калимба", about:"Щипок металлического язычка: мягко, чуть звенит.",
+            start:[[587.33,0],[880,.14]], end:[[880,0],[587.33,.15]], decay:.95, attack:.002, partials:[[1,1],[2,.05],[6.27,.06]] },
+  breath: { name:"Вдох", about:"Медленно нарастающая квинта, без удара. Самый тихий.",
+            start:[[392,0],[587.33,.22]], end:[[587.33,0],[392,.28]], decay:1.9, attack:.22, partials:[[1,.75],[2,.05]] },
+  bowl:   { name:"Чаша", about:"Один удар по поющей чаше, мерцает и долго звучит.",
+            start:[[392,0]], end:[[329.63,0]], decay:2.6, attack:.008, partials:[[1,.7],[1.006,.5],[2.71,.28],[2.717,.2],[5.2,.06]] },
+  bubble: { name:"Пузырь", about:"Две ноты, всплывающие вверх. Игривый и очень короткий.",
+            start:[[587.33,0],[880,.13]], end:[[880,0],[587.33,.14]], decay:.28, attack:.004, partials:[[1,1]], glide:.55 },
+  chime:  { name:"Перезвон", about:"Три высокие ноты музыки ветра, тихо.",
+            start:[[1174.66,0],[1567.98,.1],[1318.51,.21]], end:[[1567.98,0],[1318.51,.11],[1174.66,.23]], decay:1.3, attack:.003, partials:[[1,.6],[2.4,.06]] },
+};
+const SR = 44100, MASTER_GAIN = .32, END_GAIN = .6, SILENCE = .0001, TAU = Math.PI * 2;
+function glideFactor(g, t) { const T = .06; return g && t < T ? Math.pow(g, 1 - t / T) : 1; }
+function envelope(t, a, d, peak) {
+  const ramp = (from, to, k) => from * Math.pow(to / from, k);
+  return t < a ? ramp(SILENCE, peak, t / a) : ramp(peak, SILENCE, Math.min(1, (t - a) / (d - a)));
+}
+function render(v, kind, gain) {
+  const notes = kind === "start" ? v.start : v.end;
+  const len = Math.max(...notes.map(([, at]) => at + v.decay)) + .05;
+  const out = new Float32Array(Math.floor(len * SR));
+  for (const [freq, at] of notes) {
+    const first = Math.floor(at * SR);
+    for (const [ratio, pg] of v.partials) {
+      let phase = 0;
+      for (let i = first; i < out.length; i++) {
+        const t = (i - first) / SR;
+        if (t > v.decay) break;
+        phase = (phase + TAU * freq * ratio * glideFactor(v.glide, t) / SR) % TAU;
+        out[i] += Math.sin(phase) * envelope(t, v.attack, v.decay, pg) * gain;
+      }
+    }
+  }
+  for (let i = 0; i < out.length; i++) out[i] = Math.max(-1, Math.min(1, out[i]));
+  return out;
+}
+let ctx, playing;
+function play(id, kind = "start", volume = S.volume) {
+  if (volume <= 0 || id === "none") return;
+  ctx ??= new AudioContext();
+  const data = render(VOICES[id], kind, Math.min(1, volume) * MASTER_GAIN * (kind === "end" ? END_GAIN : 1));
+  const buf = ctx.createBuffer(1, data.length, SR);
+  buf.copyToChannel(data, 0);
+  try { playing?.stop(); } catch {}
+  playing = ctx.createBufferSource();
+  playing.buffer = buf;
+  playing.connect(ctx.destination);
+  playing.start();
+}
+
+/* ═════ state ═════ */
+const COLORS = ["#FF9F0A", "#FFD60A", "#30D158", "#64D2FF", "#0A84FF", "#BF5AF2", "#FF375F"];
+const S = {
+  reminders: [
+    { id:"eyes", name:"Глаза", color:"#64D2FF", tone:"bell", interval:20, dur:20, on:true, reset:true },
+    { id:"move", name:"Размяться", color:"#30D158", tone:"soft", interval:50, dur:60, on:true, reset:true },
+    { id:"water", name:"Вода", color:"#0A84FF", tone:"drop", interval:90, dur:15, on:false, reset:false },
+  ],
+  volume:.7, idle:5, showIsland:true, monitor:"cursor", fullscreen:"alerts",
+  player:true, announce:true, silentDrop:10,
+  live:true, keepScreen:false, animations:true, areaMarks:true,
+  shotKey:"PrtSc", areaKey:null, recKey:"Alt + Shift + R", viewerBar:"strip",
+  autostart:true, lang:"auto", autoUpdate:true, listen:"start", update:"idle", checkedAt:"10:28",
+  journalView:"problems",
+};
+const JOURNAL = [
+  { day:"Сегодня", stamp:"2026-11-17 14:36:47", time:"14:36", level:"info", title:"Запись сохранена: 8 с, 3,8 МБ" },
+  { day:"Сегодня", stamp:"2026-11-17 14:35:21", time:"14:35", level:"warn", code:"REC-MIC/NO-ACCESS", title:"Микрофон недоступен",
+    reason:"Windows не даёт доступа. Ещё раз — без него", detail:"0x80070005 · Отказано в доступе" },
+  { day:"Сегодня", stamp:"2026-11-17 14:35:14", time:"14:35", level:"info", title:"Запись началась" },
+  { day:"Сегодня", stamp:"2026-11-17 10:28:03", time:"10:28", level:"error", code:"UPD-CHECK/MISSING", title:"Проверка обновлений не удалась",
+    reason:"Папка или файл не найдены", detail:"HTTP 404", times:5 },
+  { day:"Сегодня", stamp:"2026-11-17 09:12:40", time:"09:12", level:"info", title:"Остров запущен · 0.7.5" },
+  { day:"Вчера", stamp:"2026-11-16 18:40:12", time:"18:40", level:"error", code:"SHOT-SAVE/DISK-FULL", title:"Снимок не сохранён",
+    reason:"На диске нет места", detail:"0x80070070 · Недостаточно места на диске" },
+  { day:"Вчера", stamp:"2026-11-16 09:03:55", time:"09:03", level:"warn", code:"SHOT-KEY/TAKEN", title:"Клавиша скриншота не работает",
+    reason:"Сочетание занято другой программой", detail:"PrtSc" },
+  { day:"Вчера", stamp:"2026-11-16 09:02:31", time:"09:02", level:"info", title:"Остров запущен · 0.7.4" },
+];
+JOURNAL.forEach((j, i) => (j.i = i));
+const LEVEL = { error:{ c:"red", icon:"x" }, warn:{ c:"orange", icon:"warn" }, info:{ c:"gray", icon:"dotI" } };
+function jrow(j) {
+  const l = LEVEL[j.level];
+  const end = `<span class="jend">${j.times ? `<span class="times">×${j.times}</span>` : ""}<span class="jcopy">Копировать</span></span>`;
+  if (j.level === "info")
+    return `<div class="jrow info" data-j="${j.i}"><span class="jtime">${j.time}</span><span class="jmark">${svg(l.icon, 14)}</span><span class="jtitle">${j.title}</span>${end}</div>`;
+  return `<div class="jrow" data-j="${j.i}"><span class="jtime">${j.time}</span><span class="jmark" style="--c:var(--c-${l.c})">${svg(l.icon, 14)}</span>
+    <span class="jtitle">${j.title}</span>${end}
+    <div class="jsub"><div class="why"><span class="code">${j.code}</span><span>${j.reason}</span></div><div class="det">${j.detail}</div></div></div>`;
+}
+function clipText(j) {
+  const head = `Great Island 0.7.5 · Windows 11 24H2 (26200)`;
+  if (j.level === "info") return `${head}\n${j.stamp} [info] ${j.title}`;
+  return `${head}\n${j.stamp} [${j.level}]${j.times ? ` ×${j.times}` : ""} ${j.code}\n${j.title} — ${j.reason}\n${j.detail}`;
+}
+const problemsVal = () => {
+  const n = JOURNAL.filter((j) => j.level === "error" && j.day === "Сегодня").length;
+  return n ? `<span style="color:var(--c-red)">${n} сегодня</span>` : "";
+};
+const checkedLine = () => S.update === "checking" ? "проверяю…" : `обновлений нет · проверено ${S.update === "latest" ? "только что" : "сегодня в " + S.checkedAt}`;
+const LANGS = { auto:"Как в Windows", ru:"Русский", en:"English" };
+const MONITORS = { cursor:"Там, где курсор", d1:"Экран 1 (основной) · 2560×1440", d2:"Экран 2 · 1920×1080" };
+const rem = (id) => S.reminders.find((r) => r.id === id);
+
+/* ═════ building blocks ═════ */
+const group = (title, rows, foot = "", cls = "") =>
+  `<div class="group">${title ? `<div class="gtitle">${title}</div>` : ""}<div class="card ${cls}">${rows.join("")}</div>${foot ? `<div class="gfoot">${foot}</div>` : ""}</div>`;
+const nav = ({ icon, c, label, sub = "", val = "", go, param = "" }) =>
+  `<div class="row go" data-go="${go}" data-param="${param}">${icon ? tile(icon, c) : ""}<span class="label">${label}${sub ? `<small>${sub}</small>` : ""}</span>${val ? `<span class="val">${val}</span>` : ""}${chev}</div>`;
+const sw = (on, attr) => `<span class="sw ${on ? "on" : ""}" ${attr}></span>`;
+const toggle = ({ icon, c, label, sub = "", key }) =>
+  `<div class="row tap ${icon ? "" : "noicon"}" data-toggle="${key}">${icon ? tile(icon, c) : ""}<span class="label">${label}${sub ? `<small>${sub}</small>` : ""}</span>${sw(S[key])}</div>`;
+const seg = (key, opts) => `<div class="seg">${Object.entries(opts).map(([v, l]) => `<button class="${S[key] === v ? "on" : ""}" data-seg="${key}" data-v="${v}">${l}</button>`).join("")}</div>`;
+const segRow = (label, key, opts) => `<div class="row block noicon"><span class="label">${label}</span>${seg(key, opts)}</div>`;
+const numRow = (label, key, unit) =>
+  `<div class="row noicon"><span class="label">${label}</span><span class="unit"><input class="num" data-num="${key}" value="${S[key]}">${unit}</span></div>`;
+const keyRow = (label, key) =>
+  `<div class="row noicon"><span class="label">${label}</span><span class="kbd ${S[key] ? "" : "none"}">${S[key] ?? "Не задана"}</span><button class="mini">Изменить</button></div>`;
+const folderRow = (label, path) =>
+  `<div class="row noicon"><span class="label">${label}<small>${path}</small></span><button class="mini">Выбрать…</button></div>`;
+const radio = (on, label, attrs, extra = "") =>
+  `<div class="row tap noicon" ${attrs}><span class="label">${label}${extra}</span><span class="radio">${on ? svg("check", 18) : ""}</span></div>`;
+
+function updateVal() {
+  if (S.update === "checking") return `<span class="spin"></span>Проверяю…`;
+  if (S.update === "latest") return `<span class="ok">Последняя версия</span>`;
+  return "";
+}
+
+/* ═════ pages ═════ */
+const PAGES = {
+  main: {
+    title: "Настройки",
+    body: () => {
+      const on = S.reminders.filter((r) => r.on).length;
+      return `
+      <div class="group"><div class="card"><div class="hero" data-go="about">${appIcon("ic")}
+        <div style="flex:1"><div class="name">Great Island</div><div class="sub">Версия 0.7.5 · ${checkedLine()}</div></div>${chev}</div></div></div>
+      ${group("Функции", [
+        nav({ icon:"bell", c:"orange", label:"Напоминания", val:`${on} из ${S.reminders.length}`, go:"reminders" }),
+        nav({ icon:"island", c:"indigo", label:"Остров", val:S.showIsland ? "Всегда виден" : "Только с напоминанием", go:"island" }),
+        nav({ icon:"music", c:"pink", label:"Плеер", val:S.player ? "Вкл." : "Выкл.", go:"player" }),
+        nav({ icon:"camera", c:"blue", label:"Скриншоты", val:S.shotKey ?? "", go:"shots" }),
+        nav({ icon:"rec", c:"red", label:"Запись экрана", val:S.recKey ?? "", go:"record" }),
+      ])}
+      ${group("Общие", [
+        nav({ icon:"zap", c:"green", label:"Анимации и энергия", go:"energy" }),
+        nav({ icon:"lang", c:"teal", label:"Язык", val:LANGS[S.lang], go:"language" }),
+        toggle({ icon:"power", c:"gray", label:"Запускать вместе с Windows", key:"autostart" }),
+      ])}
+      ${group("Обслуживание", [
+        `<div class="row tap" data-check>${tile("refresh", "blue")}<span class="label">Проверить обновления</span><span class="val">${updateVal()}</span></div>`,
+        nav({ icon:"doc", c:"brown", label:"Журнал", val:problemsVal(), go:"journal" }),
+      ])}`;
+    },
+  },
+  reminders: {
+    title: "Напоминания",
+    body: () => `
+      ${group("", [
+        ...S.reminders.map((r) => `<div class="row go" data-go="reminder" data-param="${r.id}">
+          <span class="tile" style="--c:${r.color}">${svg("bell")}</span>
+          <span class="label">${esc(r.name)}<small>каждые ${r.interval} мин · ${r.dur} с · ${toneName(r.tone)}</small></span>
+          ${sw(r.on, `data-ron="${r.id}"`)}<button class="del" data-rdel="${r.id}" title="Удалить">${svg("trash", 17)}</button></div>`),
+        `<div class="row tap accent" data-add><span class="tile" style="--c:var(--accent)">${svg("plus")}</span><span class="label">Добавить напоминание</span></div>`,
+      ])}
+      ${group("Для всех напоминаний", [
+        `<div class="row noicon"><span class="label" style="flex:none">Громкость</span><span style="color:var(--muted)">${svg("volLow", 16)}</span>
+          <input type="range" class="vol" data-vol min="0" max="1" step="0.05" value="${S.volume}"><span style="color:var(--muted)">${svg("volHigh", 16)}</span></div>`,
+        numRow("Считать, что я отошёл, через", "idle", "мин"),
+      ], "Отсчёт идёт от последнего ввода с мыши или клавиатуры.")}`,
+  },
+  reminder: {
+    title: (p) => esc(rem(p)?.name ?? ""),
+    body: (p) => {
+      const r = rem(p);
+      if (!r) return "";
+      return `
+      ${group("", [
+        `<div class="row noicon"><input class="text" data-rname="${r.id}" value="${esc(r.name)}" maxlength="40"></div>`,
+        `<div class="row noicon"><div class="swatches">${COLORS.map((c) => `<button style="--c:${c}" class="${c === r.color ? "on" : ""}" data-rcolor="${c}" data-rid="${r.id}"></button>`).join("")}</div></div>`,
+      ], "", "plain")}
+      ${group("", [
+        `<div class="row noicon"><span class="label">Каждые</span><span class="unit"><input class="num" data-rnum="interval" data-rid="${r.id}" value="${r.interval}">мин</span></div>`,
+        `<div class="row noicon"><span class="label">Показывать</span><span class="unit"><input class="num" data-rnum="dur" data-rid="${r.id}" value="${r.dur}">с</span></div>`,
+        nav({ label:"Звук", val:toneName(r.tone), go:"sound", param:r.id }).replace('class="row go"', 'class="row go noicon"'),
+      ], "", "plain")}
+      ${group("", [
+        `<div class="row tap noicon" data-rreset="${r.id}"><span class="label">Отошёл — считается перерывом<small>Таймер начинается заново</small></span>${sw(r.reset)}</div>`,
+      ])}
+      ${group("", [`<div class="row tap danger" data-rdel="${r.id}">Удалить напоминание</div>`])}`;
+    },
+  },
+  sound: {
+    title: "Звук",
+    body: (p) => {
+      const r = rem(p);
+      if (!r) return "";
+      return `
+      <div class="group">${seg("listen", { start:"Начало перерыва", end:"Конец перерыва" })}</div>
+      ${group("", [radio(r.tone === "none", "Без звука", `data-tone="none" data-rid="${r.id}"`),
+        ...Object.entries(VOICES).map(([id, v]) =>
+          radio(r.tone === id, v.name, `data-tone="${id}" data-rid="${r.id}"`, v.now ? "" : `<span class="badge">новый</span>`))], "", "plain")}`;
+    },
+  },
+  island: {
+    title: "Остров",
+    body: () => `
+      ${group("", [
+        toggle({ label:"Показывать остров постоянно", sub:"Иначе — только во время напоминания", key:"showIsland" }),
+        nav({ label:"Экран", val:MONITORS[S.monitor], go:"monitor" }).replace('class="row go"', 'class="row go noicon"'),
+      ])}
+      ${group("В полноэкранных приложениях", [segRow("", "fullscreen", { show:"Показывать", alerts:"Только уведомления", hide:"Скрывать" }).replace('<span class="label"></span>', "")])}
+      ${group("Кнопки в окне просмотра", [segRow("", "viewerBar", { strip:"На полосе сверху", floating:"Прямо на снимке" }).replace('<span class="label"></span>', "")])}`,
+  },
+  monitor: {
+    title: "Экран",
+    body: () => group("", Object.entries(MONITORS).map(([v, l]) => radio(S.monitor === v, l, `data-radio="monitor" data-v="${v}"`)), "", "plain"),
+  },
+  player: {
+    title: "Плеер",
+    body: () => `
+      ${group("", [
+        toggle({ label:"Показывать, что сейчас играет", key:"player" }),
+        toggle({ label:"Уведомление о новом треке", key:"announce" }),
+        numRow("Убирать плеер, если молчит", "silentDrop", "мин"),
+      ], "0 — никогда.")}`,
+  },
+  shots: {
+    title: "Скриншоты",
+    body: () => `
+      ${group("Клавиши", [keyRow("Скриншот", "shotKey"), keyRow("Скриншот области", "areaKey")])}
+      ${group("", [folderRow("Папка", "Изображения\\Снимки экрана (по умолчанию)")])}`,
+  },
+  record: {
+    title: "Запись экрана",
+    body: () => `
+      ${group("Клавиша", [keyRow("Начать и остановить", "recKey")])}
+      ${group("", [folderRow("Папка", "Видео\\Записи экрана (по умолчанию)"),
+        toggle({ label:"Рамки вокруг области при записи", key:"areaMarks" })])}`,
+  },
+  energy: {
+    title: "Анимации и энергия",
+    body: () => `
+      ${group("", [
+        toggle({ label:"Улучшенные анимации", key:"animations" }),
+        toggle({ label:"Продолжать анимацию при неактивности", sub:"Повышенный расход ресурсов", key:"live" }),
+      ])}
+      ${group("«Не засыпать»", [toggle({ label:"Не давать гаснуть и экрану", key:"keepScreen" })])}`,
+  },
+  language: {
+    title: "Язык",
+    body: () => group("", Object.entries(LANGS).map(([v, l]) => radio(S.lang === v, l, `data-radio="lang" data-v="${v}"`)),
+      "Применится после перезапуска острова.", "plain"),
+  },
+  journal: {
+    title: "Журнал",
+    body: () => {
+      const items = S.journalView === "all" ? JOURNAL : JOURNAL.filter((j) => j.level !== "info");
+      const days = [...new Set(items.map((j) => j.day))];
+      return `
+      <div class="group">${seg("journalView", { problems:"Проблемы", all:"Всё" })}</div>
+      ${items.length ? days.map((d, n) => `<div class="group"><div class="jday">${d}</div>${n === 0 ? `<div class="jhead"><span>Время</span><span></span><span>Событие</span><span>Повторы</span></div>` : ""}<div class="card">${items.filter((j) => j.day === d).map(jrow).join("")}</div></div>`).join("")
+        : `<div class="jempty">Проблем не было</div>`}
+      ${group("", [`<div class="row tap noicon"><span class="label">Открыть файл журнала</span><span class="chev">${svg("ext", 15)}</span></div>`])}`;
+    },
+  },
+  about: {
+    title: "О программе",
+    body: () => `
+      <div class="about">${appIcon("ic")}<div class="name">Great Island</div><div class="sub">Версия 0.7.5 · GPL-3.0</div><div class="sub">${checkedLine()[0].toUpperCase() + checkedLine().slice(1)}</div></div>
+      ${group("", [
+        `<div class="row tap noicon" data-check><span class="label">Проверить обновления</span><span class="val">${updateVal()}</span></div>`,
+        toggle({ label:"Проверять автоматически", key:"autoUpdate" }),
+      ])}
+      ${group("", ["Страница проекта", "Список изменений", "Лицензия"].map((l) =>
+        `<div class="row tap noicon"><span class="label">${l}</span><span class="chev">${svg("ext", 15)}</span></div>`))}`,
+  },
+};
+
+/* ═════ navigation ═════ */
+const vp = document.getElementById("vp");
+const stack = [];
+const DUR = 260, EASE = "cubic-bezier(.2,.8,.2,1)";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let busy = false;
+
+function pageHtml(id, param) {
+  const p = PAGES[id];
+  const title = typeof p.title === "function" ? p.title(param) : p.title;
+  const bar = id === "main"
+    ? `<div class="bar root">${title}</div>`
+    : `<div class="bar"><button class="back" data-back title="Назад">${svg("back", 20)}</button><span class="ttl">${title}</span></div>`;
+  return `${bar}<div class="body">${p.body(param)}</div>`;
+}
+function makePage(id, param) {
+  const el = document.createElement("div");
+  el.className = "page";
+  el.dataset.id = id;
+  el.dataset.param = param ?? "";
+  el.innerHTML = pageHtml(id, param);
+  return el;
+}
+function refresh(el) {
+  const body = el.querySelector(".body"), top = body.scrollTop;
+  el.innerHTML = pageHtml(el.dataset.id, el.dataset.param);
+  el.querySelector(".body").scrollTop = top;
+}
+const refreshAll = () => stack.forEach(refresh);
+
+function push(id, param) {
+  if (busy) return;
+  const old = stack.at(-1), el = makePage(id, param);
+  stack.push(el);
+  vp.append(el);
+  if (!old) return;
+  busy = true;
+  old.classList.remove("top");
+  el.classList.add("top");
+  if (reduce) {
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120 }).finished.then(() => { old.hidden = true; busy = false; });
+    return;
+  }
+  el.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], { duration: DUR, easing: EASE });
+  old.animate([{ transform: "translateX(0)", filter: "brightness(1)" }, { transform: "translateX(-30%)", filter: "brightness(.9)" }],
+    { duration: DUR, easing: EASE }).finished.then(() => { old.hidden = true; busy = false; });
+}
+function pop() {
+  if (busy || stack.length < 2) return;
+  busy = true;
+  const el = stack.pop(), under = stack.at(-1);
+  refresh(under);
+  under.hidden = false;
+  if (reduce) {
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 }).finished.then(() => { el.remove(); busy = false; });
+    return;
+  }
+  under.animate([{ transform: "translateX(-30%)", filter: "brightness(.9)" }, { transform: "translateX(0)", filter: "brightness(1)" }],
+    { duration: DUR, easing: EASE });
+  el.animate([{ transform: "translateX(0)" }, { transform: "translateX(100%)" }], { duration: DUR, easing: EASE })
+    .finished.then(() => { el.remove(); under.classList.add("top"); busy = false; });
+}
+
+vp.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-back],[data-ron],[data-rdel],[data-j],[data-go],[data-toggle],[data-seg],[data-radio],[data-tone],[data-rcolor],[data-rreset],[data-add],[data-check]");
+  if (!t) return;
+  const d = t.dataset, top = stack.at(-1);
+  if ("back" in d) return pop();
+  if (d.ron) { const r = rem(d.ron); r.on = !r.on; return refresh(top); }
+  if (d.rdel && top.dataset.id === "reminders") {
+    t.closest(".row").classList.add("gone");
+    setTimeout(() => { S.reminders = S.reminders.filter((r) => r.id !== d.rdel); refresh(top); }, 200);
+    return;
+  }
+  if (d.j) {
+    const j = JOURNAL[d.j];
+    navigator.clipboard?.writeText(clipText(j)).catch(() => {});
+    document.getElementById("clip").textContent = clipText(j);
+    t.classList.add("copied");
+    t.querySelector(".jcopy").textContent = "Скопировано";
+    setTimeout(() => { t.classList.remove("copied"); t.querySelector(".jcopy").textContent = "Копировать"; }, 1400);
+    return toast("Скопировано в буфер");
+  }
+  if (d.go) return push(d.go, d.param);
+  if (d.toggle) { S[d.toggle] = !S[d.toggle]; return refresh(top); }
+  if (d.seg) { S[d.seg] = d.v; return refresh(top); }
+  if (d.radio) { S[d.radio] = d.v; return refresh(top); }
+  if (d.tone) { rem(d.rid).tone = d.tone; play(d.tone, S.listen); return refresh(top); }
+  if (d.rcolor) { rem(d.rid).color = d.rcolor; return refresh(top); }
+  if (d.rreset) { const r = rem(d.rreset); r.reset = !r.reset; return refresh(top); }
+  if (d.rdel) { S.reminders = S.reminders.filter((r) => r.id !== d.rdel); return pop(); }
+  if ("add" in d) {
+    const id = "r" + Date.now();
+    S.reminders.push({ id, name:"Шея", color:COLORS[(S.reminders.length + 2) % COLORS.length], tone:"bell", interval:45, dur:30, on:true, reset:true });
+    refresh(top);
+    return push("reminder", id);
+  }
+  if ("check" in d && S.update !== "checking") {
+    S.update = "checking"; refreshAll();
+    setTimeout(() => { S.update = "latest"; refreshAll(); }, 1300);
+  }
+});
+vp.addEventListener("input", (e) => {
+  const d = e.target.dataset;
+  if ("vol" in d) { S.volume = Number(e.target.value); document.getElementById("page-vol").value = S.volume; }
+  if (d.rname) { rem(d.rname).name = e.target.value; stack.at(-1).querySelector(".ttl").textContent = e.target.value; }
+});
+vp.addEventListener("change", (e) => {
+  const d = e.target.dataset, n = Math.round(Number(e.target.value));
+  if (d.num && Number.isFinite(n)) S[d.num] = Math.max(0, n);
+  if (d.rnum && Number.isFinite(n)) rem(d.rid)[d.rnum] = Math.max(1, n);
+});
+const toastEl = document.createElement("div");
+toastEl.className = "toast";
+document.getElementById("frame").querySelector(".viewport").after(toastEl);
+document.getElementById("frame").style.position = "relative";
+let toastTimer;
+function toast(text) {
+  toastEl.innerHTML = `${svg("check", 14)}${text}`;
+  toastEl.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("on"), 1600);
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") pop(); });
+document.getElementById("open-journal").addEventListener("click", () => {
+  if (stack.at(-1).dataset.id !== "journal") push("journal");
+});
+document.getElementById("frame").addEventListener("mouseup", (e) => { if (e.button === 3) pop(); });
+
+push("main");
+
+/* ═════ toolbar ═════ */
+const frame = document.getElementById("frame");
+function pick(id, apply, initial) {
+  const box = document.getElementById(id);
+  const set = (v) => { box.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === v)); apply(v); };
+  box.addEventListener("click", (e) => e.target.dataset.v && set(e.target.dataset.v));
+  set(initial);
+}
+pick("pick-theme", (v) => frame.classList.toggle("dark", v === "dark"), matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+/* ═════ the sound gallery ═════ */
+const soundsEl = document.getElementById("sounds");
+soundsEl.innerHTML = Object.entries(VOICES).map(([id, v]) => `
+  <div class="snd" data-id="${id}">
+    <div class="h"><b>${v.name}</b><span class="n ${v.now ? "now" : ""}">${v.now ? "уже есть" : "новый"}</span></div>
+    <p>${v.about}</p>
+    <div class="btns"><button class="pbtn" data-play="start">${svg("play", 12)} Начало</button><button class="pbtn" data-play="end">${svg("play", 12)} Конец</button></div>
+  </div>`).join("");
+soundsEl.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-play]");
+  if (b) play(b.closest(".snd").dataset.id, b.dataset.play, Number(document.getElementById("page-vol").value));
+});
+document.getElementById("page-vol").addEventListener("input", (e) => (S.volume = Number(e.target.value)));
+
+/* ═════ the update window ═════ */
+const desk = document.getElementById("desk"), uwin = document.getElementById("uwin");
+const NOTES = `<b>Добавлено</b><ul><li>Пять новых звуков напоминаний.</li><li>Звук можно послушать прямо в списке, кликом.</li></ul>
+<b>Изменено</b><ul><li>Настройки разложены по разделам: напоминания, остров, плеер, скриншоты, запись экрана.</li>
+<li>Изменения в настройках применяются сразу, без кнопки «Сохранить».</li><li>Окно обновления плавно появляется и показывает настоящий значок приложения.</li></ul>
+<b>Исправлено</b><ul><li>Окно обновления можно перетаскивать мышью.</li><li>Ручная проверка обновлений в первые секунды после запуска теперь всегда показывает ответ.</li>
+<li>Прокрутка списка изменений больше не выглядит системной.</li></ul>`;
+function offerHtml() {
+  return `<button class="x" data-u="close" title="Отложить на час">×</button>
+    <div class="head">${appIcon("")}<div><h3>Доступно обновление</h3><div class="ver">Great Island 0.7.5 · у вас 0.7.4</div></div></div>
+    <div class="notes-wrap" id="nw"><div class="notes" id="notes"><b>Что нового</b>${NOTES}</div></div>
+    <div class="urow first"><button class="ubtn main" data-u="install">Установить</button></div>
+    <div class="urow"><button class="ubtn" data-u="close">Отложить на час</button><button class="ubtn" data-u="close">Пропустить</button></div>`;
+}
+function center() {
+  const w = uwin.offsetWidth, h = uwin.offsetHeight;
+  uwin.style.left = Math.round((desk.clientWidth - w) / 2) + "px";
+  uwin.style.top = Math.round((desk.clientHeight - h) / 2) + "px";
+}
+function show() {
+  uwin.className = "uwin";
+  uwin.innerHTML = offerHtml();
+  center();
+  const notes = document.getElementById("notes"), nw = document.getElementById("nw");
+  const fades = () => {
+    nw.style.setProperty("--fade-top", notes.scrollTop > 2 ? 1 : 0);
+    nw.style.setProperty("--fade-bottom", notes.scrollTop + notes.clientHeight < notes.scrollHeight - 2 ? 1 : 0);
+  };
+  notes.addEventListener("scroll", fades);
+  fades();
+  // Two frames: the hidden state must be painted once before the transition can run from it.
+  requestAnimationFrame(() => requestAnimationFrame(() => uwin.classList.add("shown")));
+}
+function leave() {
+  uwin.classList.add("out");
+  setTimeout(() => { uwin.className = "uwin"; }, 200);
+}
+function install() {
+  const h3 = uwin.querySelector("h3"), ver = uwin.querySelector(".ver");
+  uwin.querySelectorAll(".notes-wrap,.urow,.x").forEach((n) => n.remove());
+  h3.textContent = "Скачиваю 0.7.5…";
+  ver.textContent = "";
+  uwin.insertAdjacentHTML("beforeend", `<div class="ubar"><i></i></div><div class="ustat"><span id="mb">0 из 11.4 МБ</span><span id="pc">0 %</span></div>`);
+  let p = 0;
+  const id = setInterval(() => {
+    p = Math.min(100, p + 7 + Math.random() * 9);
+    uwin.querySelector(".ubar i").style.width = p + "%";
+    document.getElementById("mb").textContent = `${(11.4 * p / 100).toFixed(1)} из 11.4 МБ`;
+    document.getElementById("pc").textContent = Math.round(p) + " %";
+    if (p >= 100) { clearInterval(id); h3.textContent = "Устанавливаю 0.7.5…"; ver.textContent = "Остров перезапустится сам, на это нужно несколько секунд."; setTimeout(leave, 1800); }
+  }, 260);
+}
+uwin.addEventListener("click", (e) => {
+  const u = e.target.closest("[data-u]")?.dataset.u;
+  if (u === "close") leave();
+  if (u === "install") install();
+});
+let drag = null;
+uwin.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || e.target.closest("button,.notes")) return;
+  drag = { dx: e.clientX - uwin.offsetLeft, dy: e.clientY - uwin.offsetTop };
+  uwin.setPointerCapture(e.pointerId);
+});
+uwin.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const x = Math.max(0, Math.min(desk.clientWidth - uwin.offsetWidth, e.clientX - drag.dx));
+  const y = Math.max(0, Math.min(desk.clientHeight - uwin.offsetHeight, e.clientY - drag.dy));
+  uwin.style.left = x + "px";
+  uwin.style.top = y + "px";
+});
+uwin.addEventListener("pointerup", () => (drag = null));
+document.getElementById("replay").addEventListener("click", () => { uwin.className = "uwin"; setTimeout(show, 60); });
+new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { show(); o.disconnect(); } }, { threshold: .4 }).observe(desk);
+</script>
+</body>
+</html>

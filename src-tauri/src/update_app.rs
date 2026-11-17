@@ -31,10 +31,13 @@ const SHOW_ANYWAY: Duration = Duration::from_secs(4);
 static SHOWN: AtomicBool = AtomicBool::new(false);
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusView {
     /// An island is there to take commands (and to say more than the file does).
     running: bool,
     status: Status,
+    /// Unix ms of the last check that got an answer; none before the first.
+    checked_at: Option<u64>,
 }
 
 #[tauri::command]
@@ -42,6 +45,7 @@ pub fn update_status() -> StatusView {
     StatusView {
         running: process::island_runs(),
         status: adapters::load_status(),
+        checked_at: adapters::load_memory().checked_at,
     }
 }
 
@@ -85,11 +89,17 @@ fn place(window: &WebviewWindow, height: f64) {
     let _ = window.set_position(Position::Physical(PhysicalPosition::new(x, y)));
 }
 
-/// The page found its height: the window takes it and stays in the middle. The first time it also
-/// appears, so that nobody sees it jump from the first guess to the real size.
+/// The page found its height. The first time the window takes it in the middle of the screen and
+/// appears, so that nobody sees it jump from the first guess to the real size; after that it may have
+/// been dragged, so it keeps its place and only changes height.
 #[tauri::command]
 fn update_fit(window: WebviewWindow, height: f64) {
-    place(&window, height.clamp(160.0, 640.0));
+    let height = height.clamp(160.0, 640.0);
+    if SHOWN.load(Ordering::Acquire) {
+        let _ = window.set_size(Size::Logical(LogicalSize::new(WIDTH, height)));
+        return;
+    }
+    place(&window, height);
     if !SHOWN.swap(true, Ordering::AcqRel) {
         let _ = window.show();
     }

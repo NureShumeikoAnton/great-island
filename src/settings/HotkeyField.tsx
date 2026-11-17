@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, PRINT_SCREEN, type Hotkey, type KeyCheck } from "../api";
+import { Mini } from "./ui";
 
 const MODIFIERS = ["ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight", "AltLeft", "AltRight", "MetaLeft", "MetaRight"];
 
@@ -30,7 +31,6 @@ const same = (a: Hotkey | null, b: Hotkey | null) =>
 
 interface Props {
   label: string;
-  hint: string;
   value: Hotkey | null;
   onChange: (key: Hotkey | null) => void;
   printScreen: boolean;
@@ -40,7 +40,8 @@ interface Props {
 
 const TAKEN_BY = { record: "hotkey.same_as_record", shot: "hotkey.same_as_shot", area: "hotkey.same_as_area" } as const;
 
-export function HotkeyField({ label, hint, value, onChange, printScreen, others }: Props) {
+/** A row of a settings group: the key, and the buttons to change it. */
+export function HotkeyField({ label, value, onChange, printScreen, others }: Props) {
   const { t } = useTranslation();
   const [check, setCheck] = useState<KeyCheck | null>(null);
   const [recording, setRecording] = useState(false);
@@ -120,12 +121,15 @@ export function HotkeyField({ label, hint, value, onChange, printScreen, others 
 
   const shown = recording ? typed || t("hotkey.press") : (check?.label ?? (value ? "…" : t("hotkey.none")));
 
+  const canPrintScreen =
+    printScreen && !isPrintScreen(value) && !others.some((other) => same(PRINT_SCREEN, other.key));
+
   return (
-    <div className="choice">
-      <span>{label}</span>
-      <div className="hotkey">
-        <span className={`keys ${recording ? "recording" : ""}`}>{shown}</span>
-        <button
+    <div className="row block noicon">
+      <div className="line">
+        <span className="label">{label}</span>
+        <span className={`kbd ${recording ? "recording" : ""} ${!recording && !value ? "none" : ""}`}>{shown}</span>
+        <Mini
           onClick={() => {
             setError("");
             setRecording(!recording);
@@ -133,16 +137,15 @@ export function HotkeyField({ label, hint, value, onChange, printScreen, others 
           }}
         >
           {recording ? t("hotkey.cancel") : t("hotkey.change")}
-        </button>
-        {!recording && printScreen && !isPrintScreen(value) && !others.some((other) => same(PRINT_SCREEN, other.key)) && (
-          <button onClick={() => onChange(PRINT_SCREEN)}>PrtSc</button>
-        )}
-        {!recording && value && <button onClick={() => onChange(null)}>{t("hotkey.remove")}</button>}
+        </Mini>
+        {!recording && canPrintScreen && <Mini onClick={() => onChange(PRINT_SCREEN)}>PrtSc</Mini>}
+        {!recording && value && <Mini onClick={() => onChange(null)}>{t("hotkey.remove")}</Mini>}
       </div>
-      {error && <span className="hint warn">{error}</span>}
-      {!recording && check?.problem && <span className="hint warn">{problemText(check.problem, check.label)}</span>}
+      {recording && <span className="note">{t("hotkey.recording_hint")}</span>}
+      {error && <span className="note warn">{error}</span>}
+      {!recording && check?.problem && <span className="note warn">{problemText(check.problem, check.label)}</span>}
       {!recording && printScreen && check?.snipping && (
-        <span className="hint warn">
+        <span className="note warn">
           {t("hotkey.snipping")}{" "}
           <button className="link" onClick={() => void release()}>
             {t("hotkey.release")}
@@ -150,7 +153,6 @@ export function HotkeyField({ label, hint, value, onChange, printScreen, others 
           {releaseFailed && ` ${t("hotkey.release_failed")}`}
         </span>
       )}
-      <span className="hint">{recording ? t("hotkey.recording_hint") : hint}</span>
     </div>
   );
 }

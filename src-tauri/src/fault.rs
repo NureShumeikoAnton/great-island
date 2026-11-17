@@ -4,7 +4,7 @@
 //! into a [`Fault`] and reports it in one place. The level, the code and every text are
 //! properties of [`What`] and [`Cause`], never of the call site.
 
-use crate::lang::tr;
+use crate::lang::{self, Lang, tr, tr_for};
 use std::{fmt, io};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,7 +60,6 @@ pub enum What {
 }
 
 impl What {
-    #[cfg(test)]
     pub const ALL: [What; 40] = [
         What::RecordStart,
         What::RecordBroken,
@@ -121,6 +120,10 @@ impl What {
         }
     }
 
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|it| it.code() == code)
+    }
+
     pub fn code(self) -> &'static str {
         match self {
             Self::RecordStart => "REC-START",
@@ -167,47 +170,52 @@ impl What {
     }
 
     pub fn title(self) -> String {
+        self.title_in(lang::current())
+    }
+
+    /// The journal reads lines written in either language.
+    pub fn title_in(self, lang: Lang) -> String {
         match self {
-            Self::RecordStart => tr!("fault.title.record_start"),
-            Self::RecordBroken => tr!("fault.title.record_broken"),
-            Self::RecordLost => tr!("fault.title.record_lost"),
-            Self::RecordStopped => tr!("fault.title.record_stopped"),
-            Self::RecordFolder => tr!("fault.title.record_folder"),
-            Self::RecordKey => tr!("fault.title.record_key"),
-            Self::RecordMic => tr!("fault.title.record_mic"),
-            Self::RecordMicLost => tr!("fault.title.record_mic_lost"),
-            Self::RecordSound => tr!("fault.title.record_sound"),
-            Self::RecordHevc => tr!("fault.title.record_hevc"),
-            Self::VideoOpen => tr!("fault.title.video_open"),
-            Self::VideoStopped => tr!("fault.title.video_stopped"),
-            Self::VideoSound => tr!("fault.title.video_sound"),
-            Self::VideoControl => tr!("fault.title.video_control"),
-            Self::VideoSave => tr!("fault.title.video_save"),
-            Self::RecordDelete => tr!("fault.title.record_delete"),
-            Self::ShotTake => tr!("fault.title.shot_take"),
-            Self::ShotSave => tr!("fault.title.shot_save"),
-            Self::ShotFolder => tr!("fault.title.shot_folder"),
-            Self::ShotKey => tr!("fault.title.shot_key"),
-            Self::ShotDelete => tr!("fault.title.shot_delete"),
-            Self::ShotEdit => tr!("fault.title.shot_edit"),
-            Self::ShotOpen => tr!("fault.title.shot_open"),
-            Self::AreaOpen => tr!("fault.title.area_open"),
-            Self::AreaKey => tr!("fault.title.area_key"),
-            Self::FolderOpen => tr!("fault.title.folder_open"),
-            Self::Copy => tr!("fault.title.copy"),
-            Self::SettingsOpen => tr!("fault.title.settings_open"),
-            Self::SettingsRestored => tr!("fault.title.settings_restored"),
-            Self::SettingsReset => tr!("fault.title.settings_reset"),
-            Self::SettingsSave => tr!("fault.title.settings_save"),
-            Self::TimersSave => tr!("fault.title.timers_save"),
-            Self::Sound => tr!("fault.title.sound"),
-            Self::Microphone => tr!("fault.title.microphone"),
-            Self::Crashed => tr!("fault.title.crashed"),
-            Self::Restart => tr!("fault.title.restart"),
-            Self::Language => tr!("fault.title.language"),
-            Self::PlayerLevel => tr!("fault.title.player_level"),
-            Self::UpdateCheck => tr!("fault.title.update_check"),
-            Self::UpdateInstall => tr!("fault.title.update_install"),
+            Self::RecordStart => tr_for!(lang, "fault.title.record_start"),
+            Self::RecordBroken => tr_for!(lang, "fault.title.record_broken"),
+            Self::RecordLost => tr_for!(lang, "fault.title.record_lost"),
+            Self::RecordStopped => tr_for!(lang, "fault.title.record_stopped"),
+            Self::RecordFolder => tr_for!(lang, "fault.title.record_folder"),
+            Self::RecordKey => tr_for!(lang, "fault.title.record_key"),
+            Self::RecordMic => tr_for!(lang, "fault.title.record_mic"),
+            Self::RecordMicLost => tr_for!(lang, "fault.title.record_mic_lost"),
+            Self::RecordSound => tr_for!(lang, "fault.title.record_sound"),
+            Self::RecordHevc => tr_for!(lang, "fault.title.record_hevc"),
+            Self::VideoOpen => tr_for!(lang, "fault.title.video_open"),
+            Self::VideoStopped => tr_for!(lang, "fault.title.video_stopped"),
+            Self::VideoSound => tr_for!(lang, "fault.title.video_sound"),
+            Self::VideoControl => tr_for!(lang, "fault.title.video_control"),
+            Self::VideoSave => tr_for!(lang, "fault.title.video_save"),
+            Self::RecordDelete => tr_for!(lang, "fault.title.record_delete"),
+            Self::ShotTake => tr_for!(lang, "fault.title.shot_take"),
+            Self::ShotSave => tr_for!(lang, "fault.title.shot_save"),
+            Self::ShotFolder => tr_for!(lang, "fault.title.shot_folder"),
+            Self::ShotKey => tr_for!(lang, "fault.title.shot_key"),
+            Self::ShotDelete => tr_for!(lang, "fault.title.shot_delete"),
+            Self::ShotEdit => tr_for!(lang, "fault.title.shot_edit"),
+            Self::ShotOpen => tr_for!(lang, "fault.title.shot_open"),
+            Self::AreaOpen => tr_for!(lang, "fault.title.area_open"),
+            Self::AreaKey => tr_for!(lang, "fault.title.area_key"),
+            Self::FolderOpen => tr_for!(lang, "fault.title.folder_open"),
+            Self::Copy => tr_for!(lang, "fault.title.copy"),
+            Self::SettingsOpen => tr_for!(lang, "fault.title.settings_open"),
+            Self::SettingsRestored => tr_for!(lang, "fault.title.settings_restored"),
+            Self::SettingsReset => tr_for!(lang, "fault.title.settings_reset"),
+            Self::SettingsSave => tr_for!(lang, "fault.title.settings_save"),
+            Self::TimersSave => tr_for!(lang, "fault.title.timers_save"),
+            Self::Sound => tr_for!(lang, "fault.title.sound"),
+            Self::Microphone => tr_for!(lang, "fault.title.microphone"),
+            Self::Crashed => tr_for!(lang, "fault.title.crashed"),
+            Self::Restart => tr_for!(lang, "fault.title.restart"),
+            Self::Language => tr_for!(lang, "fault.title.language"),
+            Self::PlayerLevel => tr_for!(lang, "fault.title.player_level"),
+            Self::UpdateCheck => tr_for!(lang, "fault.title.update_check"),
+            Self::UpdateInstall => tr_for!(lang, "fault.title.update_install"),
         }
         .into_owned()
     }
@@ -228,7 +236,6 @@ pub enum Cause {
 }
 
 impl Cause {
-    #[cfg(test)]
     pub const ALL: [Cause; 10] = [
         Cause::DiskFull,
         Cause::NoAccess,
@@ -241,6 +248,10 @@ impl Cause {
         Cause::DisplayChanged,
         Cause::Unknown,
     ];
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|it| it.code() == code)
+    }
 
     pub fn code(self) -> &'static str {
         match self {

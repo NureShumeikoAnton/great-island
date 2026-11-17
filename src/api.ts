@@ -2,7 +2,10 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-export type Tone = "bell" | "drop" | "soft";
+/** In the order the sound list shows them; "none" is silence. */
+export const TONES = ["none", "bell", "soft", "drop", "kalimba", "breath", "bowl", "bubble", "chime"] as const;
+
+export type Tone = (typeof TONES)[number];
 
 export interface Reminder {
   id: string;
@@ -85,6 +88,23 @@ export interface KeyCheck {
 export interface AppInfo {
   version: string;
   license: string;
+  /** The Windows build number. */
+  windows: number;
+}
+
+/** One journal entry; a run of the same one comes as one with `times`. */
+export interface JournalEntry {
+  /** Local time, "2026-11-17 10:28:03". */
+  at: string;
+  mark: "info" | "warn" | "error";
+  /** "UPD-CHECK/MISSING" for a problem the island reported. */
+  code: string | null;
+  title: string;
+  reason: string | null;
+  detail: string;
+  times: number;
+  /** The newest line as it is in the file. */
+  line: string;
 }
 
 /** Where an update stands: the island writes it, every window shows it. */
@@ -124,6 +144,8 @@ export interface UpdateView {
   /** An island is there to take commands. */
   running: boolean;
   status: UpdateStatus;
+  /** Unix ms of the last check that got an answer. */
+  checkedAt: number | null;
 }
 
 export type UpdateCommand = "check" | "openWindow" | "install" | "postpone" | "skip";
@@ -134,7 +156,8 @@ export const api = {
   currentLanguage: () => invoke<string>("current_language"),
   /** True when the choice gives another language than the one in use (the island changes at its restart). */
   languagePending: (choice: Language) => invoke<boolean>("language_pending", { choice }),
-  previewSound: (tone: Tone, volume: number) => invoke<void>("preview_sound", { tone, volume }),
+  /** `end`: the sound of a break that is over. */
+  previewSound: (tone: Tone, volume: number, end = false) => invoke<void>("preview_sound", { tone, volume, end }),
   defaultScreenshotDir: () => invoke<string>("default_screenshot_dir"),
   defaultRecordingsDir: () => invoke<string>("default_recordings_dir"),
   /** null = the user cancelled. */
@@ -145,6 +168,10 @@ export const api = {
   releasePrintScreen: () => invoke<boolean>("release_print_screen"),
   displays: () => invoke<Display[]>("list_displays"),
   openJournal: () => invoke<boolean>("open_journal"),
+  /** Newest first. Rejects with the reason the file could not be read. */
+  readJournal: (problemsOnly: boolean) => invoke<JournalEntry[]>("read_journal", { problemsOnly }),
+  /** Rejects with the reason the file could not be emptied. */
+  clearJournal: () => invoke<void>("clear_journal"),
   appInfo: () => invoke<AppInfo>("app_info"),
   openProjectPage: (page: "home" | "license" | "changes") => invoke<boolean>("open_project_page", { page }),
   // Updates: the island does the work; the windows read the status and send commands.

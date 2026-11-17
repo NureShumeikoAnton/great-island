@@ -1,7 +1,10 @@
 //! The journal: a small text file next to the settings. The release exe has no console,
 //! so this is the only place where a failure leaves its details.
 //!
-//! Lines are rare (start, stop, a recording, a problem), never per frame.
+//! Lines are rare (start, stop, a recording, a problem), never per frame. The settings window
+//! shows them through [`entries`].
+
+pub mod entries;
 
 use crate::{fault::Fault, persist};
 use std::{
@@ -39,16 +42,32 @@ pub fn fault(fault: &Fault) {
         crate::fault::Level::Warning => "warn",
         crate::fault::Level::Critical => "error",
     };
-    let subject = fault.subject.as_deref().unwrap_or_default();
-    write(
-        mark,
-        &format_args!(
-            "{} {} {subject} {}",
-            fault.code(),
-            fault.title(),
-            fault.detail
-        ),
-    );
+    write(mark, &entries::fault_line(fault));
+}
+
+/// The journal file, or empty when there is none yet.
+pub fn read() -> Result<String, crate::fault::Failed> {
+    match fs::read(path()) {
+        // A line cut by a crash mid-write must not hide the rest of the file.
+        Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Empties the journal and drops the previous one, `island.old.log`.
+pub fn clear() -> Result<(), crate::fault::Failed> {
+    // Under the lock: a line written meanwhile lands in the empty file, not in the old one.
+    let _guard = WRITING.lock().unwrap_or_else(|e| e.into_inner());
+    let path = path();
+    match fs::remove_file(path.with_extension("old.log")) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
+        _ => {}
+    }
+    match OpenOptions::new().write(true).truncate(true).open(&path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+        _ => Ok(()),
+    }
 }
 
 fn write(mark: &str, text: &dyn Display) {

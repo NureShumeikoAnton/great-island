@@ -11,13 +11,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// A reminder's sound; "none" is silence. `sound.rs` has a voice for each of the others.
+pub const TONES: [&str; 9] = [
+    "none", "bell", "soft", "drop", "kalimba", "breath", "bowl", "bubble", "chime",
+];
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reminder {
     pub id: String,
     pub name: String,
     pub color: String,
-    /// "bell", "drop" or "soft" (synthesized in the UI).
+    /// One of [`TONES`]; an unknown one becomes "bell".
     pub tone: String,
     pub interval_min: u32,
     pub duration_sec: u32,
@@ -293,7 +298,7 @@ impl Settings {
             if r.name.is_empty() {
                 r.name = tr!("reminder.unnamed").into();
             }
-            if !matches!(r.tone.as_str(), "bell" | "drop" | "soft") {
+            if !TONES.contains(&r.tone.as_str()) {
                 r.tone = "bell".into();
             }
         }
@@ -348,6 +353,36 @@ mod tests {
         assert_eq!(old.screenshot_key, Some(Hotkey::print_screen()));
         let none: Settings = serde_json::from_str(r#"{"screenshotKey":null}"#).expect("читается");
         assert_eq!(none.screenshot_key, None);
+    }
+
+    #[test]
+    fn every_tone_survives_and_an_unknown_one_becomes_the_bell() {
+        let reminders = TONES
+            .iter()
+            .chain(["gong"].iter())
+            .map(|tone| Reminder {
+                id: tone.to_string(),
+                name: "Eyes".into(),
+                color: "#64D2FF".into(),
+                tone: tone.to_string(),
+                interval_min: 20,
+                duration_sec: 20,
+                enabled: true,
+                reset_on_idle: true,
+            })
+            .collect();
+        let settings = Settings {
+            reminders,
+            ..Settings::default()
+        };
+        let tones: Vec<_> = settings
+            .sanitized()
+            .reminders
+            .into_iter()
+            .map(|r| r.tone)
+            .collect();
+        assert_eq!(&tones[..TONES.len()], TONES);
+        assert_eq!(tones[TONES.len()], "bell");
     }
 
     /// Settings saved before screen recording keep everything and get no record key.
