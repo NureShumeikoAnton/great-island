@@ -2,6 +2,8 @@
 //! may run. No network and no Windows: a manifest text and the clock come in, a decision goes out.
 //! Fetching, checking the signature and installing are the adapters' job (`adapters/`, later).
 
+pub mod signature;
+
 use crate::fault::{Cause, Failed};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};

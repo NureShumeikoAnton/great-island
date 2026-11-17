@@ -6,7 +6,7 @@
 ## Не выпущено
 
 ### Изменено
-- Проект переименован: Break Island → Great Island. Новое название везде: окна, значок в трее, установщик (`Great Island_…_x64-setup.exe`), `great-island.exe`, папка настроек `%APPDATA%com.greatisland.app`, раздел реестра `SoftwareGreat Island`. Настройки старой версии не переносятся; старую «Break Island» перед установкой нужно удалить.
+- Проект переименован: Break Island → Great Island. Новое название везде: окна, значок в трее, установщик (`Great Island_…_x64-setup.exe`), `great-island.exe`, папка настроек `%APPDATA%\com.greatisland.app`, раздел реестра `Software\Great Island`. Настройки старой версии не переносятся; старую «Break Island» перед установкой нужно удалить.
 
 ### Добавлено
 - Лицензия GPL-3.0-or-later (файл `LICENSE`): код можно использовать и менять, но изменённая версия остаётся открытой.

@@ -59,7 +59,7 @@ Code:
 - `src-tauri/src/montage/`: the video editor's rules (under tests), `splice.rs` the saved sound joined fragment by fragment and crossed at transitions; `Montage` holds the fragments in their order (each a source span with its speed, muted sound and zoom) and the transitions on their joins, cuts, removes and moves them, and says what a moment of the result shows; `curve.rs` the zoom and transition curves, `squeeze.rs` the compression modes and size estimates, `stretch.rs` sound sped up with its pitch kept (WSOLA), `strip.rs` the timeline's thumbnail moments and the sound's peaks, `watch.rs` watching an edit on two engines in turns (the next fragment waits on the second one, a transition plays both); `montage/adapters/`: Media Foundation reading a recording (facts, thumbnails on the video card, sound as floats) and `writer.rs` saving an edit with every effect on the video card. `examples/edit_probe.rs` measures opening and saves an edit with every effect in each compression mode, with frames of the result as PNG. The island's side of a save is `island/watch_save.rs`.
 - `src-tauri/src/gpu.rs`: the Direct3D video device the recording and the player hand to Media Foundation, BGRA textures read back into memory.
 - `src-tauri/src/select/`: area selection (under tests): what the pointer over a monitor picks: the lit window, a click, a drag around a window with a little room, Alt; `select/adapters/`: the windows on a monitor and their visible bounds.
-- `src-tauri/src/update/`: the update rules (under tests): which version is newer, what the user may do with an offer (only a patch can be skipped; an offer can be postponed by an hour up to 24 times), when a check may run (a day apart, after a minute without input and nothing important going on), the manifest and what the island remembers between runs. The network, the signature and the installer are adapters, not built yet.
+- `src-tauri/src/update/`: the update rules (under tests): which version is newer, what the user may do with an offer (only a patch can be skipped; an offer can be postponed by an hour up to 24 times), when a check may run (a day apart, after a minute without input and nothing important going on), the manifest and what the island remembers between runs. It also checks the installer's signature (`signature.rs`: the public key built in, the format `tauri signer` writes). The network and the installer are adapters, not built yet.
 - `src-tauri/src/media/`: media sessions, covers, player loudness, app icons.
 - `src-tauri/src/island/`: the island: one thread and one state (`App`).
   - `mod.rs` is the switchboard: the state, start and stop, the once-a-second tick, and which handler gets a window message or a timer. It holds no feature logic.
@@ -88,7 +88,9 @@ npx tauri build                      # exe and installer in src-tauri/target/rel
 cd src-tauri && cargo test           # logic tests: timers, gestures, ribbon, player
 ```
 
-Version history is in [CHANGELOG.md](CHANGELOG.md).
+Version history is in [CHANGELOG.en.md](CHANGELOG.en.md) (English) and [CHANGELOG.md](CHANGELOG.md) (Russian, the original).
+
+A release: `npx tauri build`, then `node scripts/release.mjs`. It signs the installer with the private key (kept outside the repository, `%USERPROFILE%\.great-island\update.key`), writes the update manifest `latest.json`, checks the signature the way the island does and prints the `gh release create` command. The script uploads nothing itself.
 
 The installer is not signed: on launch Windows shows SmartScreen, "More info" → "Run anyway".
 

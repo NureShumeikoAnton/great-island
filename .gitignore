@@ -32,3 +32,6 @@ backup/
 # Working tools of the author: kept on disk, not in the repository
 .claude/
 CLAUDE.md
+
+# Files of a release being prepared
+release/

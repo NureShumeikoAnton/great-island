@@ -97,6 +97,8 @@ windows = { version = "0.62", features = [
 ] }
 # Texts of the island in each language, embedded into the exe at build time (no files at runtime).
 rust-i18n = "4.2.4"
+minisign-verify = "0.3.0"
+base64 = "0.23.1"
 
 # Build for minimal size: https://tauri.app/concept/size/
 [profile.release]
