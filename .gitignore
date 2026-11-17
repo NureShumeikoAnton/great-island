@@ -35,3 +35,6 @@ CLAUDE.md
 
 # Files of a release being prepared
 release/
+
+# The author's release notes: how a release works, for him only
+RELEASE.md

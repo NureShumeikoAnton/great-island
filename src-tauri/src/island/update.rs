@@ -4,9 +4,10 @@
 //! problems), the update window (`update_app.rs`) and "About" in the settings (`settings_app.rs`). A check
 //! the user asked for and a check by the clock therefore look the same everywhere.
 //!
-//! A check by the clock is due at start and then once a day; it starts after a minute without input and
-//! only while nothing important goes on (`update::calm`). A release found opens the update window in the
-//! next calm moment (at once after a manual check). The window sends commands ([`Command`]): install,
+//! A check by the clock is due at start and then once a day. The one at start runs as soon as nothing
+//! important goes on; the daily one and the update window also wait for a minute without input
+//! (`update::calm`). A release found opens the update window in the next calm moment (at once after a
+//! manual check). The window sends commands ([`Command`]): install,
 //! postpone, skip. Installing: download on a thread, signature, then the installer is run silently and the
 //! island leaves; the installer puts the new version in place and starts the island again.
 //!
@@ -59,6 +60,8 @@ pub(super) struct Updates {
     spinning_since: u64,
     /// An answer that came before the spinner had turned: held, and whether the user asked for the check.
     answered: Option<(Answer, bool)>,
+    /// A check was started in this run: until then the clock's check doesn't wait for its day.
+    checked: bool,
     install: Option<Receiver<Step>>,
     window: Option<Child>,
     /// What the update notice says: its look, what happened, what to do.
@@ -80,6 +83,7 @@ impl Updates {
             check: None,
             spinning_since: 0,
             answered: None,
+            checked: false,
             install: None,
             window: None,
             notice: None,
@@ -117,12 +121,20 @@ impl App {
         if self.updates.working() || self.updates.window.is_some() {
             return;
         }
-        if !self.settings.check_updates || !update::calm(platform::idle_ms(), self.update_busy()) {
+        if !self.settings.check_updates || self.update_busy() {
             return;
         }
         let now = persist::now_ms();
         // After a failed check, or an update window that went away without an answer: not at once again.
         if now < self.updates.retry_at {
+            return;
+        }
+        // The first check of a run skips the quiet minute; a window or a daily check waits for it.
+        let calm = update::calm(platform::idle_ms(), false);
+        if !self.updates.checked {
+            return self.start_check(false);
+        }
+        if !calm {
             return;
         }
         if let Some(offer) = self.updates.offer.clone() {
@@ -211,6 +223,7 @@ impl App {
     }
 
     fn start_check(&mut self, manual: bool) {
+        self.updates.checked = true;
         let (sender, receiver) = mpsc::channel();
         // A HWND can't cross threads, a number can.
         let target = self.island.0 as isize;
@@ -314,6 +327,8 @@ impl App {
             }
             Err(failed) => {
                 self.updates.retry_at = now + RETRY_MS;
+                // The network may not be up yet when the island starts with Windows: the check at start is tried again.
+                self.updates.checked = manual;
                 self.updates.status = Status {
                     phase: Phase::Failed,
                     manual,

@@ -5,6 +5,16 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.7.2 — 2026-11-17
+
+### Changed
+
+- The update check also runs when the island starts, as soon as nothing important goes on, and then once a day. It used to be skipped at start when one had already run that day. If the network is not up yet (the island starts with Windows), the check at start is tried again an hour later.
+
+## 0.7.1 — 2026-11-17
+
+A small fix to the player.
+
 ### Fixed
 
 - Player: a swipe that starts on the title or the artist is now read, the downward one included. That area used to only copy the text, so no gesture started on it. A press without movement still copies.
