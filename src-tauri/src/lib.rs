@@ -28,6 +28,7 @@ mod scheduler;
 mod select;
 mod settings;
 mod settings_app;
+mod update_app;
 /// Public for `examples/shot_probe.rs`: probe of capture, PNG and hiding the window from captures.
 pub mod shot;
 mod sound;
@@ -47,6 +48,13 @@ pub fn run() {
             .find_map(|arg| arg.strip_prefix("--lang="))
             .and_then(lang::Lang::from_code);
         settings_app::run(island_lang);
+    } else if has("--update") {
+        crash::install(crash::Role::Settings);
+        let island_lang = args
+            .iter()
+            .find_map(|arg| arg.strip_prefix("--lang="))
+            .and_then(lang::Lang::from_code);
+        update_app::run(island_lang);
     } else {
         crash::install(crash::Role::Island);
         let attempt = args

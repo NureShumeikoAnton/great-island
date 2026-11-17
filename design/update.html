@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — обновления</title>
+<style>
+:root{
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --btn-bg:#2C2C2E;
+  --btn-hover:#3A3A3C;
+  --accent:#0A84FF;
+  --ok:#30D158;
+  --warn:#FF9F0A;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --desk:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:52px 0 6px;font-weight:700}
+.lead,.sub{color:var(--page-dim);max-width:900px;margin:0 0 16px}
+code{background:#202026;border-radius:5px;padding:1px 5px;font-size:12.5px}
+
+/* ═════ the island ═════ */
+.island{position:relative;margin:0 auto;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  height:30px;border-radius:15px;display:inline-flex;align-items:center;gap:8px;padding:0 14px 0 12px;
+  font-size:13px;font-weight:600;white-space:nowrap}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke)}
+.island .ic{display:grid}
+.island.card{height:58px;border-radius:29px;padding:0 20px 0 11px;gap:12px;font-weight:400;max-width:100%}
+.island.card .badge{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#1C1C1E;color:var(--text-2)}
+.island.card .meta{text-align:left;min-width:0}
+.island.card .t1{font-size:13.5px;font-weight:600;line-height:18px}
+.island.card .t2{font-size:12px;line-height:16px;color:var(--text-2)}
+.island.card.ok .badge{color:var(--ok)}
+.island.ok .ic{color:var(--ok)}
+.island.warn .ic{color:var(--warn)}
+.island.clock .ic{color:var(--text-2)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 900ms linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.cell{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:18px 10px 10px;text-align:center}
+.cell p{margin:12px 2px 0;font-size:12px;color:var(--page-dim)}
+
+/* ═════ the update window ═════ */
+.desk{position:relative;background:var(--desk);border:1px solid var(--page-line);border-radius:14px;padding:28px 12px;
+  display:flex;justify-content:center}
+.desk.row{gap:18px;flex-wrap:wrap;align-items:flex-start}
+.desk .cap{position:absolute;left:14px;top:8px;font-size:12px;color:rgba(255,255,255,.55)}
+.win{width:420px;background:var(--island-bg);color:var(--text-1);border-radius:22px;padding:20px 20px 18px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 0 0 1px var(--island-stroke);position:relative}
+.win .head{display:flex;gap:12px;align-items:center}
+.win .app{flex:none;width:44px;height:44px;border-radius:11px;background:linear-gradient(135deg,#FFB340,#FF7A00);display:grid;place-items:center}
+.win .app i{display:block;width:22px;height:11px;border-radius:6px;background:#000}
+.win h3{margin:0;font-size:17px;font-weight:700;line-height:22px}
+.win .ver{font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.win .close{position:absolute;top:12px;right:14px;color:var(--text-2);font-size:20px;line-height:1}
+.win .notes{margin:14px 0 0;max-height:150px;overflow:hidden;position:relative;font-size:12.5px;line-height:18px;color:#D1D1D6;
+  background:#0B0B0C;border-radius:12px;padding:10px 12px}
+.win .notes b{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);margin:0 0 4px;font-weight:600}
+.win .notes ul{margin:0;padding-left:16px}
+.win .notes li{margin:0 0 4px}
+.win .notes::after{content:"";position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(transparent,#0B0B0C)}
+.win .row{display:flex;gap:8px;margin-top:16px}
+.win .row.col{flex-direction:column}
+.btn{font:inherit;font-size:13px;font-weight:600;color:var(--text-1);background:var(--btn-bg);border:0;border-radius:999px;
+  padding:8px 16px;white-space:nowrap}
+.btn.main{background:var(--accent);color:#fff}
+.btn.quiet{background:transparent;color:var(--text-2);font-weight:500;padding:8px 10px}
+.win .row .grow{flex:1}
+.win .foot{margin-top:10px;font-size:11.5px;color:var(--text-2)}
+.bar{height:6px;border-radius:3px;background:#2C2C2E;overflow:hidden;margin-top:16px}
+.bar i{display:block;height:100%;width:62%;border-radius:3px;background:var(--accent)}
+.bar.run i{width:35%;animation:slide 1.4s ease-in-out infinite alternate}
+@keyframes slide{from{margin-left:0}to{margin-left:65%}}
+.stat{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+
+/* ═════ settings ═════ */
+.setdesk{background:#f3f3f3;border:1px solid var(--page-line);border-radius:14px;padding:24px;color:#1c1c1e}
+.setdesk .card{background:#fff;border-radius:12px;box-shadow:0 0 0 1px rgba(0,0,0,.09);padding:16px;max-width:560px;margin:0 auto;font-size:13px}
+.setdesk h4{margin:0 0 12px;font-size:20px;font-weight:700}
+.about{display:flex;gap:14px;align-items:center}
+.about .app{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,#FFB340,#FF7A00);display:grid;place-items:center}
+.about .app i{display:block;width:26px;height:13px;border-radius:7px;background:#000}
+.about .name{font-weight:700;font-size:16px}
+.about .v{color:#6e6e73}
+.setdesk .line{display:flex;align-items:center;gap:10px;margin-top:14px}
+.setdesk .b{font:inherit;font-size:13px;background:#fff;border:1px solid rgba(0,0,0,.14);border-radius:8px;padding:5px 12px}
+.setdesk .st{color:#6e6e73}
+.setdesk .links{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;color:#0a84ff}
+.setdesk .chk{display:inline-block;width:15px;height:15px;border-radius:4px;background:#0a84ff;vertical-align:-3px;margin-right:6px;position:relative}
+.setdesk .chk::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+td:first-child{color:var(--page-dim);width:220px}
+ol.q{max-width:900px;padding-left:22px}
+ol.q li{margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Обновления</h1>
+  <p class="lead">Остров сам проверяет, нет ли новой версии, и предлагает поставить её окном по центру экрана. Здесь всё, что человек видит: капсулы на острове, окно с вариантами для патча и минора, скачивание и блок «О программе» в настройках. Тексты даны на русском; на английском остров говорит то же.</p>
+
+  <h2>1. Капсулы на острове</h2>
+  <p class="sub">Как остальные индикаторы: высота 30, ширина по тексту, держатся несколько секунд. Проверка идёт в спокойный момент: минута без мыши и клавиатуры и не во время записи, редактора, окна просмотра, выбора области, полноэкранного приложения и напоминания.</p>
+  <div class="gallery">
+    <div class="cell"><span class="island"><span class="ic"><i class="spin"></i></span>Проверка обновлений</span>
+      <p>Идёт проверка. Белый текст, спиннер крутится композитором. Показывается при каждой проверке, и ежедневной тоже.</p></div>
+    <div class="cell"><span class="island ok"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.6 8.3l2.2 2.2 4.6-4.9" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Обновлений нет</span>
+      <p>Новой версии нет. По-английски «Up to date». Держится 3 с.</p></div>
+    <div class="cell"><span class="island card"><span class="badge"><svg width="20" height="20" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6V8l2.3 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="meta"><div class="t1">Уведомление будет показано в 15:40</div><div class="t2">Откладывать можно до 18.11, 14:20</div></span></span>
+      <p>После «Отложить на час». Карточка, как анонс нового трека у плеера. Держится 5 с.</p></div>
+    <div class="cell"><span class="island card ok"><span class="badge"><svg width="20" height="20" viewBox="0 0 16 16"><path d="M3 3.2l6 4.8-6 4.8z M10.6 3.2v9.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg></span><span class="meta"><div class="t1">Версия 0.7.1 пропущена</div><div class="t2">Поставить её можно вручную: Настройки → О программе</div></span></span>
+      <p>После «Пропустить» (только патч). Эта версия больше не проверяется; «Проверить обновления» вручную её предложит снова. Держится 6 с.</p></div>
+    <div class="cell"><span class="island warn"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.8c.5 0 .9.25 1.15.68l5.6 9.9c.5.9-.14 1.97-1.15 1.97H2.4c-1 0-1.65-1.08-1.15-1.97l5.6-9.9C7.1 2.05 7.5 1.8 8 1.8z" fill="currentColor"/><rect x="7.2" y="5.6" width="1.6" height="4" rx=".8" fill="#000"/><circle cx="8" cy="11.4" r=".9" fill="#000"/></svg></span>Не удалось проверить обновления</span>
+      <p>Только после ручной проверки («Проверить обновления» в настройках). Фоновая ошибка идёт в журнал, без капсулы.</p></div>
+  </div>
+
+  <h2>2. Окно «Доступно обновление»</h2>
+  <p class="sub">Окно по центру монитора острова, поверх остальных, не забирает фокус (человек в этот момент отошёл). Заметки на языке интерфейса, как в ченджлоге; длинные прокручиваются колесом. Крестик и Esc действуют как «Отложить на час».</p>
+
+  <div class="desk row">
+    <span class="cap">Патч: 0.7.0 → 0.7.1</span>
+    <div class="win">
+      <span class="close">×</span>
+      <div class="head"><span class="app"><i></i></span><div><h3>Доступно обновление</h3><div class="ver">Great Island 0.7.1 · вы на 0.7.0</div></div></div>
+      <div class="notes"><b>Что нового</b><ul><li>Исправлено: остров не перезапускался после обновления на втором мониторе.</li><li>Исправлено: окно настроек иногда открывалось без языка.</li><li>Журнал стал подробнее для плеера.</li></ul></div>
+      <div class="row"><button class="btn main grow">Установить</button></div>
+      <div class="row"><button class="btn grow">Отложить на час</button><button class="btn grow">Пропустить</button></div>
+    </div>
+    <div class="win">
+      <span class="close">×</span>
+      <div class="head"><span class="app"><i></i></span><div><h3>Доступно обновление</h3><div class="ver">Great Island 0.8.0 · вы на 0.7.1</div></div></div>
+      <div class="notes"><b>Что нового</b><ul><li>Добавлено: напоминание «Пора встать» с настройкой по дням недели.</li><li>Добавлено: больше звуков.</li><li>Изменено: настройки собраны по темам.</li></ul></div>
+      <div class="row"><button class="btn main grow">Установить</button><button class="btn grow">Отложить на час</button></div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:12px">Слева патч (0.0.x), справа минор: у него нет «Пропустить». Сколько ещё можно откладывать, окно не пишет: это есть в уведомлении после «Отложить на час».</p>
+
+  <div class="desk row">
+    <span class="cap">Сутки с первого показа прошли</span>
+    <div class="win">
+      <div class="head"><span class="app"><i></i></span><div><h3>Доступно обновление</h3><div class="ver">Great Island 0.8.0 · вы на 0.7.1</div></div></div>
+      <div class="notes"><b>Что нового</b><ul><li>Добавлено: напоминание «Пора встать» с настройкой по дням недели.</li><li>Добавлено: больше звуков.</li></ul></div>
+      <div class="row"><button class="btn main grow">Установить</button></div>
+    </div>
+  </div>
+
+  <h2>3. Скачивание и установка</h2>
+  <p class="sub">После «Установить» то же окно меняет содержимое, кнопок нет. Крестик скрыт. Если сеть оборвалась или подпись не совпала, окно закрывается и остров говорит об ошибке обычной капсулой.</p>
+  <div class="desk row">
+    <span class="cap">Скачивание и установка</span>
+    <div class="win">
+      <div class="head"><span class="app"><i></i></span><div><h3>Скачиваю 0.8.0…</h3><div class="ver">Проверяю подпись после скачивания</div></div></div>
+      <div class="bar"><i></i></div>
+      <div class="stat"><span>1,0 из 1,6 МБ</span><span>62 %</span></div>
+    </div>
+    <div class="win">
+      <div class="head"><span class="app"><i></i></span><div><h3>Устанавливаю 0.8.0…</h3><div class="ver">Остров перезапустится сам, на это нужно несколько секунд</div></div></div>
+      <div class="bar run"><i></i></div>
+    </div>
+  </div>
+
+  <h2>4. Настройки → «О программе»</h2>
+  <p class="sub">Внизу окна настроек, после «Общие». Выключатель проверки лежит здесь же. Всё остальное можно переключить и без перезапуска.</p>
+  <div class="setdesk">
+    <div class="card">
+      <h4>О программе</h4>
+      <div class="about"><span class="app"><i></i></span><div><div class="name">Great Island</div><div class="v">Версия 0.7.0 · GPL-3.0-or-later</div></div></div>
+      <div class="line"><button class="b">Проверить обновления</button><span class="st">Установлена последняя версия</span></div>
+      <div class="line"><button class="b">Установить 0.7.1</button><span class="st">Эту версию вы пропустили, но её можно поставить сейчас</span></div>
+      <div class="line"><span><span class="chk"></span>Проверять обновления автоматически</span></div>
+      <div class="links"><span>Страница проекта</span><span>Список изменений</span><span>Лицензия</span><span>Открыть журнал</span></div>
+    </div>
+  </div>
+
+  <h2>Общее</h2>
+  <table>
+    <tr><td>Когда проверка</td><td>Через минуту без мыши и клавиатуры, при запуске и дальше раз в сутки. Не во время записи, редактора, окна просмотра, выбора области, полноэкранного приложения и напоминания.</td></tr>
+    <tr><td>Когда окно</td><td>В тот же спокойный момент. Откладывание сдвигает окно на час; если после этого человек за компьютером, оно ждёт следующей тишины.</td></tr>
+    <tr><td>Откладывание</td><td>Каждое на час, в течение суток с первого показа этой версии. В уведомлении написано до какой даты и времени; после него в окне только «Установить». Новая версия начинает отсчёт заново.</td></tr>
+    <tr><td>Пропуск</td><td>Только патч (0.0.x); пока версия 0.x, минор пропустить нельзя. После «Пропустить» остров говорит, что версию можно поставить вручную; сама она больше не проверяется и не предлагается. Ручная «Проверить обновления» предложит её снова.</td></tr>
+    <tr><td>Принуждение</td><td>Нет. Ничего не ставится без нажатия «Установить», а во время записи не ставится никогда.</td></tr>
+    <tr><td>Ошибка</td><td>Фоновая — в журнал. Ручная («Проверить обновления») — капсула. Подпись не совпала — установщик не запускается, в журнал и в капсулу.</td></tr>
+    <tr><td>Выключено</td><td>Выключатель «Проверять обновления автоматически» гасит и проверку, и окно. Ручная кнопка остаётся.</td></tr>
+  </table>
+
+  <h2>Что нужно подтвердить</h2>
+  <ol class="q">
+    <li>Тексты капсул и окна (особенно «Уведомление будет показано в 15:40» и «Обновлений нет» вместо «Up to date»).</li>
+    <li>Крестик и Esc считаются «Отложить на час». Когда откладывать нельзя, крестика нет.</li>
+    <li>Откладывание считается сутками с первого показа (а не «24 раза»): так в уведомлении можно написать точное время. Окно ничего не пишет про лимит.</li>
+    <li>Окно не забирает фокус и стоит на мониторе острова.</li>
+    <li>Блок «О программе» внизу настроек в таком виде, ссылки: страница проекта, список изменений, лицензия, журнал.</li>
+  </ol>
+</div>
+</body>
+</html>

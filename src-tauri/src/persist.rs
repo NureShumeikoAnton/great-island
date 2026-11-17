@@ -24,6 +24,19 @@ pub fn state_path() -> PathBuf {
     config_dir().join("timers.json")
 }
 
+pub fn update_memory_path() -> PathBuf {
+    config_dir().join("update.json")
+}
+
+/// Where an update stands (`crate::update::Status`): the island writes it, the other windows read it.
+pub fn update_status_path() -> PathBuf {
+    config_dir().join("update-status.json")
+}
+
+pub fn update_offer_path() -> PathBuf {
+    config_dir().join("update-offer.json")
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedState {

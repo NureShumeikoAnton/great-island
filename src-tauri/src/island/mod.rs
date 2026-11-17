@@ -33,6 +33,7 @@ mod marks;
 mod overlay;
 mod player;
 mod problem;
+mod update;
 mod record;
 mod record_panel;
 mod reminders;
@@ -64,6 +65,7 @@ use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
 use player::Player;
 use problem::Problems;
+use update::Updates;
 use record::Recording;
 use record_panel::RecordPanel;
 use reminders::Reminders;
@@ -79,7 +81,9 @@ use std::{
 use tray::{Command, HiddenState, Tray};
 use view::Scene;
 use watch::Watch;
-use window::{WM_CONTROLS, WM_DEMO, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD, WM_SAVE};
+use window::{
+    WM_CONTROLS, WM_DEMO, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD, WM_SAVE, WM_UPDATE,
+};
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
@@ -143,6 +147,8 @@ mod timers {
     pub const MARKS_GONE: usize = 27;
     pub const WATCH_SHOW: usize = 28;
     pub const WATCH_HIDE: usize = 29;
+    /// The spinner of an update check has not turned once yet: the answer waits for it.
+    pub const UPDATE: usize = 30;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -347,6 +353,7 @@ struct App {
     select: Select,
     hotkeys: Hotkeys,
     problems: Problems,
+    updates: Updates,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -454,6 +461,7 @@ impl App {
             select: Select::default(),
             hotkeys: Hotkeys::default(),
             problems,
+            updates: Updates::new(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -529,6 +537,8 @@ impl App {
             WM_CONTROLS => self.on_controls(),
             WM_RECORD => self.on_record_events(),
             WM_SAVE => self.on_video_save(),
+            WM_UPDATE => self.on_update_message(),
+            crate::update::COMMAND_MESSAGE => self.on_update_command(wparam.0),
             WM_FAULT => self.on_faults(),
             WM_DEMO => self.demo_problem(wparam.0 != 0),
             WM_OPEN_SETTINGS => self.open_settings(),
@@ -574,6 +584,7 @@ impl App {
             timers::VIEWER_HIDE => self.on_viewer_hide(),
             timers::WATCH_SHOW => self.on_watch_show(),
             timers::WATCH_HIDE => self.on_watch_hide(),
+            timers::UPDATE => self.on_update_timer(),
             timers::COUNTDOWN => self.on_countdown_timer(),
             timers::CLIP_CLOSE => self.on_clip_close(),
             timers::REPLAY => self.on_replay(),
@@ -597,6 +608,7 @@ impl App {
 
         self.check_settings();
         self.follow_monitor();
+        self.tick_updates();
         self.sync_record_time();
         self.tick_visibility();
         self.tick_reminders(dt);

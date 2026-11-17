@@ -7,11 +7,14 @@
 ; screen button to open screen capture"; the island by default
 ; takes screenshots on PrtSc as soon as it is free.
 !macro NSIS_HOOK_POSTINSTALL
+  ; An update keeps the language the island already has: a silent installer knows only the system's one.
+  StrCmp $UpdateMode 1 bi_language_done
   ; The island starts in the language picked for the installer (1049 = Russian, otherwise English).
   StrCpy $1 "en"
   StrCmp $LANGUAGE 1049 0 +2
   StrCpy $1 "ru"
   WriteRegStr HKCU "Software\Great Island" "Language" $1
+  bi_language_done:
 
   IfSilent bi_prtsc_done
   ReadRegDWORD $0 HKCU "Software\Great Island" "PrintScreenAsked"

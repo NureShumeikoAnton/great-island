@@ -57,6 +57,12 @@ pub enum NoticeKind {
     Recording,
     Clip,
     Discarded,
+    /// A check for an update is running: held until it ends.
+    UpdateChecking,
+    /// The check found nothing.
+    UpdateDone,
+    /// The answer to a button of the update window: postponed or skipped.
+    UpdateAnswer,
     Warning,
     Failure,
 }
@@ -76,6 +82,9 @@ impl NoticeKind {
             | Self::Recording
             | Self::Clip
             | Self::Discarded
+            | Self::UpdateChecking
+            | Self::UpdateDone
+            | Self::UpdateAnswer
             | Self::Warning
             | Self::Failure => None,
         }
@@ -91,6 +100,9 @@ impl NoticeKind {
             // A screenshot answers the button just pressed: more important than news.
             Self::Shutter | Self::Shot | Self::Countdown | Self::Clip => 80,
             Self::Sound | Self::Microphone | Self::Discarded => 70,
+            Self::UpdateAnswer => 75,
+            Self::UpdateDone => 65,
+            Self::UpdateChecking => 35,
             Self::Track => 60,
             Self::Paused => 40,
             // A state ranks lowest: news briefly sits over it.
@@ -103,7 +115,14 @@ impl NoticeKind {
     /// How long a notice stays on screen. `None` = until the source removes it.
     fn duration_ms(self) -> Option<u64> {
         match self {
-            Self::Alert | Self::Shutter | Self::Viewing | Self::Countdown | Self::Recording => None,
+            Self::Alert
+            | Self::Shutter
+            | Self::Viewing
+            | Self::Countdown
+            | Self::Recording
+            | Self::UpdateChecking => None,
+            Self::UpdateDone => Some(3000),
+            Self::UpdateAnswer => Some(5000),
             Self::AlertDone => Some(1500),
             Self::Shot | Self::Clip => Some(6000),
             Self::Sound | Self::Microphone | Self::Discarded => Some(2000),
@@ -127,8 +146,12 @@ impl NoticeKind {
             | Self::Recording
             | Self::Clip
             // A problem is not news that goes stale: it waits until it can be shown.
+            | Self::UpdateAnswer
             | Self::Warning
             | Self::Failure => None,
+            // Nobody wants "checking" or "up to date" after the moment has passed.
+            Self::UpdateChecking => Some(500),
+            Self::UpdateDone => Some(2000),
             Self::AlertDone | Self::Paused | Self::Sound | Self::Microphone | Self::Discarded => {
                 Some(1000)
             }
@@ -149,7 +172,10 @@ impl NoticeKind {
     /// Passes the island's Do Not Disturb: a priority notice and replies to the user's own actions
     /// (Done, sound muted by key). Self-arriving news (track announce, player pause) doesn't pass.
     fn passes_quiet(self) -> bool {
-        !matches!(self, Self::Track | Self::Paused)
+        !matches!(
+            self,
+            Self::Track | Self::Paused | Self::UpdateChecking | Self::UpdateDone
+        )
     }
 
     /// A reminder can't be swiped away: it is closed by Done or by time. Same for a screenshot:

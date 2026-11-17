@@ -1,0 +1,216 @@
+/* The update window: the island's own look (black, rounded), on a transparent window. */
+html[data-window="update"],
+html[data-window="update"] body {
+  background: transparent;
+  color: #f5f5f7;
+  font-size: 13px;
+  overflow: hidden;
+  user-select: none;
+}
+
+html[data-window="update"] #root {
+  display: block;
+}
+
+.win {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 22px;
+  padding: 20px 20px 18px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  /* The window is shown once its size is right; this fade-in starts then, and the same one runs backwards on leaving. */
+  opacity: 0;
+  transform: translateY(6px) scale(0.985);
+  transition:
+    opacity 220ms ease,
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.win.shown {
+  opacity: 1;
+  transform: none;
+}
+
+.win.shown.out {
+  opacity: 0;
+  transform: scale(0.985);
+  transition-duration: 160ms;
+}
+
+.win .head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-right: 18px;
+}
+
+.win .app {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #ffb340, #ff7a00);
+  display: grid;
+  place-items: center;
+}
+
+.win .app i {
+  display: block;
+  width: 22px;
+  height: 11px;
+  border-radius: 6px;
+  background: #000;
+}
+
+.win h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.win .ver {
+  font-size: 12.5px;
+  color: #8e8e93;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.win .close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8e8e93;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.win .close:hover {
+  color: #f5f5f7;
+}
+
+.win .notes {
+  margin: 14px 0 0;
+  max-height: 170px;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: #d1d1d6;
+  background: #0b0b0c;
+  border-radius: 12px;
+  padding: 10px 12px;
+  user-select: text;
+}
+
+.win .notes b {
+  display: block;
+  margin: 8px 0 3px;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8e8e93;
+  font-weight: 600;
+}
+
+.win .notes b.title {
+  margin-top: 0;
+}
+
+.win .notes ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.win .notes li {
+  margin: 0 0 4px;
+}
+
+.win .notes p {
+  margin: 0 0 4px;
+}
+
+.win .row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.win .row:first-of-type {
+  margin-top: 16px;
+}
+
+.win .btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5f5f7;
+  background: #2c2c2e;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.win .btn:hover {
+  background: #3a3a3c;
+}
+
+.win .btn.main {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.win .btn.main:hover {
+  background: #2f95ff;
+}
+
+.win .btn.grow {
+  flex: 1;
+}
+
+.win .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #2c2c2e;
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.win .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #0a84ff;
+  transition: width 320ms linear;
+}
+
+.win .bar.run i {
+  width: 35%;
+  animation: slide 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes slide {
+  from {
+    margin-left: 0;
+  }
+  to {
+    margin-left: 65%;
+  }
+}
+
+.win .stat {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #8e8e93;
+  font-variant-numeric: tabular-nums;
+}

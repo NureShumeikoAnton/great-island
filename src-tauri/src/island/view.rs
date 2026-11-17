@@ -17,6 +17,7 @@ mod shot;
 mod status;
 mod swipe;
 mod timers;
+mod update;
 mod viewing;
 
 pub use card::{CardModel, CardPhase, Video};
@@ -28,6 +29,7 @@ pub use problem::ProblemModel;
 pub use record::RecordModel;
 pub use shot::SHUTTER_MS;
 pub use status::Modes;
+pub use update::{UpdateLook, UpdateModel};
 pub use viewing::HOLD_MS;
 
 use super::comp::{Comp, Motion, Text, TextStyle, color, scale, snap, v2, v3};
@@ -86,6 +88,8 @@ pub enum Mode {
     Problem {
         open: bool,
     },
+    /// A check for an update, its result or the answer to the update window.
+    Update,
 }
 
 impl Mode {
@@ -193,6 +197,7 @@ pub struct Model<'a> {
     pub record: Option<RecordModel>,
     pub countdown: Option<u32>,
     pub problem: Option<ProblemModel<'a>>,
+    pub update: Option<UpdateModel<'a>>,
     pub panel: Option<PanelModel<'a>>,
 }
 
@@ -432,6 +437,7 @@ impl Scene {
             Mode::Recording => self.recording_size(model),
             Mode::Discarded => (self.discarded_width().round(), 30.0),
             Mode::Problem { open } => self.problem_size(model, open),
+            Mode::Update => self.update_size(model),
         }
     }
 
@@ -645,6 +651,7 @@ impl Scene {
             Mode::Recording => self.build_recording(&mut content)?,
             Mode::Discarded => self.build_discarded(&mut content)?,
             Mode::Problem { open } => self.build_problem(model, open, &mut content)?,
+            Mode::Update => self.build_update(model, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -685,7 +692,11 @@ impl Scene {
             Mode::Recording => self.update_recording(model, content)?,
             Mode::Countdown => self.update_countdown(model, content)?,
             Mode::Viewing => self.update_viewing(model, content)?,
-            Mode::Indicator(..) | Mode::Shutter | Mode::Discarded | Mode::Problem { .. } => {}
+            Mode::Indicator(..)
+            | Mode::Shutter
+            | Mode::Discarded
+            | Mode::Problem { .. }
+            | Mode::Update => {}
         }
         Ok(())
     }
@@ -836,6 +847,13 @@ fn content_key(model: &Model) -> String {
                 model.viewing.map(Arc::as_ptr),
                 model.viewing_play.is_some()
             );
+        }
+        (Mode::Update, _) => {
+            let (look, title, reason) = model.update.as_ref().map_or(
+                (UpdateLook::Checking, "", ""),
+                |u| (u.look, u.title, u.reason),
+            );
+            return format!("Update|{look:?}|{title}|{reason}");
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model

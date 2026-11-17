@@ -67,6 +67,8 @@ pub struct Settings {
     /// The video window's length shows the time left instead.
     pub video_remaining: bool,
     pub autostart: bool,
+    /// Look for a new version by itself (a day apart, in a quiet moment). The manual check stays.
+    pub check_updates: bool,
     pub language: Language,
 }
 
@@ -163,6 +165,7 @@ impl Settings {
             video_muted: false,
             video_remaining: false,
             autostart: false,
+            check_updates: true,
             language: Language::default(),
         }
     }
@@ -362,6 +365,7 @@ mod tests {
         assert!(old.record.fade);
         assert_eq!(old.recordings_dir, "");
         assert_eq!(old.island_monitor, "");
+        assert!(old.check_updates);
         assert_eq!(old.video_volume, 1.0);
         assert!(!old.video_muted);
         assert!(!old.video_remaining);

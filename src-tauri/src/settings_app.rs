@@ -51,7 +51,7 @@ fn save_settings(settings: Settings) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-fn current_language() -> &'static str {
+pub fn current_language() -> &'static str {
     lang::current().code()
 }
 
@@ -60,7 +60,7 @@ fn language_pending(choice: Language) -> bool {
     lang::pending(choice)
 }
 
-fn select_language(choice: Language) {
+pub(crate) fn select_language(choice: Language) {
     if let Some(failed) = lang::select(choice) {
         // The island tells the user; this process only leaves a line.
         journal::fault(&Fault::new(What::Language, failed));
@@ -221,6 +221,39 @@ fn pick(owner: Option<isize>, current: &str, recordings: bool) -> Option<String>
     }
 }
 
+/// The frontend is embedded once; the update window runs on the same one.
+pub(crate) fn context() -> tauri::Context {
+    tauri::generate_context!()
+}
+
+#[derive(serde::Serialize)]
+struct AppInfo {
+    version: &'static str,
+    license: &'static str,
+}
+
+#[tauri::command]
+fn app_info() -> AppInfo {
+    AppInfo {
+        version: env!("CARGO_PKG_VERSION"),
+        license: "GPL-3.0-or-later",
+    }
+}
+
+/// Only the project's own pages: the web view never passes an address it was not given.
+#[tauri::command]
+fn open_project_page(page: String) -> bool {
+    const HOME: &str = "https://github.com/NureShumeikoAnton/great-island";
+    let url = match page.as_str() {
+        "home" => HOME.to_string(),
+        "license" => format!("{HOME}/blob/main/LICENSE"),
+        "changes" if lang::current() == Lang::Ru => format!("{HOME}/blob/main/CHANGELOG.md"),
+        "changes" => format!("{HOME}/blob/main/CHANGELOG.en.md"),
+        _ => return false,
+    };
+    crate::capture::adapters::open(std::path::Path::new(&url)).is_ok()
+}
+
 /// `island_lang` = the language of the island that opened this window.
 pub fn run(island_lang: Option<Lang>) {
     match island_lang {
@@ -265,9 +298,13 @@ pub fn run(island_lang: Option<Lang>) {
             check_hotkey,
             release_print_screen,
             list_displays,
+            app_info,
+            crate::update_app::update_status,
+            crate::update_app::update_command,
+            open_project_page,
             open_journal
         ])
-        .run(tauri::generate_context!())
+        .run(context())
         // The panic hook tells the user: without WebView2 there is no window to say it in.
         .expect("the settings window did not open");
 }

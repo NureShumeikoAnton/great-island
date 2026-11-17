@@ -104,6 +104,11 @@ media/meter.rs, media/worker.rs — which player was found (a Yandex Browser-lik
 media/app.rs — bringing the player window to the front (the window is minimized to the tray, a Microsoft Store app)
 
 == The installer ==
+update/adapters/http.rs — fetching the manifest and the installer over WinHTTP (no network, a proxy or a firewall that refuses, GitHub unavailable, a server that answers with an error, a stalled download; a background check goes to the journal once, then waits an hour)
+update/adapters/mod.rs — update.json, update-offer.json and update-status.json in the settings folder (the folder is unavailable: the postponement or the offer is forgotten, the windows show nothing; only the island writes the status)
+update/adapters/process.rs — starting the update window and the installer (the exe is gone, an antivirus blocks the installer); sending the island a command from another window (no island runs: the settings say so)
+island/update.rs — installing (on its own thread): the signature does not match or the file is not the announced size (the file is deleted, nothing runs), no room in the temp folder, the installer cannot start; a manual check that fails or an install that fails is a notice on the island (UPD-CHECK, UPD-INSTALL), a check by the clock only a journal line
+platform.rs — the local time of a postponed update (no time zone: UTC is shown)
 windows/hooks.nsh — the PrtSc question uses $LANGUAGE (1049 = Russian, otherwise English), and the chosen language goes to the registry (HKCU\Software\Great Island\Language, read by platform.rs at the first start); tauri.conf.json — installer languages and the language picker (not checked by a live installer run)
 
 == The settings window ==

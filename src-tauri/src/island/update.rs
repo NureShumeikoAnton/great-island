@@ -1,0 +1,590 @@
+//! Updates on the island. The island owns the whole thing: it checks, it keeps the state
+//! ([`Status`], written to `update-status.json` at every change), it downloads and installs. Everything
+//! else only shows that state and sends commands: the island's own notices (a spinner, a check mark, cards,
+//! problems), the update window (`update_app.rs`) and "About" in the settings (`settings_app.rs`). A check
+//! the user asked for and a check by the clock therefore look the same everywhere.
+//!
+//! A check by the clock is due at start and then once a day; it starts after a minute without input and
+//! only while nothing important goes on (`update::calm`). A release found opens the update window in the
+//! next calm moment (at once after a manual check). The window sends commands ([`Command`]): install,
+//! postpone, skip. Installing: download on a thread, signature, then the installer is run silently and the
+//! island leaves; the installer puts the new version in place and starts the island again.
+//!
+//! Rules: `crate::update`. The network, the files and the processes: `crate::update::adapters`.
+
+use super::{App, view::UpdateLook, window::WM_UPDATE};
+use crate::{
+    fault::{Failed, Fault, What},
+    journal,
+    lang::{self, tr},
+    persist, platform,
+    stage::NoticeKind,
+    update::{
+        self, Command, Manifest, Memory, OfferView, Phase, Status, Verdict, Version,
+        adapters::{self, http, process},
+        signature,
+    },
+};
+use std::{
+    path::PathBuf,
+    process::Child,
+    sync::mpsc::{self, Receiver},
+};
+use windows::Win32::{
+    Foundation::{HWND, LPARAM, WPARAM},
+    UI::WindowsAndMessaging::PostMessageW,
+};
+
+/// After a failed check the next one waits this long, not for a day and not for the next tick.
+const RETRY_MS: u64 = 60 * 60 * 1000;
+/// The spinner turns at least once, even when the answer comes at once: a flash is not a status.
+const MIN_SPIN_MS: u64 = 900;
+const WRITE_EVERY_MS: u64 = 250;
+
+type Answer = Result<Manifest, Failed>;
+
+enum Step {
+    Bytes { done: u64, total: u64 },
+    Ready(PathBuf),
+    Failed(Failed),
+}
+
+pub(super) struct Updates {
+    memory: Memory,
+    /// The newest release found and not yet installed; also in `update-offer.json`.
+    offer: Option<Manifest>,
+    status: Status,
+    check: Option<Receiver<Answer>>,
+    /// Island ms when the spinner came up.
+    spinning_since: u64,
+    /// An answer that came before the spinner had turned: held, and whether the user asked for the check.
+    answered: Option<(Answer, bool)>,
+    install: Option<Receiver<Step>>,
+    window: Option<Child>,
+    /// What the update notice says: its look, what happened, what to do.
+    notice: Option<(UpdateLook, String, String)>,
+    /// Unix ms: no new check and no new window before it.
+    retry_at: u64,
+    /// A failed check by the clock goes to the journal once, until one succeeds.
+    said: bool,
+    /// Island ms of the last write of the status during a download.
+    written: u64,
+}
+
+impl Updates {
+    pub(super) fn new() -> Self {
+        let this = Self {
+            memory: adapters::load_memory(),
+            offer: adapters::load_offer(),
+            status: Status::default(),
+            check: None,
+            spinning_since: 0,
+            answered: None,
+            install: None,
+            window: None,
+            notice: None,
+            retry_at: 0,
+            said: false,
+            written: 0,
+        };
+        // A file left by the last run says nothing about this one.
+        let _ = adapters::save_status(&this.status);
+        this
+    }
+
+    fn working(&self) -> bool {
+        self.check.is_some() || self.answered.is_some() || self.install.is_some()
+    }
+}
+
+fn current() -> Version {
+    env!("CARGO_PKG_VERSION")
+        .parse()
+        .expect("the package version is x.y.z")
+}
+
+impl App {
+    pub(super) fn update_notice(&self) -> Option<(UpdateLook, String, String)> {
+        self.updates.notice.clone()
+    }
+
+    /// Once a second.
+    pub(super) fn tick_updates(&mut self) {
+        self.take_window();
+        self.take_check();
+        self.settle_answer();
+        self.drain_install();
+        if self.updates.working() || self.updates.window.is_some() {
+            return;
+        }
+        if !self.settings.check_updates || !update::calm(platform::idle_ms(), self.update_busy()) {
+            return;
+        }
+        let now = persist::now_ms();
+        // After a failed check, or an update window that went away without an answer: not at once again.
+        if now < self.updates.retry_at {
+            return;
+        }
+        if let Some(offer) = self.updates.offer.clone() {
+            match update::judge(current(), offer.version, &self.updates.memory, now) {
+                Verdict::Offer(_) => return self.open_update_window(&offer, now),
+                // Installed meanwhile (by hand, or by the window): nothing to offer any more.
+                Verdict::UpToDate => {
+                    self.updates.offer = None;
+                    adapters::clear_offer();
+                }
+                Verdict::Skipped | Verdict::Waiting { .. } => {}
+            }
+        }
+        if self.updates.memory.check_due(now) {
+            self.start_check(false);
+        }
+    }
+
+    fn update_busy(&self) -> bool {
+        let others = self.stage.shown().notice.is_some_and(|n| {
+            !matches!(
+                n.kind,
+                NoticeKind::UpdateChecking | NoticeKind::UpdateDone | NoticeKind::UpdateAnswer
+            )
+        });
+        others
+            || self.fullscreen
+            || self.recording_on()
+            || self.recording.countdown.is_some()
+            || self.selecting()
+            || self.has_card()
+            || self.expanded
+            || self.stage.shown().menu
+            || self.scheduler.has_alert()
+            || self.shots.viewing.is_some()
+            || self.watch.watching.is_some()
+    }
+
+    pub(super) fn on_update_command(&mut self, code: usize) {
+        let Some(command) = Command::from_code(code) else {
+            return;
+        };
+        let now = persist::now_ms();
+        match command {
+            Command::Check if !self.updates.working() => self.start_check(true),
+            Command::Check => {}
+            Command::OpenWindow => {
+                if let Some(offer) = self.updates.offer.clone() {
+                    self.open_update_window(&offer, now);
+                }
+            }
+            Command::Install => self.start_install(),
+            Command::Postpone => self.postpone_update(now),
+            Command::Skip => self.skip_update(),
+        }
+    }
+
+    fn postpone_update(&mut self, now: u64) {
+        let Some(offer) = self.updates.offer.clone() else {
+            return;
+        };
+        if self.updates.memory.postpone(offer.version, now).is_some() {
+            self.save_update_memory();
+            self.say_postponed();
+        }
+    }
+
+    fn skip_update(&mut self) {
+        let Some(offer) = self.updates.offer.clone() else {
+            return;
+        };
+        if !update::Bump::between(current(), offer.version).is_some_and(update::Bump::can_skip) {
+            return;
+        }
+        self.updates.memory.skip(offer.version);
+        self.save_update_memory();
+        self.updates.offer = None;
+        adapters::clear_offer();
+        self.updates.status = Status::default();
+        self.publish_update();
+        self.say(
+            UpdateLook::Skipped,
+            tr!("update.skipped", version = offer.version).into_owned(),
+            tr!("update.skipped_hint").into_owned(),
+        );
+    }
+
+    fn start_check(&mut self, manual: bool) {
+        let (sender, receiver) = mpsc::channel();
+        // A HWND can't cross threads, a number can.
+        let target = self.island.0 as isize;
+        let spawned = std::thread::Builder::new()
+            .name("update check".into())
+            .spawn(move || {
+                let _ = sender.send(adapters::fetch_manifest());
+                post_to(target);
+            });
+        if let Err(e) = spawned {
+            return self.finish_check(Err(e.into()), manual);
+        }
+        self.updates.check = Some(receiver);
+        self.updates.spinning_since = self.now_ms();
+        self.updates.status = Status {
+            phase: Phase::Checking,
+            manual,
+            ..Status::default()
+        };
+        self.publish_update();
+        self.say(
+            UpdateLook::Checking,
+            tr!("update.checking").into_owned(),
+            String::new(),
+        );
+    }
+
+    /// A thread has something to say.
+    pub(super) fn on_update_message(&mut self) {
+        self.take_check();
+        self.drain_install();
+    }
+
+    fn take_check(&mut self) {
+        let Some(answer) = self.updates.check.as_ref().and_then(|c| c.try_recv().ok()) else {
+            return;
+        };
+        self.updates.check = None;
+        let manual = self.updates.status.manual;
+        self.updates.answered = Some((answer, manual));
+        self.settle_answer();
+    }
+
+    /// The answer is shown once the spinner has turned; if it came sooner, a timer brings it back.
+    fn settle_answer(&mut self) {
+        if self.updates.answered.is_none() {
+            return;
+        }
+        let spun = self.now_ms().saturating_sub(self.updates.spinning_since);
+        if spun < MIN_SPIN_MS {
+            self.set_timer(super::timers::UPDATE, (MIN_SPIN_MS - spun) as u32 + 10);
+            return;
+        }
+        if let Some((answer, manual)) = self.updates.answered.take() {
+            self.finish_check(answer, manual);
+        }
+    }
+
+    pub(super) fn on_update_timer(&mut self) {
+        self.kill_timer(super::timers::UPDATE);
+        self.settle_answer();
+    }
+
+    fn finish_check(&mut self, answer: Answer, manual: bool) {
+        let now = persist::now_ms();
+        let mut changed = self.stage.end(NoticeKind::UpdateChecking, self.now_ms());
+        match answer {
+            Ok(manifest) => {
+                self.updates.said = false;
+                self.updates.memory.checked(now);
+                self.save_update_memory();
+                let verdict = if manual {
+                    update::judge_manual(current(), manifest.version, &self.updates.memory, now)
+                } else {
+                    update::judge(current(), manifest.version, &self.updates.memory, now)
+                };
+                match verdict {
+                    Verdict::UpToDate => {
+                        self.updates.offer = None;
+                        adapters::clear_offer();
+                        self.updates.status = Status {
+                            phase: Phase::UpToDate,
+                            manual,
+                            ..Status::default()
+                        };
+                        changed |= self.say_done();
+                    }
+                    Verdict::Skipped => self.updates.status = Status::default(),
+                    Verdict::Offer(_) | Verdict::Waiting { .. } => {
+                        journal::info(tr!("journal.update_found", version = manifest.version));
+                        if let Err(failed) = adapters::save_offer(&manifest) {
+                            journal::warn(tr!("journal.update_check_failed", error = failed.detail));
+                        }
+                        self.updates.offer = Some(manifest.clone());
+                        self.set_available(&manifest, manual);
+                        if manual && matches!(verdict, Verdict::Offer(_)) {
+                            self.open_update_window(&manifest, now);
+                        }
+                    }
+                }
+            }
+            Err(failed) => {
+                self.updates.retry_at = now + RETRY_MS;
+                self.updates.status = Status {
+                    phase: Phase::Failed,
+                    manual,
+                    error: Some(failed.detail.clone()),
+                    ..Status::default()
+                };
+                if manual {
+                    // The user asked and did not get it: the island says so, like for any other button.
+                    self.report(Fault::new(What::UpdateCheck, failed));
+                } else if !self.updates.said {
+                    self.updates.said = true;
+                    journal::warn(tr!("journal.update_check_failed", error = failed.detail));
+                }
+            }
+        }
+        self.publish_update();
+        self.after_stage(changed);
+    }
+
+    fn offer_view(&self, manifest: &Manifest) -> Option<OfferView> {
+        let now = persist::now_ms();
+        match update::judge_manual(current(), manifest.version, &self.updates.memory, now) {
+            Verdict::Offer(offer) => Some(OfferView {
+                current: current(),
+                latest: manifest.version,
+                notes: manifest.notes.clone(),
+                can_skip: offer.can_skip,
+                can_postpone: offer.can_postpone,
+                skipped: self.updates.memory.skipped == Some(manifest.version),
+                size: manifest.installer.size,
+            }),
+            _ => None,
+        }
+    }
+
+    fn set_available(&mut self, manifest: &Manifest, manual: bool) {
+        self.updates.status = Status {
+            phase: Phase::Available,
+            manual,
+            offer: self.offer_view(manifest),
+            ..Status::default()
+        };
+    }
+
+    fn open_update_window(&mut self, offer: &Manifest, now: u64) {
+        if self.updates.window.is_some() || self.updates.install.is_some() {
+            return;
+        }
+        self.updates.memory.shown(offer.version, now);
+        self.save_update_memory();
+        let manual = self.updates.status.manual;
+        self.set_available(offer, manual);
+        self.publish_update();
+        match process::open_window(lang::current().code()) {
+            Ok(child) => self.updates.window = Some(child),
+            Err(failed) => {
+                self.updates.retry_at = now + RETRY_MS;
+                journal::warn(tr!("journal.update_window_failed", error = failed.detail));
+            }
+        }
+    }
+
+    /// The window has closed; what the user chose already came as a command.
+    fn take_window(&mut self) {
+        let Some(child) = self.updates.window.as_mut() else {
+            return;
+        };
+        let Ok(Some(_)) = child.try_wait() else {
+            return;
+        };
+        self.updates.window = None;
+        // Closed without an answer: the offer stays, the window waits.
+        if self.updates.status.phase == Phase::Available && self.updates.install.is_none() {
+            self.updates.retry_at = persist::now_ms() + RETRY_MS;
+        }
+    }
+
+    fn start_install(&mut self) {
+        let Some(offer) = self.updates.offer.clone() else {
+            return;
+        };
+        if self.updates.working() {
+            return;
+        }
+        let (sender, receiver) = mpsc::channel();
+        let target = self.island.0 as isize;
+        let total = offer.installer.size;
+        let spawned = std::thread::Builder::new()
+            .name("update download".into())
+            .spawn(move || {
+                let report = |step: Step| {
+                    let _ = sender.send(step);
+                    post_to(target);
+                };
+                match download(&offer, &report) {
+                    Ok(path) => report(Step::Ready(path)),
+                    Err(failed) => report(Step::Failed(failed)),
+                }
+            });
+        if let Err(e) = spawned {
+            return self.install_failed(e.into());
+        }
+        self.updates.install = Some(receiver);
+        self.updates.status = Status {
+            phase: Phase::Downloading,
+            offer: self.updates.status.offer.clone(),
+            total,
+            ..Status::default()
+        };
+        self.publish_update();
+    }
+
+    fn drain_install(&mut self) {
+        loop {
+            let Some(step) = self
+                .updates
+                .install
+                .as_ref()
+                .and_then(|receiver| receiver.try_recv().ok())
+            else {
+                return;
+            };
+            match step {
+                Step::Bytes { done, total } => {
+                    self.updates.status.phase = Phase::Downloading;
+                    self.updates.status.done = done;
+                    if total > 0 {
+                        self.updates.status.total = total;
+                    }
+                    let now = self.now_ms();
+                    if now.saturating_sub(self.updates.written) >= WRITE_EVERY_MS {
+                        self.updates.written = now;
+                        self.publish_update();
+                    }
+                }
+                Step::Failed(failed) => return self.install_failed(failed),
+                Step::Ready(path) => return self.run_installer(path),
+            }
+        }
+    }
+
+    fn run_installer(&mut self, path: PathBuf) {
+        self.updates.install = None;
+        self.updates.status.phase = Phase::Installing;
+        self.publish_update();
+        let version = self
+            .updates
+            .offer
+            .as_ref()
+            .map(|o| o.version.to_string())
+            .unwrap_or_default();
+        journal::info(tr!("journal.update_installing", version = version));
+        // The installer closes the island by itself if it is still there, but this way nothing is lost.
+        self.save();
+        if let Some(mut window) = self.updates.window.take() {
+            let _ = window.kill();
+        }
+        match process::run_installer(&path) {
+            Ok(()) => self.quit(),
+            Err(failed) => self.install_failed(failed),
+        }
+    }
+
+    fn install_failed(&mut self, failed: Failed) {
+        self.updates.install = None;
+        self.updates.status.phase = Phase::InstallFailed;
+        self.updates.status.error = Some(failed.detail.clone());
+        self.publish_update();
+        self.report(Fault::new(What::UpdateInstall, failed));
+    }
+
+    fn say_done(&mut self) -> bool {
+        self.updates.notice = Some((
+            UpdateLook::UpToDate,
+            tr!("update.up_to_date").into_owned(),
+            String::new(),
+        ));
+        self.stage.post(NoticeKind::UpdateDone, self.now_ms())
+    }
+
+    /// Shows a notice about the update; `Checking` is held until the check ends.
+    fn say(&mut self, look: UpdateLook, title: String, reason: String) {
+        self.updates.notice = Some((look, title, reason));
+        let kind = match look {
+            UpdateLook::Checking => NoticeKind::UpdateChecking,
+            UpdateLook::UpToDate => NoticeKind::UpdateDone,
+            UpdateLook::Postponed | UpdateLook::Skipped => NoticeKind::UpdateAnswer,
+        };
+        let changed = self.stage.post(kind, self.now_ms());
+        self.after_stage(changed);
+    }
+
+    fn say_postponed(&mut self) {
+        let memory = &self.updates.memory;
+        let (Some(until), Some(version)) = (memory.postponed_until, memory.offered) else {
+            return;
+        };
+        let reason = match memory.deadline(version) {
+            Some(deadline) if until < deadline => tr!(
+                "update.postponed_until",
+                when = platform::local_time(deadline).date_time()
+            )
+            .into_owned(),
+            _ => tr!("update.postponed_last").into_owned(),
+        };
+        let title = tr!(
+            "update.postponed",
+            time = platform::local_time(until).clock()
+        )
+        .into_owned();
+        self.say(UpdateLook::Postponed, title, reason);
+    }
+
+    fn publish_update(&mut self) {
+        self.updates.status.at = persist::now_ms();
+        if let Err(failed) = adapters::save_status(&self.updates.status) {
+            journal::warn(tr!("journal.update_check_failed", error = failed.detail));
+        }
+    }
+
+    fn save_update_memory(&mut self) {
+        if let Err(failed) = adapters::save_memory(&self.updates.memory) {
+            journal::warn(tr!("journal.update_check_failed", error = failed.detail));
+        }
+    }
+}
+
+/// Wakes the island: a thread has something to say.
+fn post_to(target: isize) {
+    unsafe {
+        let _ = PostMessageW(
+            Some(HWND(target as *mut _)),
+            WM_UPDATE,
+            WPARAM(0),
+            LPARAM(0),
+        );
+    }
+}
+
+/// On the thread: the installer to a file, then its size and signature.
+fn download(offer: &Manifest, report: &dyn Fn(Step)) -> Result<PathBuf, Failed> {
+    let path =
+        adapters::download_dir().join(format!("Great-Island_{}_x64-setup.exe", offer.version));
+    let _ = std::fs::remove_file(&path);
+    let wanted = offer.installer.size;
+    let mut sent = 0;
+    http::download(&offer.installer.url, &path, |done, total| {
+        // Not on every piece: the island needs a few updates a second.
+        if done - sent >= 128 * 1024 {
+            sent = done;
+            report(Step::Bytes {
+                done,
+                total: if total > 0 { total } else { wanted },
+            });
+        }
+    })?;
+    let bytes = std::fs::read(&path)?;
+    let checked = signature::verify(&bytes, &offer.installer.signature).and_then(|()| {
+        if wanted > 0 && bytes.len() as u64 != wanted {
+            Err(Failed::because(
+                crate::fault::Cause::Unknown,
+                "the installer is not the one that was announced",
+            ))
+        } else {
+            Ok(())
+        }
+    });
+    if let Err(failed) = checked {
+        // A file that is not what was signed must not stay where it could be run.
+        let _ = std::fs::remove_file(&path);
+        return Err(failed);
+    }
+    Ok(path)
+}

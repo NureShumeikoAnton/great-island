@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Settings window",
-  "windows": ["settings"],
+  "description": "Settings window and update window",
+  "windows": ["settings", "update"],
   "permissions": [
     "core:default",
     "core:window:allow-close"

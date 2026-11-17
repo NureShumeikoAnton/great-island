@@ -44,6 +44,8 @@ export interface Settings {
   /** Sound, countdown, quality and the rest are the island's pre-start panel: not edited here. */
   recordKey: Hotkey | null;
   autostart: boolean;
+  /** Look for a new version by itself; the manual check stays. */
+  checkUpdates: boolean;
   language: Language;
 }
 
@@ -80,6 +82,52 @@ export interface KeyCheck {
   snipping: boolean;
 }
 
+export interface AppInfo {
+  version: string;
+  license: string;
+}
+
+/** Where an update stands: the island writes it, every window shows it. */
+export type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "upToDate"
+  | "failed"
+  | "available"
+  | "downloading"
+  | "verifying"
+  | "installing"
+  | "installFailed";
+
+export interface OfferView {
+  current: string;
+  latest: string;
+  notes: { en: string; ru: string };
+  canSkip: boolean;
+  canPostpone: boolean;
+  /** The user passed this version over once: it is offered because they asked. */
+  skipped: boolean;
+  size: number;
+}
+
+export interface UpdateStatus {
+  phase: UpdatePhase;
+  manual: boolean;
+  error: string | null;
+  offer: OfferView | null;
+  done: number;
+  total: number;
+  at: number;
+}
+
+export interface UpdateView {
+  /** An island is there to take commands. */
+  running: boolean;
+  status: UpdateStatus;
+}
+
+export type UpdateCommand = "check" | "openWindow" | "install" | "postpone" | "skip";
+
 export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
@@ -97,4 +145,12 @@ export const api = {
   releasePrintScreen: () => invoke<boolean>("release_print_screen"),
   displays: () => invoke<Display[]>("list_displays"),
   openJournal: () => invoke<boolean>("open_journal"),
+  appInfo: () => invoke<AppInfo>("app_info"),
+  openProjectPage: (page: "home" | "license" | "changes") => invoke<boolean>("open_project_page", { page }),
+  // Updates: the island does the work; the windows read the status and send commands.
+  updateStatus: () => invoke<UpdateView>("update_status"),
+  /** False: there is no island to hear it. */
+  updateCommand: (name: UpdateCommand) => invoke<boolean>("update_command", { name }),
+  updateExit: () => invoke<void>("update_exit"),
+  updateFit: (height: number) => invoke<void>("update_fit", { height }),
 };

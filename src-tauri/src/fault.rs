@@ -55,11 +55,13 @@ pub enum What {
     Restart,
     Language,
     PlayerLevel,
+    UpdateCheck,
+    UpdateInstall,
 }
 
 impl What {
     #[cfg(test)]
-    pub const ALL: [What; 38] = [
+    pub const ALL: [What; 40] = [
         What::RecordStart,
         What::RecordBroken,
         What::RecordLost,
@@ -98,6 +100,8 @@ impl What {
         What::Restart,
         What::Language,
         What::PlayerLevel,
+        What::UpdateCheck,
+        What::UpdateInstall,
     ];
 
     pub fn level(self) -> Level {
@@ -110,7 +114,9 @@ impl What {
             | Self::AreaOpen
             | Self::VideoOpen
             | Self::VideoStopped
-            | Self::VideoSave => Level::Critical,
+            | Self::VideoSave
+            | Self::UpdateCheck
+            | Self::UpdateInstall => Level::Critical,
             _ => Level::Warning,
         }
     }
@@ -155,6 +161,8 @@ impl What {
             Self::Restart => "RESTART",
             Self::Language => "LANG",
             Self::PlayerLevel => "PLAYER-LEVEL",
+            Self::UpdateCheck => "UPD-CHECK",
+            Self::UpdateInstall => "UPD-INSTALL",
         }
     }
 
@@ -198,6 +206,8 @@ impl What {
             Self::Restart => tr!("fault.title.restart"),
             Self::Language => tr!("fault.title.language"),
             Self::PlayerLevel => tr!("fault.title.player_level"),
+            Self::UpdateCheck => tr!("fault.title.update_check"),
+            Self::UpdateInstall => tr!("fault.title.update_install"),
         }
         .into_owned()
     }
@@ -420,6 +430,9 @@ impl Fault {
             (Crashed, _) => tr!("fault.reason.crashed"),
             (Language, _) => tr!("fault.reason.language"),
             (PlayerLevel, _) => tr!("fault.reason.player_level"),
+            (UpdateCheck, Missing) => tr!("fault.reason.update_check_missing"),
+            (UpdateCheck, Unknown) => tr!("fault.reason.update_check"),
+            (UpdateInstall, Unknown) => tr!("fault.reason.update_install"),
             (_, cause) => return cause.reason(),
         };
         fixed.into_owned()

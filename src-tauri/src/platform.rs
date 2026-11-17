@@ -12,8 +12,8 @@ use std::{
 use windows::{
     Win32::{
         Foundation::{
-            CloseHandle, ERROR_ALREADY_EXISTS, ERROR_SUCCESS, GetLastError, HINSTANCE, HWND,
-            LPARAM, POINT, RECT, WPARAM,
+            CloseHandle, ERROR_ALREADY_EXISTS, ERROR_SUCCESS, FILETIME, GetLastError, HINSTANCE,
+            HWND, LPARAM, POINT, RECT, SYSTEMTIME, WPARAM,
         },
         Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME},
         Graphics::Gdi::{
@@ -28,6 +28,7 @@ use windows::{
             },
             SystemInformation::GetTickCount,
             Threading::CreateMutexW,
+            Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime},
         },
         UI::{
             HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI},
@@ -52,6 +53,30 @@ use windows::{
 };
 
 pub type MonitorId = isize;
+
+/// A Unix moment (ms) on this computer's clock and in its time zone.
+pub fn local_time(unix_ms: u64) -> crate::update::LocalTime {
+    // FILETIME counts 100 ns from 1601, Unix time ms from 1970.
+    let ticks = unix_ms * 10_000 + 116_444_736_000_000_000;
+    let file = FILETIME {
+        dwLowDateTime: ticks as u32,
+        dwHighDateTime: (ticks >> 32) as u32,
+    };
+    let (mut utc, mut local) = (SYSTEMTIME::default(), SYSTEMTIME::default());
+    unsafe {
+        let _ = FileTimeToSystemTime(&file, &mut utc);
+        // Without the zone the UTC reading is still a moment, only an hour or two off.
+        if SystemTimeToTzSpecificLocalTime(None, &utc, &mut local).is_err() {
+            local = utc;
+        }
+    }
+    crate::update::LocalTime {
+        month: local.wMonth,
+        day: local.wDay,
+        hour: local.wHour,
+        minute: local.wMinute,
+    }
+}
 
 
 /// MONITORINFO.dwFlags: the primary monitor.

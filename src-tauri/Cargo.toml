@@ -1,6 +1,6 @@
 [package]
 name = "great-island"
-version = "0.6.1"
+version = "0.7.0"
 description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
 authors = []
 license = "GPL-3.0-or-later"
@@ -30,6 +30,10 @@ windows = { version = "0.62", features = [
     "Win32_System_LibraryLoader",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
+    # The time of a postponed update on the user's clock
+    "Win32_System_Time",
+    # Fetching the update manifest and the installer
+    "Win32_Networking_WinHttp",
     # Keep awake
     "Win32_System_Power",
     "Win32_System_Registry",

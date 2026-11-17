@@ -3,12 +3,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import {
   api,
+  type AppInfo,
   type Display,
   type Fullscreen,
   type Language,
   type Reminder,
   type Settings,
   type Tone,
+  type UpdateView,
   type ViewerBar,
 } from "../api";
 import { HotkeyField } from "./HotkeyField";
@@ -31,12 +33,20 @@ export function SettingsPage() {
   const [defaultShots, setDefaultShots] = useState<string>("");
   const [defaultRecordings, setDefaultRecordings] = useState<string>("");
   const [displays, setDisplays] = useState<Display[]>([]);
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  // Where the update stands: the island keeps it, this window only shows it.
+  const [updating, setUpdating] = useState<UpdateView | null>(null);
 
   useEffect(() => {
     void api.getSettings().then(setSettings);
     void api.defaultScreenshotDir().then(setDefaultShots);
     void api.defaultRecordingsDir().then(setDefaultRecordings);
     void api.displays().then(setDisplays);
+    void api.appInfo().then(setInfo);
+    const poll = () => void api.updateStatus().then(setUpdating);
+    poll();
+    const id = window.setInterval(poll, 700);
+    return () => window.clearInterval(id);
   }, []);
 
   if (!settings) return null;
@@ -359,6 +369,38 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <h1>{t("about.title")}</h1>
+      <section className="card general">
+        {info && <span>{t("about.version", { version: info.version, license: info.license })}</span>}
+        <div className="folder">
+          <button
+            disabled={updating?.status.phase === "checking" || updating?.running === false}
+            onClick={() => void api.updateCommand("check")}
+          >
+            {t("about.check")}
+          </button>
+          {updating?.status.phase === "available" && updating.status.offer && (
+            <button className="primary" onClick={() => void api.updateCommand("openWindow")}>
+              {t("about.install", { version: updating.status.offer.latest })}
+            </button>
+          )}
+          <span className="hint">{updateText(updating, t)}</span>
+        </div>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.checkUpdates}
+            onChange={(e) => update({ checkUpdates: e.target.checked })}
+          />
+          {t("about.auto")}
+        </label>
+        <div className="folder">
+          <button onClick={() => void api.openProjectPage("home")}>{t("about.home")}</button>
+          <button onClick={() => void api.openProjectPage("changes")}>{t("about.changes")}</button>
+          <button onClick={() => void api.openProjectPage("license")}>{t("about.license")}</button>
+        </div>
+      </section>
+
       <footer>
         <span className="status">{status}</span>
         <button onClick={() => void getCurrentWindow().close()}>{t("footer.close")}</button>
@@ -375,6 +417,34 @@ interface ReminderCardProps {
   volume: number;
   onChange: (patch: Partial<Reminder>) => void;
   onRemove: () => void;
+}
+
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+/** The line next to "Check for updates": what the island says about the update now. */
+function updateText(view: UpdateView | null, t: Translate): string {
+  if (!view) return "";
+  if (!view.running) return t("about.no_island");
+  const { status } = view;
+  switch (status.phase) {
+    case "checking":
+      return t("about.checking");
+    case "upToDate":
+      return t("about.up_to_date");
+    case "available":
+      return status.offer
+        ? t(status.offer.skipped ? "about.available_skipped" : "about.available", { version: status.offer.latest })
+        : "";
+    case "failed":
+    case "installFailed":
+      return t("about.failed", { error: status.error ?? "" });
+    case "downloading":
+    case "verifying":
+    case "installing":
+      return t("about.downloading");
+    default:
+      return "";
+  }
 }
 
 function ReminderCard({ reminder: r, volume, onChange, onRemove }: ReminderCardProps) {

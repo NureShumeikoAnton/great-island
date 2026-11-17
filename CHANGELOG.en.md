@@ -5,11 +5,17 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.7.0 — 2026-11-17
+
+Updates, a license and a new name.
+
 ### Changed
 - The project is renamed from Break Island to Great Island. The new name is everywhere: windows, the tray icon, the installer (`Great Island_…_x64-setup.exe`), `great-island.exe`, the settings folder `%APPDATA%\com.greatisland.app`, the registry key `Software\Great Island`. Settings of the old version are not carried over; uninstall the old "Break Island" before installing.
 
 ### Added
 - The license is GPL-3.0-or-later (the `LICENSE` file): the code may be used and changed, but a changed version stays open.
+- Updates. At start and then once a day the island looks for a new version, when there has been a minute without mouse or keyboard and nothing important is going on (a recording, the editor, a viewer, a fullscreen app, a reminder). While it checks, a spinner "Checking for updates" turns on the island, then a check mark "Up to date". A newer version opens a window in the middle of the screen, "Update available", with the changes in the language of the interface and the buttons Install, Postpone for an hour and (a patch only) Skip. It can be postponed for a day after the first showing; the island says when it will remind you and until when you can still postpone, and after that only Install is left. After Skip that version is not offered any more; it can be installed by hand from "About". The installer is downloaded, its signature is checked with the key built into the app, and only then it is run: the island closes, the version is installed, the island starts again. The language and the settings stay as they were.
+- "About" at the end of the settings: the version and the license, "Check for updates" (it offers a skipped version too), the switch "Check for updates automatically" and links to the project page, the changelog and the license. A manual check is seen on the island as well, like one by the clock: a spinner, a check mark, and a notice when it fails; there is one state of the update, and the island, the update window and the settings only show it. The spinner turns at least once, and the update window fades in at its final size.
 
 ## 0.6.1 — 2026-11-17
 

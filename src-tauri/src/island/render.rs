@@ -9,7 +9,10 @@ use super::{
     log,
     record_panel::PanelInput,
     timers,
-    view::{CardModel, Mode, Model, Modes, PlayerForm, PlayerModel, ProblemModel, RecordModel},
+    view::{
+        CardModel, Mode, Model, Modes, PlayerForm, PlayerModel, ProblemModel, RecordModel,
+        UpdateLook, UpdateModel,
+    },
 };
 use crate::{
     capture::Image,
@@ -48,6 +51,8 @@ pub(super) struct ViewInput {
     countdown: Option<u32>,
     /// A problem: is it critical, what went wrong, why.
     problem: Option<(bool, String, String)>,
+    /// An update notice: its look, what happened, what to do.
+    update: Option<(UpdateLook, String, String)>,
     panel: Option<PanelInput>,
 }
 
@@ -94,6 +99,14 @@ impl ViewInput {
                     title,
                     reason,
                 }),
+            update: self
+                .update
+                .as_ref()
+                .map(|(look, title, reason)| UpdateModel {
+                    look: *look,
+                    title,
+                    reason,
+                }),
             panel: self.panel.as_ref().map(PanelInput::model),
         }
     }
@@ -134,6 +147,15 @@ impl App {
             }
             _ if notice == Some(NoticeKind::Clip) && self.recording.clip.is_some() => Mode::Card,
             _ if notice == Some(NoticeKind::Discarded) => Mode::Discarded,
+            _ if matches!(
+                notice,
+                Some(
+                    NoticeKind::UpdateChecking | NoticeKind::UpdateDone | NoticeKind::UpdateAnswer
+                )
+            ) && self.update_notice().is_some() =>
+            {
+                Mode::Update
+            }
             _ if notice == Some(NoticeKind::Viewing) => Mode::Viewing,
             Activity::Timers if self.expanded || self.reminders.skip.is_some() => Mode::Expanded,
             Activity::Timers => Mode::Collapsed,
@@ -199,6 +221,10 @@ impl App {
                     shown.fault.title().to_string(),
                     shown.fault.reason(),
                 )),
+                _ => None,
+            },
+            update: match mode {
+                Mode::Update => self.update_notice(),
                 _ => None,
             },
             panel: match mode {
