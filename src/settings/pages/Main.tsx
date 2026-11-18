@@ -13,6 +13,9 @@ export function MainPage() {
   const shotKey = useKeyLabel(settings.screenshotKey);
   const recordKey = useKeyLabel(settings.recordKey);
   const on = settings.reminders.filter((r) => r.enabled).length;
+  const battery = info?.battery ?? false;
+  const notifying =
+    settings.notifyUsage || (battery && (settings.notifyLowCharge || settings.notifyCharging));
 
   return (
     <>
@@ -67,6 +70,13 @@ export function MainPage() {
           value={recordKey}
           opens
           onClick={() => go({ id: "record" })}
+        />
+        <Row
+          icon={{ glyph: "battery", color: "var(--c-green)" }}
+          label={t("page.notifications")}
+          value={t(notifying ? "main.on" : "main.off")}
+          opens
+          onClick={() => go({ id: "notifications" })}
         />
       </Group>
 

@@ -50,6 +50,15 @@ export interface Settings {
   /** Look for a new version by itself; the manual check stays. */
   checkUpdates: boolean;
   language: Language;
+  /** System notifications: low and critical charge. */
+  notifyLowCharge: boolean;
+  /** Plugged in, unplugged, charged, slow charging. */
+  notifyCharging: boolean;
+  /** Fast drain on battery, high load without it. */
+  notifyUsage: boolean;
+  /** The control center's bottom line: the charge in numbers. */
+  batteryPercent: boolean;
+  clockSeconds: boolean;
 }
 
 /** "auto" follows Windows. The island reads it at start: a change applies after a restart. */
@@ -90,6 +99,8 @@ export interface AppInfo {
   license: string;
   /** The Windows build number. */
   windows: number;
+  /** The computer has a battery: the battery notifications apply. */
+  battery: boolean;
 }
 
 /** One journal entry; a run of the same one comes as one with `times`. */

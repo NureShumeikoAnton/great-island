@@ -8,7 +8,7 @@ import { Group, Mini, NumberRow, RadioRow, Row, Segmented, ToggleRow } from "../
 export function IslandPage() {
   const { t } = useTranslation();
   const { go } = useNav();
-  const { settings, update } = useSettings();
+  const { settings, update, info } = useSettings();
   const fullscreen: Fullscreen[] = ["show", "alerts", "hide"];
   const viewer: ViewerBar[] = ["strip", "floating"];
 
@@ -22,6 +22,20 @@ export function IslandPage() {
           onChange={(showIsland) => update({ showIsland })}
         />
         <Row label={t("island.monitor")} value={useMonitorName()} opens onClick={() => go({ id: "monitor" })} />
+      </Group>
+      <Group title={t("island.control_center")} plain>
+        <ToggleRow
+          label={t("island.seconds")}
+          on={settings.clockSeconds}
+          onChange={(clockSeconds) => update({ clockSeconds })}
+        />
+        {info?.battery && (
+          <ToggleRow
+            label={t("island.battery_percent")}
+            on={settings.batteryPercent}
+            onChange={(batteryPercent) => update({ batteryPercent })}
+          />
+        )}
       </Group>
       <Group title={t("island.fullscreen")} plain>
         <div className="row block noicon">
@@ -107,6 +121,39 @@ export function PlayerPage() {
         min={0}
         max={240}
         onChange={(silentDropMin) => update({ silentDropMin })}
+      />
+    </Group>
+  );
+}
+
+/** Without a battery only the load notice applies. */
+export function NotificationsPage() {
+  const { t } = useTranslation();
+  const { settings, update, info } = useSettings();
+  const battery = info?.battery ?? false;
+  return (
+    <Group plain>
+      {battery && (
+        <ToggleRow
+          label={t("notify.low")}
+          sub={t("notify.low_sub")}
+          on={settings.notifyLowCharge}
+          onChange={(notifyLowCharge) => update({ notifyLowCharge })}
+        />
+      )}
+      {battery && (
+        <ToggleRow
+          label={t("notify.charging")}
+          sub={t("notify.charging_sub")}
+          on={settings.notifyCharging}
+          onChange={(notifyCharging) => update({ notifyCharging })}
+        />
+      )}
+      <ToggleRow
+        label={t(battery ? "notify.usage" : "notify.load")}
+        sub={t(battery ? "notify.usage_sub" : "notify.load_sub")}
+        on={settings.notifyUsage}
+        onChange={(notifyUsage) => update({ notifyUsage })}
       />
     </Group>
   );

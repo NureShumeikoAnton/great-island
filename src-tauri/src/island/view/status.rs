@@ -2,9 +2,11 @@
 //! - **indicator**: a short 30 px capsule for 2 s when sound or microphone was toggled not from the island
 //!   (key, tray): the icon and what happened;
 //! - **mode badges**: a small moon and cup in the collapsed island while Do Not Disturb and Keep awake are on,
-//!   and a circle with "!" while there is a problem not yet seen.
+//!   a circle with "!" while there is a problem not yet seen, and a red battery with its
+//!   percentage below 10% on battery.
 
 use super::super::glyph::Glyph;
+use super::system::{BADGE_BATTERY, Battery, Fx, battery_top, battery_width};
 use super::{Content, MUTED, Scene, TEXT, menu, snap, style};
 use crate::control::ControlId;
 use crate::lang::tr;
@@ -16,6 +18,8 @@ pub struct Modes {
     pub quiet: bool,
     pub awake: bool,
     pub problem: bool,
+    /// The critical charge's percentage.
+    pub battery: Option<u8>,
 }
 
 impl Modes {
@@ -33,13 +37,22 @@ impl Modes {
 const BADGE: f32 = 12.0;
 const BADGE_GAP: f32 = 5.0;
 const BADGES_AFTER: f32 = 10.0;
+const CRITICAL: &str = "#FF453A";
+const PERCENT_GAP: f32 = 4.0;
 
-pub fn badges_width(modes: Modes) -> f32 {
+fn glyphs_width(modes: Modes) -> f32 {
     let n = modes.glyphs().count() as f32;
     if n == 0.0 {
         0.0
     } else {
         n * BADGE + (n - 1.0) * BADGE_GAP + BADGES_AFTER
+    }
+}
+
+fn percent_style() -> super::super::comp::TextStyle {
+    super::super::comp::TextStyle {
+        tabular: true,
+        ..style(12.0, true, CRITICAL)
     }
 }
 
@@ -58,7 +71,35 @@ fn indicator_text(id: ControlId, off: bool) -> (Cow<'static, str>, Glyph) {
 }
 
 impl Scene {
+    pub(super) fn badges_width(&self, modes: Modes) -> f32 {
+        glyphs_width(modes) + modes.battery.map_or(0.0, |p| self.battery_badge_width(p))
+    }
+
+    fn battery_badge_width(&self, percent: u8) -> f32 {
+        battery_width(BADGE_BATTERY, false)
+            + PERCENT_GAP
+            + self.comp.measure(&format!("{percent}%"), percent_style())
+            + BADGES_AFTER
+    }
+
     pub(super) fn badges(&self, root: &ContainerVisual, x: f32, modes: Modes) -> Result<()> {
+        let mut x = x;
+        if let Some(percent) = modes.battery {
+            let battery = Battery {
+                percent,
+                hex: CRITICAL,
+                fx: Fx::Still,
+                plus: false,
+            };
+            let at = (x, battery_top(BADGE_BATTERY, 15.0));
+            self.battery(root, at, BADGE_BATTERY, battery, false)?;
+            let label = self
+                .comp
+                .text(&format!("{percent}%"), percent_style(), self.scale)?;
+            let text_x = x + battery_width(BADGE_BATTERY, false) + PERCENT_GAP;
+            self.place(root, &label.visual, text_x, (30.0 - label.height) / 2.0)?;
+            x += self.battery_badge_width(percent);
+        }
         for (i, glyph) in modes.glyphs().enumerate() {
             let icon = self
                 .comp
@@ -149,12 +190,12 @@ mod tests {
 
     #[test]
     fn badges_take_room_only_when_on() {
-        assert_eq!(badges_width(Modes::default()), 0.0);
+        assert_eq!(glyphs_width(Modes::default()), 0.0);
         let both = Modes {
             quiet: true,
             awake: true,
-            problem: false,
+            ..Modes::default()
         };
-        assert_eq!(badges_width(both), 12.0 * 2.0 + 5.0 + 10.0);
+        assert_eq!(glyphs_width(both), 12.0 * 2.0 + 5.0 + 10.0);
     }
 }

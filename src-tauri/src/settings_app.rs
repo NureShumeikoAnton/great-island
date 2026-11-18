@@ -252,6 +252,7 @@ struct AppInfo {
     license: &'static str,
     /// The Windows build number: the journal's copied lines carry it.
     windows: u32,
+    battery: bool,
 }
 
 #[tauri::command]
@@ -260,6 +261,7 @@ fn app_info() -> AppInfo {
         version: env!("CARGO_PKG_VERSION"),
         license: "GPL-3.0-or-later",
         windows: platform::windows_build(),
+        battery: crate::notify::adapters::power::has_battery().unwrap_or(false),
     }
 }
 

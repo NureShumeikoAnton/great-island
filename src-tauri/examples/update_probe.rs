@@ -25,7 +25,11 @@ fn main() {
     })
     .expect("the installer");
     let bytes = std::fs::read(&path).expect("the file");
-    println!("downloaded {} bytes (announced {})", bytes.len(), manifest.installer.size);
+    println!(
+        "downloaded {} bytes (announced {})",
+        bytes.len(),
+        manifest.installer.size
+    );
     let checked = match &key {
         Some(key) => signature::verify_with(key, &bytes, &manifest.installer.signature),
         None => signature::verify(&bytes, &manifest.installer.signature),

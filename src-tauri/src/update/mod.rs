@@ -247,7 +247,9 @@ fn offer(bump: Bump, memory: &Memory, latest: Version, now: u64) -> Verdict {
     Verdict::Offer(Offer {
         bump,
         can_skip: bump.can_skip(),
-        can_postpone: memory.deadline(latest).is_none_or(|deadline| now < deadline),
+        can_postpone: memory
+            .deadline(latest)
+            .is_none_or(|deadline| now < deadline),
     })
 }
 
@@ -604,7 +606,10 @@ mod tests {
         };
         let text = serde_json::to_string(&status).expect("saves");
         assert!(text.contains(r#""phase":"available""#));
-        assert_eq!(serde_json::from_str::<Status>(&text).expect("loads"), status);
+        assert_eq!(
+            serde_json::from_str::<Status>(&text).expect("loads"),
+            status
+        );
         assert_eq!(
             serde_json::from_str::<Status>("{}").expect("loads"),
             Status::default()
@@ -673,12 +678,10 @@ mod tests {
 
     #[test]
     fn a_manifest_without_https_or_a_signature_is_refused() {
-        let plain =
-            r#"{"version":"0.7.0","installer":{"url":"http://example.org/a.exe","signature":"sig"}}"#;
+        let plain = r#"{"version":"0.7.0","installer":{"url":"http://example.org/a.exe","signature":"sig"}}"#;
         let unsigned =
             r#"{"version":"0.7.0","installer":{"url":"https://example.org/a.exe","signature":""}}"#;
-        let broken =
-            r#"{"version":"seven","installer":{"url":"https://example.org/a.exe","signature":"sig"}}"#;
+        let broken = r#"{"version":"seven","installer":{"url":"https://example.org/a.exe","signature":"sig"}}"#;
         for text in [plain, unsigned, broken, "not json"] {
             assert!(Manifest::parse(text).is_err(), "{text}");
         }

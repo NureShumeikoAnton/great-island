@@ -11,7 +11,7 @@
 
 use super::super::comp::{Motion, Text, color, scale, v2, v3};
 use super::super::glyph::Glyph;
-use super::{Content, HOLD_MS, HOVER, Hit, LATCH, MUTED, Model, Rect, Scene, TEXT, style};
+use super::{Content, HOLD_MS, HOVER, Hit, LATCH, MUTED, Model, Rect, Scene, TEXT, strip, style};
 use crate::control::{ControlId, ControlState, Item};
 use crate::lang::tr;
 use std::borrow::Cow;
@@ -60,6 +60,17 @@ pub fn size(count: usize) -> (f32, f32) {
     let rows = count.div_ceil(COLUMNS).max(1) as f32;
     (WIDTH, 2.0 * PAD + rows * ROW + (rows - 1.0) * ROW_GAP)
 }
+
+pub(super) fn menu_size(model: &Model) -> (f32, f32) {
+    let (width, height) = size(model.controls.len());
+    match model.strip {
+        Some(_) => (width, height + strip::GAP + strip::HEIGHT),
+        None => (width, height),
+    }
+}
+
+/// The circles' outer edge: the bottom line keeps to it.
+const EDGE: f32 = PAD + (COLUMN - CIRCLE) / 2.0;
 
 struct Look {
     fill: Color,
@@ -157,6 +168,7 @@ pub(super) struct Parts {
     buttons: Vec<MenuButton>,
     /// Around each button that can be held: fills while it is.
     holds: Vec<(ControlId, CompositionEllipseGeometry)>,
+    strip: Option<strip::Parts>,
 }
 
 /// The middle of a button's circle, in the menu's own coordinates.
@@ -194,9 +206,8 @@ fn elapsed(ms: u64) -> String {
 impl Scene {
     pub(super) fn build_menu(&self, model: &Model, content: &mut Content) -> Result<()> {
         let root = content.root.clone();
-        let (width, height) = size(model.controls.len());
-        content.width = width;
-        content.height = height;
+        let (width, buttons_height) = size(model.controls.len());
+        (content.width, content.height) = menu_size(model);
         let mut buttons = Vec::with_capacity(model.controls.len());
         for (i, item) in model.controls.iter().enumerate() {
             let rect = Rect {
@@ -233,7 +244,18 @@ impl Scene {
                 holds.push((item.id, self.hold_ring(&root, center)?));
             }
         }
-        content.menu = Some(Parts { buttons, holds });
+        let strip = match &model.strip {
+            Some(line) => {
+                let top = buttons_height - PAD + strip::GAP;
+                Some(self.build_strip(&root, line, top, (width, EDGE))?)
+            }
+            None => None,
+        };
+        content.menu = Some(Parts {
+            buttons,
+            holds,
+            strip,
+        });
         Ok(())
     }
 
@@ -374,6 +396,9 @@ impl Scene {
         let Some(parts) = &mut content.menu else {
             return Ok(());
         };
+        if let (Some(strip), Some(line)) = (&mut parts.strip, &model.strip) {
+            self.update_strip(strip, line, (WIDTH, EDGE))?;
+        }
         let hovered = self.hovered.clone();
         for button in &mut parts.buttons {
             let Some((active, since)) = is_active(model, button.id) else {

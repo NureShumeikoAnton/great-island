@@ -34,7 +34,15 @@ impl std::fmt::Debug for Icon {
 
 pub fn load(app_id: &str) -> Option<Icon> {
     let by_id = shell_item(&format!("shell:AppsFolder\\{app_id}"));
-    let item = by_id.or_else(|| app::exe_path(app_id).and_then(|path| shell_item(&path)))?;
+    from_item(by_id.or_else(|| app::exe_path(app_id).and_then(|path| shell_item(&path)))?)
+}
+
+/// By the program's exe, for apps that aren't players (the load notices).
+pub fn load_exe(path: &str) -> Option<Icon> {
+    from_item(shell_item(path)?)
+}
+
+fn from_item(item: IShellItem) -> Option<Icon> {
     let factory: IShellItemImageFactory = item.cast().ok()?;
     let size = SIZE {
         cx: ICON_SIZE,

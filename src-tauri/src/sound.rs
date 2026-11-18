@@ -127,6 +127,89 @@ fn voice(tone: &str) -> Option<&'static Voice> {
     })
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cue {
+    /// Low charge: two soft low beats.
+    Pulse,
+    /// Critical charge: one note sliding down, with a quiet echo.
+    Fall,
+}
+
+struct Note {
+    freq: f32,
+    at: f32,
+    gain: f32,
+    length: f32,
+    /// The pitch at the end of the note, as a share of the start.
+    slide: f32,
+}
+
+const CUE_ATTACK: f32 = 0.012;
+
+const fn note(freq: f32, at: f32, gain: f32, length: f32, slide: f32) -> Note {
+    Note {
+        freq,
+        at,
+        gain,
+        length,
+        slide,
+    }
+}
+
+impl Cue {
+    fn notes(self) -> &'static [Note] {
+        const PULSE: [Note; 2] = [
+            note(392.0, 0.0, 0.28, 0.42, 1.0),
+            note(392.0, 0.22, 0.2, 0.5, 1.0),
+        ];
+        const FALL: [Note; 2] = [
+            note(880.0, 0.0, 0.24, 0.55, 0.75),
+            note(880.0, 0.28, 0.07, 0.45, 0.75),
+        ];
+        match self {
+            Self::Pulse => &PULSE,
+            Self::Fall => &FALL,
+        }
+    }
+
+    fn partials(self) -> &'static [(f32, f32)] {
+        match self {
+            Self::Pulse => &[(1.0, 1.0), (2.0, 0.18)],
+            Self::Fall => &[(1.0, 1.0), (2.0, 0.25), (3.0, 0.08)],
+        }
+    }
+}
+
+pub fn cue(cue: Cue, volume: f32) {
+    if volume > 0.0 {
+        output(to_wav(&render_cue(cue, volume.min(1.0))));
+    }
+}
+
+fn render_cue(cue: Cue, volume: f32) -> Vec<f32> {
+    let notes = cue.notes();
+    let length = notes.iter().map(|n| n.at + n.length).fold(0.0, f32::max) + 0.05;
+    let mut out = vec![0.0f32; (length * SAMPLE_RATE as f32) as usize];
+    for note in notes {
+        let first = (note.at * SAMPLE_RATE as f32) as usize;
+        for &(ratio, partial_gain) in cue.partials() {
+            let mut phase = 0.0f32;
+            for (i, sample) in out.iter_mut().enumerate().skip(first) {
+                let t = (i - first) as f32 / SAMPLE_RATE as f32;
+                if t > note.length {
+                    break;
+                }
+                let f = note.freq * ratio * note.slide.powf(t / note.length);
+                phase = (phase + TAU * f / SAMPLE_RATE as f32) % TAU;
+                *sample += phase.sin()
+                    * envelope(t, CUE_ATTACK, note.length, note.gain * partial_gain)
+                    * volume;
+            }
+        }
+    }
+    out
+}
+
 /// The buffer that is playing now: PlaySound reads it asynchronously.
 static PLAYING: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
@@ -135,8 +218,10 @@ pub fn play(tone: &str, kind: Kind, volume: f32) {
         return;
     };
     let gain = volume.min(1.0) * MASTER_GAIN * if kind == Kind::End { END_GAIN } else { 1.0 };
-    let wav = to_wav(&render(voice, kind, gain));
+    output(to_wav(&render(voice, kind, gain)));
+}
 
+fn output(wav: Vec<u8>) {
     let mut playing = PLAYING.lock().unwrap_or_else(|e| e.into_inner());
     unsafe {
         // A new call stops the previous sound, so the old buffer is freed only after it.
@@ -233,6 +318,15 @@ mod tests {
         assert_eq!(voices.len(), TONES.len() - 1);
         for (i, a) in voices.iter().enumerate() {
             assert!(voices[i + 1..].iter().all(|b| !std::ptr::eq(*a, *b)));
+        }
+    }
+
+    #[test]
+    fn every_cue_sounds_and_stays_in_range() {
+        for cue in [Cue::Pulse, Cue::Fall] {
+            let samples = render_cue(cue, 1.0);
+            let peak = samples.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+            assert!(peak > 0.05 && peak <= 1.0, "{cue:?}: peak {peak}");
         }
     }
 

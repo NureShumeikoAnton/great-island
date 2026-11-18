@@ -7,7 +7,7 @@
 //! This file is the switchboard: the state ([`App`]), start and stop, and which handler gets
 //! a window message or a timer. What a handler does lives with its feature:
 //!
-//! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem` —
+//! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify` —
 //!   a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
@@ -30,10 +30,10 @@ mod layout;
 #[cfg(debug_assertions)]
 mod levels_debug;
 mod marks;
+mod notify;
 mod overlay;
 mod player;
 mod problem;
-mod update;
 mod record;
 mod record_panel;
 mod reminders;
@@ -42,6 +42,7 @@ mod screenshot;
 mod select;
 mod selector;
 mod tray;
+mod update;
 mod view;
 mod viewer;
 mod visibility;
@@ -63,9 +64,9 @@ use crate::{
 };
 use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
+use notify::Notify;
 use player::Player;
 use problem::Problems;
-use update::Updates;
 use record::Recording;
 use record_panel::RecordPanel;
 use reminders::Reminders;
@@ -79,6 +80,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 use tray::{Command, HiddenState, Tray};
+use update::Updates;
 use view::Scene;
 use watch::Watch;
 use window::{
@@ -96,7 +98,8 @@ use windows::{
                 SetTimer, TranslateMessage, WM_CAPTURECHANGED, WM_DISPLAYCHANGE, WM_DPICHANGED,
                 WM_ENDSESSION, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
                 WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCACTIVATE, WM_NCCALCSIZE,
-                WM_NCLBUTTONDOWN, WM_QUERYENDSESSION, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
+                WM_NCLBUTTONDOWN, WM_POWERBROADCAST, WM_QUERYENDSESSION, WM_RBUTTONUP,
+                WM_SETTINGCHANGE, WM_TIMER,
             },
         },
     },
@@ -105,6 +108,9 @@ use windows::{
 
 /// Not in the windows crate: the cursor left the window (after TrackMouseEvent).
 const WM_MOUSELEAVE: u32 = 0x02A3;
+
+/// WM_DEMO's wparam for a system notice; 0 and 1 are a warning and a failure.
+const DEMO_SYSTEM: usize = 2;
 
 const TICK_MS: u32 = 1000;
 const SAVE_EVERY_TICKS: u32 = 15;
@@ -149,6 +155,12 @@ mod timers {
     pub const WATCH_HIDE: usize = 29;
     /// The spinner of an update check has not turned once yet: the answer waits for it.
     pub const UPDATE: usize = 30;
+    /// The system notifications' minute: the processes and the battery.
+    pub const NOTIFY: usize = 31;
+    /// The first low step waits for Energy saver.
+    pub const SAVER_WAIT: usize = 32;
+    /// The control center's clock: the next second.
+    pub const CLOCK: usize = 33;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -165,10 +177,16 @@ thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Demo {
+    Problem(Level),
+    /// The next system notice of the list, at each start with the flag.
+    System,
+}
+
 /// `restart` — this island replaces a running one (tray, after a crash, a start retry).
-/// `attempt` — which try to start this is. `demo` — ask the running island to show
-/// a sample problem of this level: the notice can be looked at without breaking anything.
-pub fn run(restart: bool, attempt: u32, demo: Option<Level>) {
+/// `attempt` — which try to start this is.
+pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
@@ -179,7 +197,8 @@ pub fn run(restart: bool, attempt: u32, demo: Option<Level>) {
         }
     } else if !platform::claim_single_instance(INSTANCE) {
         let (msg, wparam) = match demo {
-            Some(level) => (WM_DEMO, usize::from(level == Level::Critical)),
+            Some(Demo::Problem(level)) => (WM_DEMO, usize::from(level == Level::Critical)),
+            Some(Demo::System) => (WM_DEMO, DEMO_SYSTEM),
             None => (WM_OPEN_SETTINGS, 0),
         };
         unsafe {
@@ -354,6 +373,7 @@ struct App {
     hotkeys: Hotkeys,
     problems: Problems,
     updates: Updates,
+    notify: Notify,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -462,6 +482,7 @@ impl App {
             hotkeys: Hotkeys::default(),
             problems,
             updates: Updates::new(),
+            notify: Notify::default(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -489,6 +510,7 @@ impl App {
         self.sync_record_key();
         self.sync_area_key();
         self.sweep_recordings();
+        self.start_notify();
         self.problems.booting = false;
         journal::info(tr!(
             "journal.started",
@@ -503,6 +525,8 @@ impl App {
         self.save();
         self.flush_shots();
         self.finish_recording();
+        self.stop_notify();
+        self.close_settings();
         journal::info(tr!("journal.stopped"));
     }
 
@@ -540,6 +564,11 @@ impl App {
             WM_UPDATE => self.on_update_message(),
             crate::update::COMMAND_MESSAGE => self.on_update_command(wparam.0),
             WM_FAULT => self.on_faults(),
+            WM_POWERBROADCAST => {
+                self.on_power();
+                return Some(LRESULT(1));
+            }
+            WM_DEMO if wparam.0 == DEMO_SYSTEM => self.demo_system(),
             WM_DEMO => self.demo_problem(wparam.0 != 0),
             WM_OPEN_SETTINGS => self.open_settings(),
             WM_DISPLAYCHANGE => {
@@ -593,6 +622,9 @@ impl App {
             timers::SELECT => self.on_select_timer(),
             timers::MARKS_GONE => self.on_marks_gone(),
             timers::METER => self.on_meter_timer(),
+            timers::NOTIFY => self.on_notify_sample(),
+            timers::SAVER_WAIT => self.on_saver_wait(),
+            timers::CLOCK => self.on_clock_timer(),
             _ => {}
         }
     }
@@ -687,6 +719,8 @@ impl App {
         self.sync_clip();
         self.sync_problem();
         self.sync_record_panel();
+        self.sync_notify();
+        self.sync_clock();
     }
 
     fn schedule_stage(&self) {

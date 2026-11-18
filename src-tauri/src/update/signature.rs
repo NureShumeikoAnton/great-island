@@ -18,16 +18,18 @@ pub fn verify(installer: &[u8], signature: &str) -> Result<(), Failed> {
 
 /// With another key: for the release check and the tests.
 pub fn verify_with(key: &str, installer: &[u8], signature: &str) -> Result<(), Failed> {
-    let refused = |detail: String| Failed::because(Cause::Unknown, format!("update signature: {detail}"));
+    let refused =
+        |detail: String| Failed::because(Cause::Unknown, format!("update signature: {detail}"));
     let text = |base64: &str| {
         STANDARD
             .decode(base64.trim())
             .map_err(|e| e.to_string())
             .and_then(|bytes| String::from_utf8(bytes).map_err(|e| e.to_string()))
     };
-    let key = PublicKey::decode(&text(key).map_err(refused)?).map_err(|e| refused(e.to_string()))?;
-    let signature =
-        Signature::decode(&text(signature).map_err(refused)?).map_err(|e| refused(e.to_string()))?;
+    let key =
+        PublicKey::decode(&text(key).map_err(refused)?).map_err(|e| refused(e.to_string()))?;
+    let signature = Signature::decode(&text(signature).map_err(refused)?)
+        .map_err(|e| refused(e.to_string()))?;
     key.verify(installer, &signature, true)
         .map_err(|e| refused(e.to_string()))
 }
@@ -64,7 +66,10 @@ mod tests {
     #[test]
     fn rubbish_is_refused() {
         for signature in ["", "not base64!", "bm90IGEgc2lnbmF0dXJl"] {
-            assert!(verify_with(TEST_KEY, INSTALLER, signature).is_err(), "{signature}");
+            assert!(
+                verify_with(TEST_KEY, INSTALLER, signature).is_err(),
+                "{signature}"
+            );
         }
         assert!(verify_with("garbage", INSTALLER, TEST_SIGNATURE).is_err());
     }

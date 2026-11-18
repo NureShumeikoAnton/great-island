@@ -8,7 +8,6 @@ mod bars;
 
 use super::super::comp::{Comp, Motion, Text, color, scale, v2, v3};
 use super::super::glyph::Glyph;
-use super::status::badges_width;
 use super::{
     Content, FADE_IN, FADE_OUT, Hit, IconButton, Liveness, MUTED, Model, Modes, PlayerForm,
     PlayerHit, Rect, Scene, TEXT, clock_style, format_clock, style,
@@ -103,14 +102,6 @@ impl Parts {
 /// Mode badges stand first, where the timers view has them.
 const BADGES_X: f32 = 13.0;
 
-/// Without badges the cover is concentric with the capsule's rounding.
-fn collapsed_cover_x(modes: Modes) -> f32 {
-    match badges_width(modes) {
-        0.0 => 6.0,
-        badges => BADGES_X + badges,
-    }
-}
-
 fn tint_of(session: &Session) -> Color {
     let [r, g, b] = session.cover.as_ref().map_or(NEUTRAL_TINT, |c| c.tint);
     Color {
@@ -131,6 +122,14 @@ fn artist_line(session: &Session) -> String {
 }
 
 impl Scene {
+    /// Without badges the cover is concentric with the capsule's rounding.
+    fn collapsed_cover_x(&self, modes: Modes) -> f32 {
+        match self.badges_width(modes) {
+            0.0 => 6.0,
+            badges => BADGES_X + badges,
+        }
+    }
+
     pub(super) fn build_player(
         &self,
         model: &Model,
@@ -224,7 +223,7 @@ impl Scene {
         content.anchor_left = true;
         self.badges(&root, BADGES_X, modes)?;
         let cover = self.cover(session, 18.0)?;
-        self.place(&root, &cover, collapsed_cover_x(modes), 6.0)?;
+        self.place(&root, &cover, self.collapsed_cover_x(modes), 6.0)?;
 
         let time = self.comp.text("", clock_style(13.0, TEXT), self.scale)?;
         time.visual.SetOpacity(0.0)?;
@@ -620,7 +619,7 @@ impl Scene {
         match parts.form {
             PlayerForm::Collapsed => {
                 let show = TRACK_TIME.visible(model.frozen) && timeline.is_some();
-                let after_cover = collapsed_cover_x(model.modes) + 18.0 + 12.0;
+                let after_cover = self.collapsed_cover_x(model.modes) + 18.0 + 12.0;
                 let mut width = after_cover + COLLAPSED_BARS.width() + 12.0;
                 if let (Some(text), Some(t)) = (parts.time.as_mut(), timeline) {
                     self.comp

@@ -23,6 +23,7 @@ export type PageId =
   | "player"
   | "shots"
   | "record"
+  | "notifications"
   | "energy"
   | "language"
   | "about"

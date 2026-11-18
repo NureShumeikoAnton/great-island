@@ -3,7 +3,13 @@
 //!
 //! The buttons and their states are `crate::control`.
 
-use super::{App, log, screenshot::Trigger, timers, view::HOLD_MS, window::WM_CONTROLS};
+use super::{
+    App, log,
+    screenshot::Trigger,
+    timers,
+    view::{HOLD_MS, StripModel},
+    window::WM_CONTROLS,
+};
 use crate::{
     control::{
         ControlId, Flag, Outcome, Ports, Switch, Unavailable,
@@ -12,6 +18,7 @@ use crate::{
     fault::{Cause, Fault, What},
     journal,
     lang::tr,
+    platform,
     stage::NoticeKind,
 };
 use std::{cell::Cell, rc::Rc, sync::Arc};
@@ -21,6 +28,7 @@ use windows::Win32::{
 };
 
 const MENU_CLOSE_MS: u32 = 300;
+const CLOCK_LATE_MS: u32 = 15;
 
 /// System parts of the control-center buttons. Sound and microphone report an outside toggle with a message
 /// to the service window; if connecting failed the button is unavailable.
@@ -170,6 +178,42 @@ impl App {
         if self.stage.shown().menu {
             self.set_timer(timers::MENU, MENU_CLOSE_MS);
         }
+    }
+
+    pub(super) fn strip_input(&self) -> StripModel {
+        let battery = self.battery_gauge();
+        StripModel {
+            clock: platform::wall_clock(),
+            seconds: self.settings.clock_seconds,
+            gauge: battery.map(|(gauge, _)| gauge),
+            percent: self.settings.battery_percent,
+            low: battery.map_or(0, |(_, low)| low),
+            decor: self.settings.animations,
+        }
+    }
+
+    /// While the menu is open its clock is redrawn as the second (or the minute) turns; the
+    /// island's own tick isn't tied to the clock's second.
+    pub(super) fn sync_clock(&self) {
+        if self.stage.shown().menu && self.record_panel.page().is_none() {
+            let now = platform::wall_clock();
+            let mut wait = 1000 - u32::from(now.millis);
+            if !self.settings.clock_seconds {
+                wait += 1000 * (59 - u32::from(now.second));
+            }
+            // A little past the turn, so the clock surely reads the new second.
+            self.set_timer(timers::CLOCK, wait + CLOCK_LATE_MS);
+        } else {
+            self.kill_timer(timers::CLOCK);
+        }
+    }
+
+    pub(super) fn on_clock_timer(&mut self) {
+        self.kill_timer(timers::CLOCK);
+        if self.visible && self.stage.shown().menu {
+            self.render();
+        }
+        self.sync_clock();
     }
 
     pub(super) fn on_menu_timer(&mut self) {

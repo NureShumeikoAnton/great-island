@@ -3,7 +3,7 @@
 
 use super::{
     Clock, Content, Hit, LATCH, Liveness, MUTED, Mode, Model, Rect, Ring, Scene, TEXT, clock_style,
-    dots_space, format_clock, snap, status, style,
+    dots_space, format_clock, snap, style,
 };
 use crate::{
     island::comp::{Motion, color, scale, v2, v3},
@@ -84,7 +84,7 @@ impl Scene {
     }
 
     pub(super) fn collapsed_width(&self, model: &Model) -> f32 {
-        status::badges_width(model.modes) + self.collapsed_content_width(model)
+        self.badges_width(model.modes) + self.collapsed_content_width(model)
     }
 
     fn collapsed_content_width(&self, model: &Model) -> f32 {
@@ -119,7 +119,7 @@ impl Scene {
         let root = content.root.clone();
         content.height = 30.0;
         self.badges(&root, 13.0, model.modes)?;
-        let start = 13.0 + status::badges_width(model.modes);
+        let start = 13.0 + self.badges_width(model.modes);
 
         if snapshot.paused || snapshot.timers.is_empty() {
             let mut x = start;

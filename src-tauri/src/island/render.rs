@@ -10,8 +10,8 @@ use super::{
     record_panel::PanelInput,
     timers,
     view::{
-        CardModel, Mode, Model, Modes, PlayerForm, PlayerModel, ProblemModel, RecordModel,
-        UpdateLook, UpdateModel,
+        AppModel, CardModel, Mode, Model, Modes, PlayerForm, PlayerModel, ProblemModel,
+        RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel, has_list,
     },
 };
 use crate::{
@@ -19,7 +19,8 @@ use crate::{
     control::{ControlId, Item},
     fault::Level,
     gesture::Dir,
-    media::{LevelSource, Session},
+    media::{Icon, LevelSource, Session},
+    notify::Notice,
     persist,
     scheduler::Snapshot,
     stage::{Activity, NoticeKind},
@@ -54,6 +55,15 @@ pub(super) struct ViewInput {
     /// An update notice: its look, what happened, what to do.
     update: Option<(UpdateLook, String, String)>,
     panel: Option<PanelInput>,
+    system: Option<SystemInput>,
+    strip: Option<StripModel>,
+}
+
+/// A system notice with its apps' names and icons, in its order.
+struct SystemInput {
+    notice: Notice,
+    apps: Vec<(String, Option<Arc<Icon>>, u8)>,
+    decor: bool,
 }
 
 impl ViewInput {
@@ -108,6 +118,20 @@ impl ViewInput {
                     reason,
                 }),
             panel: self.panel.as_ref().map(PanelInput::model),
+            system: self.system.as_ref().map(|s| SystemModel {
+                notice: &s.notice,
+                apps: s
+                    .apps
+                    .iter()
+                    .map(|(name, icon, percent)| AppModel {
+                        name,
+                        icon: icon.as_deref(),
+                        percent: *percent,
+                    })
+                    .collect(),
+                decor: s.decor,
+            }),
+            strip: self.strip,
         }
     }
 }
@@ -156,6 +180,9 @@ impl App {
             {
                 Mode::Update
             }
+            _ if self.system_notice().is_some() => Mode::System {
+                open: self.expanded && self.system_notice().is_some_and(has_list),
+            },
             _ if notice == Some(NoticeKind::Viewing) => Mode::Viewing,
             Activity::Timers if self.expanded || self.reminders.skip.is_some() => Mode::Expanded,
             Activity::Timers => Mode::Collapsed,
@@ -194,6 +221,7 @@ impl App {
                 quiet: self.controls.is_on(ControlId::DoNotDisturb),
                 awake: self.controls.is_on(ControlId::KeepAwake),
                 problem: !self.problems.missed.is_empty(),
+                battery: self.battery_badge(),
             },
             card: match mode {
                 Mode::Card => self.card(),
@@ -231,7 +259,35 @@ impl App {
                 Mode::RecordPanel(_) => self.panel_input(),
                 _ => None,
             },
+            system: match mode {
+                Mode::System { .. } => self.system_input(),
+                _ => None,
+            },
+            strip: match mode {
+                Mode::Menu => Some(self.strip_input()),
+                _ => None,
+            },
         }
+    }
+
+    fn system_input(&self) -> Option<SystemInput> {
+        let notice = self.system_notice()?.clone();
+        let apps = match &notice {
+            Notice::Drain { apps, .. } | Notice::Load { apps, .. } => apps
+                .iter()
+                .map(|share| {
+                    let face = self.face(&share.exe);
+                    let name = face.map_or_else(|| share.exe.clone(), |f| f.name.clone());
+                    (name, face.and_then(|f| f.icon.clone()), share.percent)
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        Some(SystemInput {
+            notice,
+            apps,
+            decor: self.settings.animations,
+        })
     }
 
     pub(super) fn neighbor_input(&self, dir: Dir) -> Option<ViewInput> {

@@ -188,11 +188,7 @@ pub fn get(url: &str, limit: usize) -> Result<Vec<u8>, Failed> {
 }
 
 /// Into a file; `progress(done, total)` after every piece (`total` 0 = not known).
-pub fn download(
-    url: &str,
-    path: &Path,
-    mut progress: impl FnMut(u64, u64),
-) -> Result<(), Failed> {
+pub fn download(url: &str, path: &Path, mut progress: impl FnMut(u64, u64)) -> Result<(), Failed> {
     let response = request(url)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
@@ -224,7 +220,10 @@ mod tests {
         assert_eq!(url.port, 443);
         assert_eq!(url.path, "/a/b/releases/latest/download/latest.json");
         let local = parse("http://127.0.0.1:8080/latest.json").expect("ok");
-        assert_eq!((local.host, local.port, local.secure), ("127.0.0.1", 8080, false));
+        assert_eq!(
+            (local.host, local.port, local.secure),
+            ("127.0.0.1", 8080, false)
+        );
     }
 
     #[test]

@@ -124,7 +124,11 @@ fn problem(text: &str) -> Option<(&str, Fault)> {
         Some((subject, after)) => (Some(subject.to_string()), after.trim_start()),
         None => (None, rest),
     };
-    let detail = detail.strip_prefix('·').unwrap_or(detail).trim().to_string();
+    let detail = detail
+        .strip_prefix('·')
+        .unwrap_or(detail)
+        .trim()
+        .to_string();
     Some((
         code,
         Fault {
@@ -148,7 +152,10 @@ mod tests {
     #[test]
     fn a_problem_comes_back_from_its_line() {
         lang::with(Lang::Ru, || {
-            let fault = Fault::new(What::UpdateCheck, Failed::because(Cause::Missing, "HTTP 404"));
+            let fault = Fault::new(
+                What::UpdateCheck,
+                Failed::because(Cause::Missing, "HTTP 404"),
+            );
             let entries = parse(&at(&format!("[error] {}", fault_line(&fault))), false);
             assert_eq!(entries.len(), 1);
             let entry = &entries[0];
@@ -168,7 +175,13 @@ mod tests {
                 .about("Ctrl + Shift + S");
             let entry = &parse(&at(&format!("[warn] {}", fault_line(&fault))), false)[0];
             assert_eq!(entry.reason, Some(fault.reason()));
-            assert!(entry.reason.as_deref().unwrap().contains("Ctrl + Shift + S"));
+            assert!(
+                entry
+                    .reason
+                    .as_deref()
+                    .unwrap()
+                    .contains("Ctrl + Shift + S")
+            );
             assert_eq!(entry.detail, "0x80070581");
         });
     }

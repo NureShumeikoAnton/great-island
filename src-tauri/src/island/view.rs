@@ -15,7 +15,9 @@ mod pull;
 mod record;
 mod shot;
 mod status;
+mod strip;
 mod swipe;
+mod system;
 mod timers;
 mod update;
 mod viewing;
@@ -29,6 +31,8 @@ pub use problem::ProblemModel;
 pub use record::RecordModel;
 pub use shot::SHUTTER_MS;
 pub use status::Modes;
+pub use strip::StripModel;
+pub use system::{AppModel, SystemModel, has_list};
 pub use update::{UpdateLook, UpdateModel};
 pub use viewing::HOLD_MS;
 
@@ -90,6 +94,10 @@ pub enum Mode {
     },
     /// A check for an update, its result or the answer to the update window.
     Update,
+    /// A system notice (`crate::notify`); `open` only for one with a list of apps, under the cursor.
+    System {
+        open: bool,
+    },
 }
 
 impl Mode {
@@ -199,6 +207,8 @@ pub struct Model<'a> {
     pub problem: Option<ProblemModel<'a>>,
     pub update: Option<UpdateModel<'a>>,
     pub panel: Option<PanelModel<'a>>,
+    pub system: Option<SystemModel<'a>>,
+    pub strip: Option<StripModel>,
 }
 
 pub struct PlayerModel<'a> {
@@ -427,7 +437,7 @@ impl Scene {
             Mode::Expanded => self.expanded_size(model),
             Mode::Alert => (self.alert_width(model), 66.0),
             Mode::Player(form) => form.size(),
-            Mode::Menu => menu::size(model.controls.len()),
+            Mode::Menu => menu::menu_size(model),
             Mode::RecordPanel(_) => self.panel_size(model),
             Mode::Indicator(id, off) => (self.indicator_width(id, off).round(), 30.0),
             Mode::Shutter => (30.0, 30.0),
@@ -438,6 +448,7 @@ impl Scene {
             Mode::Discarded => (self.discarded_width().round(), 30.0),
             Mode::Problem { open } => self.problem_size(model, open),
             Mode::Update => self.update_size(model),
+            Mode::System { open } => self.system_size(model, open),
         }
     }
 
@@ -652,6 +663,7 @@ impl Scene {
             Mode::Discarded => self.build_discarded(&mut content)?,
             Mode::Problem { open } => self.build_problem(model, open, &mut content)?,
             Mode::Update => self.build_update(model, &mut content)?,
+            Mode::System { open } => self.build_system(model, open, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -696,7 +708,8 @@ impl Scene {
             | Mode::Shutter
             | Mode::Discarded
             | Mode::Problem { .. }
-            | Mode::Update => {}
+            | Mode::Update
+            | Mode::System { .. } => {}
         }
         Ok(())
     }
@@ -849,11 +862,25 @@ fn content_key(model: &Model) -> String {
             );
         }
         (Mode::Update, _) => {
-            let (look, title, reason) = model.update.as_ref().map_or(
-                (UpdateLook::Checking, "", ""),
-                |u| (u.look, u.title, u.reason),
-            );
+            let (look, title, reason) = model
+                .update
+                .as_ref()
+                .map_or((UpdateLook::Checking, "", ""), |u| {
+                    (u.look, u.title, u.reason)
+                });
             return format!("Update|{look:?}|{title}|{reason}");
+        }
+        // A new notice, even the same kind with another percentage, plays its animation again.
+        (Mode::System { .. }, _) => {
+            let apps: Vec<&str> = model
+                .system
+                .as_ref()
+                .map(|s| s.apps.iter().map(|a| a.name).collect())
+                .unwrap_or_default();
+            let (notice, decor) = model.system.as_ref().map_or((String::new(), false), |s| {
+                (format!("{:?}", s.notice), s.decor)
+            });
+            return format!("{:?}|{notice}|{decor}|{}", model.mode, apps.join(","));
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model
@@ -887,7 +914,8 @@ fn content_key(model: &Model) -> String {
             .iter()
             .map(|i| format!("{:?}", i.id))
             .collect();
-        return format!("Menu|{}", ids.join(","));
+        let strip = model.strip.as_ref().map(strip::key).unwrap_or_default();
+        return format!("Menu|{}|{strip}", ids.join(","));
     }
     if let (Mode::Player(_), Some(player)) = (model.mode, &model.player) {
         let s = player.session;

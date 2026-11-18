@@ -97,6 +97,22 @@ pub enum Glyph {
     DiscMark,
     Bang,
     Problem,
+    // System notices. The battery's parts share one square viewBox 32 with the body in its
+    // middle band, so they stack into one battery and move apart for the animations.
+    BatteryShell,
+    BatteryTip,
+    BatteryBolt,
+    BatteryChevrons,
+    /// Energy saver: takes the tip's place.
+    BatteryPlus,
+    /// The fast drain's gauge without its needle, viewBox 20; the needle turns on its own.
+    Dial,
+    Needle,
+    /// High load: a processor, its core apart to pulse.
+    Chip,
+    ChipCore,
+    /// The control center: on the charger, not charging.
+    Plug,
 }
 
 enum Part {
@@ -127,6 +143,9 @@ enum Seg {
 use Part::*;
 use Seg::*;
 
+/// The battery parts' square viewBox; the body is 26 × 12 from (0, 10).
+pub const BATTERY_VIEW: f32 = 32.0;
+
 impl Glyph {
     fn view(self) -> f32 {
         match self {
@@ -134,12 +153,99 @@ impl Glyph {
             Self::Previous | Self::Next => 18.0,
             Self::Headphones | Self::Speaker | Self::Note | Self::Video => 16.0,
             Self::Caution | Self::CautionMark | Self::Disc | Self::DiscMark => 16.0,
+            Self::BatteryShell
+            | Self::BatteryTip
+            | Self::BatteryBolt
+            | Self::BatteryChevrons
+            | Self::BatteryPlus => BATTERY_VIEW,
+            Self::Dial | Self::Needle | Self::Chip | Self::ChipCore => 20.0,
             _ => 20.0,
         }
     }
 
     fn parts(self) -> &'static [Part] {
         match self {
+            Self::BatteryShell => &[RectOutline(0.75, 10.75, 21.5, 10.5, 3.0, 1.5)],
+            Self::BatteryTip => &[Rect(23.1, 13.8, 1.9, 4.4, 0.95)],
+            // Taller than the body: it sticks out above and below.
+            Self::BatteryBolt => &[Poly(
+                &[
+                    (14.2, 7.4),
+                    (7.6, 17.0),
+                    (11.9, 17.0),
+                    (10.0, 23.6),
+                    (16.8, 13.8),
+                    (12.4, 13.8),
+                ],
+                0.0,
+            )],
+            Self::BatteryChevrons => &[Line(
+                &[
+                    Move(4.6, 12.4),
+                    To(8.0, 16.0),
+                    To(4.6, 19.6),
+                    Move(9.6, 12.4),
+                    To(13.0, 16.0),
+                    To(9.6, 19.6),
+                ],
+                1.5,
+            )],
+            Self::BatteryPlus => &[Line(
+                &[
+                    Move(27.0, 12.6),
+                    To(27.0, 19.4),
+                    Move(23.6, 16.0),
+                    To(30.4, 16.0),
+                ],
+                1.8,
+            )],
+            // Over the top through its highest point: two small arcs make the large one.
+            Self::Dial => &[Line(
+                &[
+                    Move(3.2, 14.5),
+                    ArcCw(10.0, 3.51, 7.6),
+                    ArcCw(16.8, 14.5, 7.6),
+                ],
+                1.8,
+            )],
+            Self::Needle => &[
+                Line(&[Move(10.0, 12.2), To(14.2, 6.6)], 1.8),
+                Circle(10.0, 12.2, 1.7),
+            ],
+            Self::Chip => &[
+                RectOutline(4.5, 4.5, 11.0, 11.0, 2.4, 1.7),
+                Line(
+                    &[
+                        Move(8.0, 2.0),
+                        To(8.0, 4.0),
+                        Move(12.0, 2.0),
+                        To(12.0, 4.0),
+                        Move(8.0, 16.0),
+                        To(8.0, 18.0),
+                        Move(12.0, 16.0),
+                        To(12.0, 18.0),
+                        Move(2.0, 8.0),
+                        To(4.0, 8.0),
+                        Move(2.0, 12.0),
+                        To(4.0, 12.0),
+                        Move(16.0, 8.0),
+                        To(18.0, 8.0),
+                        Move(16.0, 12.0),
+                        To(18.0, 12.0),
+                    ],
+                    1.4,
+                ),
+            ],
+            Self::ChipCore => &[Rect(7.6, 7.6, 4.8, 4.8, 1.0)],
+            Self::Plug => &[
+                Line(
+                    &[Move(7.6, 2.6), To(7.6, 6.6), Move(12.4, 2.6), To(12.4, 6.6)],
+                    1.8,
+                ),
+                Rect(4.6, 6.4, 10.8, 4.4, 1.0),
+                Poly(&[(4.6, 10.0), (15.4, 10.0), (12.4, 14.4), (7.6, 14.4)], 1.0),
+                Line(&[Move(10.0, 14.0), To(10.0, 17.6)], 1.8),
+            ],
             Self::Play => &[Poly(&[(7.6, 4.4), (7.6, 17.6), (18.0, 11.0)], 1.6)],
             Self::Pause => &[
                 Rect(5.5, 4.0, 4.0, 14.0, 1.2),

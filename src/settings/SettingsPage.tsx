@@ -5,7 +5,14 @@ import { api, type AppInfo, type Display, type Reminder, type Settings, type Upd
 import { Glyph } from "./icons";
 import { Navigator, type Route } from "./Navigator";
 import { AboutPage, EnergyPage, LanguagePage } from "./pages/General";
-import { IslandPage, MonitorPage, PlayerPage, RecordPage, ShotsPage } from "./pages/Features";
+import {
+  IslandPage,
+  MonitorPage,
+  NotificationsPage,
+  PlayerPage,
+  RecordPage,
+  ShotsPage,
+} from "./pages/Features";
 import { JournalPage } from "./pages/Journal";
 import { MainPage } from "./pages/Main";
 import { COLORS, ReminderPage, RemindersPage, SoundPage } from "./pages/Reminders";
@@ -142,6 +149,8 @@ export function SettingsPage() {
         return { title: t("page.shots"), body: <ShotsPage /> };
       case "record":
         return { title: t("page.record"), body: <RecordPage /> };
+      case "notifications":
+        return { title: t("page.notifications"), body: <NotificationsPage /> };
       case "energy":
         return { title: t("page.energy"), body: <EnergyPage /> };
       case "language":

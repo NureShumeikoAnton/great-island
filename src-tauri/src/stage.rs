@@ -65,6 +65,14 @@ pub enum NoticeKind {
     UpdateAnswer,
     Warning,
     Failure,
+    /// System notices (`crate::notify`), one per slot: a newer one replaces the shown one.
+    LowCharge,
+    CriticalCharge,
+    /// Plugged in, unplugged, charged.
+    Power,
+    SlowCharge,
+    /// Fast drain or high load.
+    Usage,
 }
 
 impl NoticeKind {
@@ -86,13 +94,20 @@ impl NoticeKind {
             | Self::UpdateDone
             | Self::UpdateAnswer
             | Self::Warning
-            | Self::Failure => None,
+            | Self::Failure
+            | Self::LowCharge
+            | Self::CriticalCharge
+            | Self::Power
+            | Self::SlowCharge
+            | Self::Usage => None,
         }
     }
 
     fn priority(self) -> u8 {
         match self {
             Self::Alert => 100,
+            // Right after a reminder: the computer is about to go off.
+            Self::CriticalCharge => 95,
             Self::AlertDone => 90,
             // A problem comes before the card it is about: "stopped, disk full", then the file.
             Self::Failure => 86,
@@ -100,10 +115,14 @@ impl NoticeKind {
             // A screenshot answers the button just pressed: more important than news.
             Self::Shutter | Self::Shot | Self::Countdown | Self::Clip => 80,
             Self::Sound | Self::Microphone | Self::Discarded => 70,
+            // Answers the plug just pulled, like the sound indicator.
+            Self::Power => 70,
+            Self::LowCharge => 62,
+            Self::SlowCharge => 61,
             Self::UpdateAnswer => 75,
             Self::UpdateDone => 65,
             Self::UpdateChecking => 35,
-            Self::Track => 60,
+            Self::Track | Self::Usage => 60,
             Self::Paused => 40,
             // A state ranks lowest: news briefly sits over it.
             Self::Viewing => 10,
@@ -130,6 +149,12 @@ impl NoticeKind {
             Self::Failure => Some(5000),
             Self::Track => Some(5000),
             Self::Paused => Some(4000),
+            // Each holds 1-1.5 s after its battery's or gauge's animation ends (`view/system.rs`).
+            Self::LowCharge => Some(4000),
+            Self::CriticalCharge => Some(6000),
+            Self::Power => Some(4000),
+            Self::SlowCharge => Some(5000),
+            Self::Usage => Some(7000),
         }
     }
 
@@ -148,21 +173,29 @@ impl NoticeKind {
             // A problem is not news that goes stale: it waits until it can be shown.
             | Self::UpdateAnswer
             | Self::Warning
-            | Self::Failure => None,
+            | Self::Failure
+            // The charge is still that low when the way is clear.
+            | Self::CriticalCharge => None,
             // Nobody wants "checking" or "up to date" after the moment has passed.
             Self::UpdateChecking => Some(500),
             Self::UpdateDone => Some(2000),
             Self::AlertDone | Self::Paused | Self::Sound | Self::Microphone | Self::Discarded => {
                 Some(1000)
             }
-            Self::Track => Some(2000),
+            Self::Track | Self::LowCharge | Self::SlowCharge | Self::Usage => Some(2000),
+            Self::Power => Some(1000),
         }
     }
 
     /// A priority notice breaks through the island being hidden from the tray,
     /// as Windows priority notifications break through Do Not Disturb.
     pub fn is_priority(self) -> bool {
-        matches!(self, Self::Alert | Self::Failure)
+        matches!(self, Self::Alert | Self::Failure | Self::CriticalCharge)
+    }
+
+    /// Shown over a fullscreen app whatever the fullscreen setting says.
+    pub fn breaks_fullscreen(self) -> bool {
+        self == Self::CriticalCharge
     }
 
     pub fn is_problem(self) -> bool {
@@ -174,7 +207,14 @@ impl NoticeKind {
     fn passes_quiet(self) -> bool {
         !matches!(
             self,
-            Self::Track | Self::Paused | Self::UpdateChecking | Self::UpdateDone
+            Self::Track
+                | Self::Paused
+                | Self::UpdateChecking
+                | Self::UpdateDone
+                | Self::LowCharge
+                | Self::Power
+                | Self::SlowCharge
+                | Self::Usage
         )
     }
 
@@ -886,5 +926,40 @@ mod tests {
         assert!(!s.can_swipe());
         s.tick(6100);
         assert_eq!(kind(&s), Some(Recording));
+    }
+
+    #[test]
+    fn the_critical_charge_comes_right_after_a_reminder_and_through_everything() {
+        let mut s = Stage::new();
+        playing(&mut s, 0);
+        s.post(Track, 0);
+        s.post(Usage, 0);
+        s.post(CriticalCharge, 10);
+        assert_eq!(kind(&s), Some(CriticalCharge));
+        s.post(Alert, 20);
+        assert_eq!(kind(&s), Some(Alert));
+
+        let mut quiet = Stage::new();
+        quiet.set_quiet(true, 0);
+        for k in [LowCharge, Power, SlowCharge, Usage] {
+            assert!(!quiet.post(k, 0), "{k:?}");
+        }
+        quiet.open_menu(0);
+        quiet.post(CriticalCharge, 0);
+        assert_eq!(kind(&quiet), Some(CriticalCharge));
+        assert!(!quiet.shown().menu);
+    }
+
+    #[test]
+    fn a_newer_system_notice_takes_the_place_of_the_shown_one() {
+        let mut s = Stage::new();
+        s.post(CriticalCharge, 0);
+        let id = s.shown().notice.map(|n| n.id);
+        s.post(CriticalCharge, 4_000);
+        assert_eq!(s.shown().notice.map(|n| n.id), id);
+        s.tick(9_000);
+        assert_eq!(kind(&s), Some(CriticalCharge));
+        s.tick(10_100);
+        assert_eq!(kind(&s), None);
     }
 }

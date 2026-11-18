@@ -105,6 +105,16 @@ media/meter.rs — the player's loudness for the bars (no output device, the sou
 media/meter.rs, media/worker.rs — which player was found (a Yandex Browser-like player whose audio session is not matched by exe name: the journal has the app id and what was looked for)
 media/app.rs — bringing the player window to the front (the window is minimized to the tray, a Microsoft Store app)
 
+== System notifications ==
+notify/adapters/power.rs — the charge, the charger and Energy saver (GetSystemPowerStatus; the percentage unknown right after a battery swap or with a broken battery driver; now: journal once until a success, no battery notices meanwhile)
+notify/adapters/power.rs — watts and watt-hours from the battery report (Windows.Devices.Power; some batteries don't report the rate: then no time left and no fast drain, the low charge still works)
+notify/adapters/power.rs — Windows' Energy saver threshold from the power plan (a plan without the Energy saver group, a policy-managed plan: 20% is used)
+notify/adapters/power.rs — subscribing to the power events (each event alone may be unknown, e.g. Energy saver status on Windows 10; fails only when none is accepted; now: journal, the minute reading still finds every change, up to a minute late)
+notify/adapters/processes.rs — the list of processes and their processor time (protected system processes can't be opened by a user and are left out; the whole list failing: journal once until a success, no load notices meanwhile)
+notify/adapters/processes.rs — an app's name from its exe's version info (no version info: the file name is shown)
+media/icon.rs — an app's icon for the load list by its exe (none: a grey tile)
+persist.rs — writing battery.json, the usual drain (now: journal once until a success; what was learnt since stays in memory)
+
 == The installer ==
 update/adapters/http.rs — fetching the manifest and the installer over WinHTTP (no network, a proxy or a firewall that refuses, GitHub unavailable, a server that answers with an error, a stalled download; a background check goes to the journal once, then waits an hour)
 update/adapters/mod.rs — update.json, update-offer.json and update-status.json in the settings folder (the folder is unavailable: the postponement or the offer is forgotten, the windows show nothing; only the island writes the status)

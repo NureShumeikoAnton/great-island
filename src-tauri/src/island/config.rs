@@ -82,4 +82,12 @@ impl App {
             self.report(Fault::new(What::SettingsOpen, e.into()));
         }
     }
+
+    /// The settings window is a process of its own: left open, it would outlive the island and
+    /// hold the exe an update has to replace. It writes a change still waiting as it closes.
+    pub(super) fn close_settings(&self) {
+        for language in lang::Lang::ALL {
+            platform::close_window_titled(&lang::tr_for!(language, "settings.window_title"));
+        }
+    }
 }

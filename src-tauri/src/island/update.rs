@@ -337,7 +337,10 @@ impl App {
                     Verdict::Offer(_) | Verdict::Waiting { .. } => {
                         journal::info(tr!("journal.update_found", version = manifest.version));
                         if let Err(failed) = adapters::save_offer(&manifest) {
-                            journal::warn(tr!("journal.update_check_failed", error = failed.detail));
+                            journal::warn(tr!(
+                                "journal.update_check_failed",
+                                error = failed.detail
+                            ));
                         }
                         self.updates.offer = Some(manifest.clone());
                         self.set_available(&manifest, manual);

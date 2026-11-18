@@ -75,6 +75,13 @@ pub struct Settings {
     /// Look for a new version by itself (a day apart, in a quiet moment). The manual check stays.
     pub check_updates: bool,
     pub language: Language,
+    pub notify_low_charge: bool,
+    /// Plugged in, unplugged, charged, slow charging.
+    pub notify_charging: bool,
+    /// Fast drain on battery, high load without it.
+    pub notify_usage: bool,
+    pub battery_percent: bool,
+    pub clock_seconds: bool,
 }
 
 /// The island reads it once at start: a change applies after a restart.
@@ -172,6 +179,11 @@ impl Settings {
             autostart: false,
             check_updates: true,
             language: Language::default(),
+            notify_low_charge: true,
+            notify_charging: true,
+            notify_usage: true,
+            battery_percent: false,
+            clock_seconds: true,
         }
     }
 }
@@ -404,6 +416,8 @@ mod tests {
         assert_eq!(old.video_volume, 1.0);
         assert!(!old.video_muted);
         assert!(!old.video_remaining);
+        assert!(old.notify_low_charge && old.notify_charging && old.notify_usage);
+        assert!(!old.battery_percent && old.clock_seconds);
     }
 
     /// The recording choices were flat switches before the panel; they keep their keys.

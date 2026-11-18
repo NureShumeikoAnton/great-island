@@ -1,6 +1,6 @@
 //! Where the app's files live, and saving timers between runs.
 
-use crate::scheduler::SavedTimer;
+use crate::{notify::drain::Baseline, scheduler::SavedTimer};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -35,6 +35,24 @@ pub fn update_status_path() -> PathBuf {
 
 pub fn update_offer_path() -> PathBuf {
     config_dir().join("update-offer.json")
+}
+
+pub fn battery_path() -> PathBuf {
+    config_dir().join("battery.json")
+}
+
+pub fn load_baseline(path: &Path) -> Option<Baseline> {
+    let baseline: Baseline = serde_json::from_str(&fs::read_to_string(path).ok()?).ok()?;
+    Some(baseline.sanitized())
+}
+
+pub fn save_baseline(baseline: &Baseline, path: &Path) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, serde_json::to_string(baseline)?)?;
+    fs::rename(tmp, path)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

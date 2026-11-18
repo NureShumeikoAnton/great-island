@@ -5,6 +5,20 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.8.0 — 2026-11-18
+
+### Added
+
+- System notices on the island: low and critical battery charge, the charger plugged in and unplugged, fully charged and slow charging.
+- A fast battery drain notice, or a high load notice without a battery or on the charger, with the apps that load the processor.
+- A red battery with its percentage in the collapsed island at 10% and below.
+- A "Notifications" section in the settings.
+- Under the control center's buttons: the time, the time left on battery and the charging state; the seconds and the battery percentage are switched in the island's settings.
+
+### Fixed
+
+- Quitting the island now closes the settings window too.
+
 ## 0.7.5 — 2026-11-17
 
 ### Added

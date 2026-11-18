@@ -19,6 +19,8 @@ mod loudness;
 pub mod media;
 /// Public for `examples/edit_probe.rs`: opening and saving a real recording for the editor.
 pub mod montage;
+/// Public for `examples/power_probe.rs`: the battery and the load read live.
+pub mod notify;
 mod persist;
 mod platform;
 /// Public for `examples/play_probe.rs`: plays a real file through Media Engine.
@@ -28,13 +30,13 @@ mod scheduler;
 mod select;
 mod settings;
 mod settings_app;
-mod update_app;
 /// Public for `examples/shot_probe.rs`: probe of capture, PNG and hiding the window from captures.
 pub mod shot;
 mod sound;
 pub mod stage;
 /// Public until the island uses it.
 pub mod update;
+mod update_app;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -62,9 +64,11 @@ pub fn run() {
             .find_map(|arg| arg.strip_prefix("--attempt=")?.parse().ok())
             .unwrap_or(1);
         let demo = if has("--demo-failure") {
-            Some(fault::Level::Critical)
+            Some(island::Demo::Problem(fault::Level::Critical))
         } else if has("--demo-warning") {
-            Some(fault::Level::Warning)
+            Some(island::Demo::Problem(fault::Level::Warning))
+        } else if has("--demo-system") {
+            Some(island::Demo::System)
         } else {
             None
         };

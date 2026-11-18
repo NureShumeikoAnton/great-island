@@ -33,6 +33,13 @@ const PATHS = {
     </>
   ),
   zap: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
+  battery: (
+    <>
+      <rect x="2" y="7" width="17" height="10" rx="2.5" />
+      <path d="M22 11v2" />
+      <path d="M6 10.5v3" />
+    </>
+  ),
   language: (
     <>
       <path d="m5 8 6 6" />

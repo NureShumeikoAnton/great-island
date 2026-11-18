@@ -8,10 +8,14 @@ const HIDE_DELAY_MS: u32 = 450;
 const DIM_DELAY_MS: u32 = 10_000;
 
 impl App {
-    /// Rules in order: fullscreen "Hide" hides everything; an island hidden from the tray lets only priority
-    /// notices through; fullscreen "Alerts" and "Show always" turned off let any notice through.
+    /// Rules in order: a critical charge shows always; fullscreen "Hide" hides everything; an island
+    /// hidden from the tray lets only priority notices through; fullscreen "Alerts" and "Show always"
+    /// turned off let any notice through.
     fn wants_visible(&self) -> bool {
         let notice = self.stage.shown().notice;
+        if notice.is_some_and(|n| n.kind.breaks_fullscreen()) {
+            return true;
+        }
         let fullscreen = self.fullscreen.then_some(self.settings.fullscreen);
         if fullscreen == Some(Fullscreen::Hide) {
             return false;

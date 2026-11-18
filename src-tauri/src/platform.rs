@@ -26,7 +26,7 @@ use windows::{
                 HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_DWORD, REG_SZ, RRF_RT_REG_DWORD,
                 RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
             },
-            SystemInformation::GetTickCount,
+            SystemInformation::{GetLocalTime, GetTickCount},
             Threading::CreateMutexW,
             Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime},
         },
@@ -42,10 +42,10 @@ use windows::{
                 SHQueryUserNotificationState,
             },
             WindowsAndMessaging::{
-                GetCursorPos, HWND_BROADCAST, HWND_TOPMOST, MB_ICONERROR, MB_OK, MB_SETFOREGROUND,
-                MessageBoxW, SMTO_ABORTIFHUNG, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
-                SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW, SetWindowPos, ShowWindow,
-                WM_SETTINGCHANGE,
+                FindWindowW, GetCursorPos, HWND_BROADCAST, HWND_TOPMOST, MB_ICONERROR, MB_OK,
+                MB_SETFOREGROUND, MessageBoxW, PostMessageW, SMTO_ABORTIFHUNG, SW_HIDE,
+                SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW,
+                SetWindowPos, ShowWindow, WM_CLOSE, WM_SETTINGCHANGE,
             },
         },
     },
@@ -78,6 +78,23 @@ pub fn local_time(unix_ms: u64) -> crate::update::LocalTime {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WallClock {
+    pub hour: u16,
+    pub minute: u16,
+    pub second: u16,
+    pub millis: u16,
+}
+
+pub fn wall_clock() -> WallClock {
+    let t = unsafe { GetLocalTime() };
+    WallClock {
+        hour: t.wHour,
+        minute: t.wMinute,
+        second: t.wSecond,
+        millis: t.wMilliseconds,
+    }
+}
 
 /// MONITORINFO.dwFlags: the primary monitor.
 const MONITORINFOF_PRIMARY: u32 = 1;
@@ -340,6 +357,15 @@ pub fn wait_single_instance(name: &str, patience: Duration) -> bool {
             return false;
         }
         std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Asks a top-level window to close as if its X was pressed; nothing when there is none.
+pub fn close_window_titled(title: &str) {
+    unsafe {
+        if let Ok(hwnd) = FindWindowW(None, &HSTRING::from(title)) {
+            let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
     }
 }
 

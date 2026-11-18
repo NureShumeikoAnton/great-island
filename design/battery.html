@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — батарея и нагрузка</title>
+<style>
+:root{
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --r-orange:#FF9F0A;
+  --r-cyan:#64D2FF;
+  --warn:#FF9F0A;
+  --crit:#FF453A;
+  --charge:#30D158;
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --desk:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:48px 0 6px;font-weight:700}
+h2 .tag{display:inline-block;vertical-align:middle;margin-left:8px;font-size:12px;font-weight:600;color:var(--page-dim);
+  border:1px solid var(--page-line);border-radius:999px;padding:1px 9px}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 10px}
+.sub{color:var(--page-dim);margin:0 0 14px;max-width:900px}
+label.snd-toggle{display:inline-flex;gap:8px;align-items:center;color:var(--page-dim);font-size:13px;cursor:pointer}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;margin:0 auto;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  height:30px;border-radius:15px;
+  transition:width var(--dur-island) var(--ease-island),height var(--dur-island) var(--ease-island),border-radius var(--dur-island) var(--ease-island)}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:5}
+.island .glow{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:6;opacity:0;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--crit) 70%,transparent),inset 0 0 18px color-mix(in srgb,var(--crit) 28%,transparent)}
+.island.glowing .glow{animation:glow 1600ms var(--ease-out)}
+@keyframes glow{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+.layer{position:absolute;top:0;left:50%;height:100%;transform:translateX(-50%);display:flex;align-items:center;white-space:nowrap;transition:opacity 180ms}
+.layer.wide{left:0;transform:none;width:100%}
+.layer.out{opacity:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* ── battery micro-animations ── */
+.bat{overflow:visible}
+.bat .fill{transform-box:fill-box;transform-origin:left center}
+.bat.grow .fill{animation:grow 700ms var(--ease-out) 120ms both}
+@keyframes grow{from{transform:scaleX(0)}}
+/* starts a little above the real charge (--from) and runs down to it, after the island has opened */
+.bat.drain .fill{animation:drain 1400ms var(--ease-out) 380ms both}
+@keyframes drain{from{transform:scaleX(var(--from))}}
+.bat.blink .fill{animation:blink 1300ms ease-in-out 350ms 2}
+@keyframes blink{50%{opacity:.25}}
+.bat .wash{animation:wash 2100ms ease-in-out both}
+.bat.slow .wash{animation:none;opacity:1}
+@keyframes wash{from{opacity:0}12%{opacity:1}80%{opacity:1}to{opacity:0}}
+.bat .chev{animation:chev 900ms linear 0ms 2 both}
+.bat.slow .chev{animation:chev 2200ms linear 0ms infinite both}
+@keyframes chev{from{transform:translateX(-10px);opacity:0}25%{opacity:1}75%{opacity:1}to{transform:translateX(14px);opacity:0}}
+.bat .bolt{animation:boltin 380ms var(--ease-island) 1750ms both;transform-box:fill-box;transform-origin:center}
+.bat.slow .bolt{animation:none;opacity:0}
+@keyframes boltin{from{opacity:0;transform:scale(.4)}}
+.bat .shine{animation:shine 1100ms var(--ease-out) 650ms both}
+@keyframes shine{from{transform:translateX(-10px)}to{transform:translateX(28px)}}
+.bat .plus{transform-box:fill-box;transform-origin:center;animation:pop 420ms var(--ease-island) 700ms both}
+@keyframes pop{from{opacity:0;transform:scale(0)}}
+/* the needle swings up, then trembles at the top like an engine at full revs */
+.gauge .needle{transform-box:view-box;transform-origin:10px 12.2px;animation:needle 950ms var(--ease-island) 150ms both,revs 520ms linear 1100ms}
+@keyframes needle{from{transform:rotate(-95deg)}}
+@keyframes revs{0%{transform:rotate(0)}12%{transform:rotate(4deg)}26%{transform:rotate(-2deg)}40%{transform:rotate(4.5deg)}54%{transform:rotate(-1.5deg)}68%{transform:rotate(3.5deg)}84%{transform:rotate(-1deg)}100%{transform:rotate(0)}}
+.chip .core{animation:core 1100ms ease-in-out 250ms 2}
+@keyframes core{50%{opacity:.2}}
+
+/* S: 30 px */
+.tc{gap:9px;padding:0 13px}
+.tc .rings{display:flex;gap:5px}
+.tc .ring{width:11px;height:11px;border-radius:50%;border:2.2px solid}
+.tc .t{font-size:13px;font-weight:600;color:var(--digits)}
+.tc .low{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--crit);margin-right:1px}
+.s{gap:8px;padding:0 14px 0 12px;font-size:13px;font-weight:600}
+.s .dim{color:var(--text-2);font-weight:400}
+.s .val{margin-left:4px}
+
+/* M: 300 × 52 */
+.m{padding:0 18px 0 16px;gap:12px}
+.m .glyph,.l .glyph{flex:none;display:grid;place-items:center;width:28px}
+.m .meta,.l .meta{flex:1;min-width:0}
+.t1{font-size:14px;font-weight:600;line-height:18px;overflow:hidden;text-overflow:ellipsis}
+.t2{font-size:12px;line-height:16px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.big{flex:none;font-size:22px;font-weight:600;line-height:1;letter-spacing:-.01em;text-align:right}
+.big small{display:block;font-size:11px;font-weight:400;color:var(--text-2);letter-spacing:0;margin-top:3px}
+
+/* Card: 64 */
+.card{padding:0 16px 0 12px;gap:12px}
+.card .thumb{flex:none;width:64px;height:40px;border-radius:6px;background:linear-gradient(135deg,#3a4a66,#1d2533 60%,#4b3a5e)}
+
+/* L: 340 × content */
+.l{flex-direction:column;align-items:stretch;justify-content:flex-start;padding:8px 18px 14px 16px;white-space:normal}
+.l .head{display:flex;align-items:center;gap:12px;min-height:36px}
+.l .rows{margin:12px 0 0 40px;display:flex;flex-direction:column;gap:8px}
+.l .row{display:flex;align-items:center;gap:10px;height:22px;font-size:13px}
+.l .row .ico{flex:none;width:20px;height:20px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff}
+.l .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.l .row .bar{flex:none;width:64px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.l .row .bar i{display:block;height:100%;border-radius:2px;transform-origin:left;animation:grow 600ms var(--ease-out) 200ms both}
+.l .row .pc{flex:none;width:34px;text-align:right;font-size:12px;font-weight:600;color:var(--digits)}
+.l .none{margin:10px 0 0 40px;font-size:12px;color:var(--text-2)}
+
+/* ══════════ PAGE ══════════ */
+.variant{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:860px){.variant{grid-template-columns:1fr}}
+.desk{position:relative;background:var(--desk);border:1px solid var(--page-line);border-radius:14px;height:200px;overflow:hidden}
+.desk.tall{height:270px}
+.desk .stage{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:center}
+.desk .bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+.desk .hint{position:absolute;left:14px;bottom:48px;font-size:12px;color:var(--page-dim)}
+button.pill{font:inherit;font-size:12px;color:var(--page-text);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;padding:4px 11px;cursor:pointer}
+button.pill:hover{background:rgba(255,255,255,.14)}
+.spec{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;font-size:13px}
+.spec dl{margin:0;display:grid;grid-template-columns:84px 1fr;gap:6px 10px}
+.spec dt{color:var(--page-dim)}
+.spec dd{margin:0}
+.sizes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:860px){.sizes{grid-template-columns:1fr}}
+.cell{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:16px 10px 12px;overflow:hidden}
+.cell .island{transition:none}
+.cell p{margin:12px 2px 0;font-size:12px;color:var(--page-dim);text-align:center}
+.cell p b{color:var(--page-text);font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+td:first-child{color:var(--page-dim);width:220px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Батарея и нагрузка</h1>
+  <p class="lead">Кнопки под островом показывают уведомление вживую, со звуком и с теми же длительностями, что на острове.</p>
+  <label class="snd-toggle"><input type="checkbox" id="snd" checked> Звук в демо</label>
+
+  <h2>Размеры острова <span class="tag">UI-кит</span></h2>
+  <div class="sizes" id="sizes"></div>
+
+  <h2>1. Низкий заряд <span class="tag">20 %, 15 %</span></h2>
+  <p class="sub">На пороге остров ждёт до 3 с: если Windows за это время включила экономию, уведомление одно — с плюсом у батареи.</p>
+  <div class="variant">
+    <div class="desk" data-demo="low"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький.</dd>
+      <dt>Батарея</dt><dd>Заливка стекает к проценту с чуть большего значения; плюс экономии — внутри батареи.</dd>
+      <dt>Держится</dt><dd>3 с.</dd>
+      <dt>Звук</dt><dd>«Пульс».</dd>
+    </dl></div>
+  </div>
+
+  <h2>2. Критический заряд <span class="tag">10 % и ниже</span></h2>
+  <p class="sub">На каждом проценте. Кайма по краю — только на 10 %. После него на свёрнутом острове остаётся красная батарея с процентом, пока не подключат зарядку.</p>
+  <div class="variant">
+    <div class="desk" data-demo="crit"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Средний.</dd>
+      <dt>Батарея</dt><dd>Заливка дважды мягко мигает.</dd>
+      <dt>Держится</dt><dd>5 с.</dd>
+      <dt>Звук</dt><dd>«Капля».</dd>
+      <dt>Всегда</dt><dd>И в «Не беспокоить», и поверх полноэкранного.</dd>
+    </dl></div>
+  </div>
+
+  <h2>3. Зарядка</h2>
+  <p class="sub">Подключили, отключили, зарядилась, медленная зарядка (3 минуты подряд процент почти не растёт).</p>
+  <div class="variant">
+    <div class="desk" data-demo="plug"><div class="stage"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький.</dd>
+      <dt>Подключили</dt><dd>Батарея светлеет, стрелки во всю высоту бегут к контакту, потом появляется молния. Звук «Вдох».</dd>
+      <dt>Отключили</dt><dd>Без анимации. «Вдох», вниз и тише.</dd>
+      <dt>Зарядилась</dt><dd>По полной батарее один раз проходит блик.</dd>
+      <dt>Медленно</dt><dd>Стрелки бегут медленно, пока видно.</dd>
+      <dt>Держится</dt><dd>2,5 с, медленная — 4 с.</dd>
+    </dl></div>
+  </div>
+
+  <h2>4. Быстрый разряд <span class="tag">наведение — подробно</span></h2>
+  <div class="variant">
+    <div class="desk tall" data-demo="drain"><div class="stage"></div><div class="hint">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Средний; под курсором — большой.</dd>
+      <dt>Значок</dt><dd>Стрелка прибора поднимается вправо и полсекунды подрагивает на максимуме.</dd>
+      <dt>Справа</dt><dd>Расход сейчас; в большом под ним — обычный.</dd>
+      <dt>Список</dt><dd>До трёх приложений, ≥ 10 % процессора.</dd>
+      <dt>Клик</dt><dd>Ничего.</dd>
+      <dt>Держится</dt><dd>6 с; под курсором — пока он там.</dd>
+    </dl></div>
+  </div>
+
+  <h2>5. Высокая нагрузка <span class="tag">без батареи или от сети</span></h2>
+  <div class="variant">
+    <div class="desk tall" data-demo="load"><div class="stage"></div><div class="hint">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Средний; под курсором — большой.</dd>
+      <dt>Значок</dt><dd>Сердцевина процессора дважды пульсирует.</dd>
+      <dt>Справа</dt><dd>Загрузка процессора сейчас.</dd>
+    </dl></div>
+  </div>
+
+  <h2>Общее</h2>
+  <table>
+    <tr><td>Очередь</td><td>Общая с остальными уведомлениями острова. Критический заряд — сразу после напоминания, остальное — на уровне анонса трека.</td></tr>
+    <tr><td>Запись экрана</td><td>Критический заряд показывается; остальное ждёт конца записи, устаревшее пропадает.</td></tr>
+    <tr><td>«Не беспокоить», полноэкранное</td><td>Только критический заряд.</td></tr>
+    <tr><td>Настройки → Уведомления</td><td>«Низкий заряд», «Зарядка», «Быстрый расход и нагрузка» — все включены. Без батареи первых двух нет.</td></tr>
+    <tr><td>Анимации выключены</td><td>Остров меняет размер как обычно; батарея, стрелка и кайма — без движения.</td></tr>
+  </table>
+</div>
+
+<script>
+const COL={warn:'var(--warn)',crit:'var(--crit)',charge:'var(--charge)',white:'var(--text-1)'};
+let uid=0;
+
+/* fx: grow | drain | blink | charge | unplug | full | slow */
+/* the bolt is taller than the battery: it sticks out above and below the body */
+const BOLT='M14.2 -2.6 7.6 7h4.3l-1.9 6.6 6.8-9.8h-4.4z';
+function bat(p,col,{w=20,fx='grow',plus=false}={}){
+  const id='b'+(++uid), h=w*12/26, fw=18*Math.max(p,4)/100;
+  const charging=fx==='charge'||fx==='slow'||fx==='full';
+  const cls=fx==='charge'||fx==='full'?'grow':fx==='unplug'?'':fx;
+  const chev=fx==='charge'||fx==='slow'
+    ?`<g clip-path="url(#${id})"><rect class="wash" x="2" y="2" width="19" height="8" fill="rgba(255,255,255,.28)"/><path class="chev" d="M4.6 2.4 8 6 4.6 9.6M9.6 2.4 13 6 9.6 9.6" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></g>`:'';
+  const bolt=charging?`<path class="bolt" d="${BOLT}" fill="#fff"/>`:'';
+  const shine=fx==='full'?`<g clip-path="url(#${id})"><rect class="shine" x="0" y="0" width="6" height="12" fill="url(#g${id})"/></g>`:'';
+  /* Energy saver: the plus takes the place of the battery's tip */
+  const pl=plus?`<path class="plus" d="M27 2.6v6.8M23.6 6h6.8" stroke="var(--text-1)" stroke-width="1.8" stroke-linecap="round"/>`:'';
+  const tip=plus?'':`<rect x="23.1" y="3.8" width="1.9" height="4.4" rx=".95" fill="rgba(255,255,255,.5)"/>`;
+  const vw=plus?31:26;
+  const from=fx==='drain'?`--from:${((p+12)/p).toFixed(2)};`:'';
+  return `<svg class="bat ${cls}" width="${(w*vw/26).toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 0 ${vw} 12" style="color:${col};${from}">
+    <defs><clipPath id="${id}"><rect x="2" y="2" width="19" height="8" rx="1.8"/></clipPath>
+      <linearGradient id="g${id}"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <rect x=".75" y=".75" width="21.5" height="10.5" rx="3" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/>
+    ${tip}
+    <rect class="fill" x="2.5" y="2.5" width="${fw}" height="7" rx="1.6" fill="currentColor"/>
+    ${chev}${shine}${bolt}${pl}
+  </svg>`;
+}
+const GAUGE=c=>`<svg class="gauge" width="22" height="22" viewBox="0 0 20 20" style="color:${c}"><path d="M3.2 14.5a7.6 7.6 0 1 1 13.6 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="needle" d="M10 12.2 14.2 6.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="10" cy="12.2" r="1.7" fill="#fff"/></svg>`;
+const CHIP=c=>`<svg class="chip" width="22" height="22" viewBox="0 0 20 20" style="color:${c}"><rect x="4.5" y="4.5" width="11" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><rect class="core" x="7.6" y="7.6" width="4.8" height="4.8" rx="1" fill="currentColor"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v2M12 2v2M8 16v2M12 16v2M2 8h2M2 12h2M16 8h2M16 12h2"/></g></svg>`;
+
+const APPS={
+  chrome:{n:'Google Chrome',c:'#3B82F6',l:'C'},
+  teams:{n:'Microsoft Teams',c:'#5B5FC7',l:'T'},
+  code:{n:'Visual Studio Code',c:'#0E7AD1',l:'V'},
+  steam:{n:'Steam',c:'#3A4A63',l:'S'},
+  obs:{n:'OBS Studio',c:'#4B4B57',l:'O'},
+};
+const appIcon=a=>`<span class="ico" style="background:${APPS[a].c}">${APPS[a].l}</span>`;
+
+/* ── views ── */
+function timersHTML(st){
+  const low=st&&st.pct!=null&&st.pct<=10&&!st.plugged
+    ?`<span class="low num">${bat(st.pct,COL.crit,{w:18,fx:'none'})}${st.pct}%</span>`:'';
+  return `<div class="layer tc">${low}<span class="rings"><i class="ring" style="border-color:var(--r-orange)"></i><i class="ring" style="border-color:var(--r-cyan)"></i></span><span class="t num">12:40</span></div>`;
+}
+const S=n=>`<div class="layer s">${n.icon}<span>${n.title}${n.dim?`<span class="dim"> ${n.dim}</span>`:''}</span><span class="val num" style="color:${n.col}">${n.val}</span></div>`;
+const M=n=>`<div class="layer wide m"><span class="glyph">${n.icon}</span><span class="meta"><div class="t1">${n.title}</div><div class="t2 num">${n.sub}</div></span><span class="big num" style="color:${n.col}">${n.big}</span></div>`;
+function L(n){
+  const rows=n.apps.length
+    ?`<div class="rows">${n.apps.map(([a,p])=>`<div class="row">${appIcon(a)}<span class="nm">${APPS[a].n}</span><span class="bar"><i style="width:${p}%;background:${n.col}"></i></span><span class="pc num">${p}%</span></div>`).join('')}</div>`
+    :`<div class="none">Нагрузку дают многие приложения понемногу</div>`;
+  return `<div class="layer wide l"><div class="head"><span class="glyph">${n.icon}</span><span class="meta"><div class="t1">${n.title}</div><div class="t2 num">${n.sub}</div></span><span class="big num" style="color:${n.col}">${n.big}${n.usual?`<small>${n.usual}</small>`:''}</span></div>${rows}</div>`;
+}
+const CRIT=p=>M({icon:bat(p,COL.crit,{w:28,fx:'blink'}),title:'Батарея почти разряжена',sub:`Осталось ~${p*4} мин`,big:p+'%',col:COL.crit});
+const CARD=`<div class="layer wide card"><span class="thumb"></span><span class="meta" style="flex:1;min-width:0"><div class="t1">Скриншот</div><div class="t2">Ctrl+C — копия · Ctrl+X — без файла</div></span></div>`;
+
+/* ── island ── */
+function measure(size,html){
+  const probe=document.createElement('div');
+  probe.className='island';
+  probe.style.cssText=`position:absolute;visibility:hidden;transition:none;${size==='L'?'width:340px;height:auto':'width:auto'}`;
+  probe.innerHTML=html;document.body.appendChild(probe);
+  const layer=probe.firstElementChild;
+  let r;
+  if(size==='L'){layer.style.cssText='position:static;transform:none;width:340px;display:flex';r=Math.ceil(layer.scrollHeight);}
+  else{layer.style.cssText='position:static;transform:none;display:inline-flex;height:30px';r=Math.ceil(layer.scrollWidth);}
+  probe.remove();return r;
+}
+const radius=h=>Math.min(h/2,24);
+function dims(size,html){
+  if(size==='S')return [measure('S',html),30];
+  if(size==='M')return [300,52];
+  if(size==='C')return [320,64];
+  return [340,measure('L',html)];
+}
+function place(island,size,html){
+  const [w,h]=dims(size,html);
+  island.style.width=w+'px';island.style.height=h+'px';island.style.borderRadius=radius(h)+'px';
+  island.querySelectorAll('.layer').forEach(old=>{old.classList.add('out');setTimeout(()=>old.remove(),200);});
+  const tmp=document.createElement('div');tmp.innerHTML=html;
+  const layer=tmp.firstElementChild;layer.classList.add('out');
+  island.insertBefore(layer,island.querySelector('.glow'));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>layer.classList.remove('out')));
+}
+
+/* ── notices ── */
+const N={
+  low:(p,saver)=>({size:'S',ms:3000,snd:'pulse',html:S({icon:bat(p,COL.warn,{fx:'drain',plus:saver}),title:saver?'Экономия заряда':'Низкий заряд',val:p+'%',col:COL.warn})}),
+  crit:p=>({size:'M',ms:5000,snd:'drop',html:CRIT(p),glow:p===10}),
+  plug:p=>({size:'S',ms:2500,snd:'breathIn',html:S({icon:bat(p,COL.charge,{fx:'charge'}),title:'Зарядка',val:p+'%',col:COL.charge})}),
+  unplug:p=>({size:'S',ms:2500,snd:'breathOut',html:S({icon:bat(p,COL.white,{fx:'unplug'}),title:'От батареи',dim:'~3 ч 20 мин',val:p+'%',col:COL.white})}),
+  full:()=>({size:'S',ms:2500,html:S({icon:bat(100,COL.charge,{fx:'full'}),title:'Заряжено',val:'100%',col:COL.charge})}),
+  slow:p=>({size:'S',ms:4000,html:S({icon:bat(p,COL.warn,{fx:'slow'}),title:'Медленная зарядка',val:p+'%',col:COL.warn})}),
+  drain:k=>{
+    const apps={leader:[['chrome',46],['teams',14]],three:[['chrome',24],['code',18],['teams',12]],none:[]}[k];
+    const leader=k==='leader'?APPS.chrome.n:null;
+    const n={title:'Быстрый разряд',sub:`Осталось ~1 ч 05 мин${leader?' · '+leader:''}`,big:'21 Вт',usual:'обычно 8',col:COL.warn,apps};
+    return {size:'M',ms:6000,html:M({...n,icon:GAUGE(COL.warn)}),hover:()=>L({...n,icon:GAUGE(COL.warn)})};
+  },
+  load:k=>{
+    const apps=k==='leader'?[['obs',58],['chrome',11]]:[['chrome',22],['steam',19],['code',15]];
+    const leader=k==='leader'?APPS.obs.n:null;
+    const n={title:'Высокая нагрузка',sub:leader?`${leader} · 5 мин`:'Уже 5 мин',big:'81%',col:COL.warn,apps};
+    return {size:'M',ms:6000,html:M({...n,icon:CHIP(COL.warn)}),hover:()=>L({...n,icon:CHIP(COL.warn)})};
+  },
+};
+
+/* ── sounds ── */
+let ctx=null;
+function tone(t0,f,dur,{gain=.22,over=[[2,.25],[3,.08]],glide=0,attack=.012}={}){
+  const out=ctx.createGain();out.gain.setValueAtTime(0,t0);
+  out.gain.linearRampToValueAtTime(gain,t0+attack);
+  out.gain.exponentialRampToValueAtTime(.0008,t0+dur);
+  out.connect(ctx.destination);
+  [[1,1],...over].forEach(([k,a])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.frequency.setValueAtTime(f*k,t0);
+    if(glide)o.frequency.exponentialRampToValueAtTime(f*k*glide,t0+dur);
+    g.gain.value=a;o.connect(g);g.connect(out);o.start(t0);o.stop(t0+dur+.05);
+  });
+}
+/* the island's own Breath voice, as in sound.rs: start rises, end falls and is quieter */
+function breath(t,end){
+  const notes=end?[[587.33,0],[392,.28]]:[[392,0],[587.33,.22]];
+  const g=.32*(end?.6:1);
+  notes.forEach(([f,at])=>tone(t+at,f,1.9,{gain:g*.75,over:[[2,.05/.75]],attack:.22}));
+}
+const SOUNDS={
+  pulse:t=>{tone(t,392,.42,{gain:.28,over:[[2,.18]]});tone(t+.22,392,.5,{gain:.2,over:[[2,.18]]});},
+  drop:t=>{tone(t,880,.55,{glide:.75,gain:.24});tone(t+.28,880,.45,{glide:.75,gain:.07});},
+  breathIn:t=>breath(t,false),
+  breathOut:t=>breath(t,true),
+};
+function play(name){
+  if(!name||!document.getElementById('snd').checked)return;
+  ctx=ctx||new AudioContext();SOUNDS[name](ctx.currentTime+.03);
+}
+
+/* ── demos ── */
+function demo(desk){
+  const kind=desk.dataset.demo;
+  const island=document.createElement('div');island.className='island';island.innerHTML='<span class="glow"></span>';
+  desk.querySelector('.stage').appendChild(island);
+  const st={pct:null,plugged:false,hover:false,cur:null,expired:false};
+  let back=null,wait=null;
+  const rest=()=>{st.cur=null;place(island,'S',timersHTML(st));};
+  const arm=ms=>{clearTimeout(back);back=setTimeout(()=>{if(!st.hover)rest();else st.expired=true;},ms);};
+  const show=n=>{
+    clearTimeout(wait);
+    st.cur=n;st.expired=false;
+    place(island,st.hover&&n.hover?'L':n.size,st.hover&&n.hover?n.hover():n.html);
+    if(n.glow){island.classList.remove('glowing');void island.offsetWidth;island.classList.add('glowing');}
+    play(n.snd);arm(n.ms);
+  };
+  island.addEventListener('mouseenter',()=>{st.hover=true;if(st.cur&&st.cur.hover)place(island,'L',st.cur.hover());});
+  island.addEventListener('mouseleave',()=>{
+    st.hover=false;if(!st.cur)return;
+    if(st.cur.hover)place(island,st.cur.size,st.cur.html);
+    arm(st.expired?1200:2500);
+  });
+  rest();
+  const btn=(t,f)=>{const b=document.createElement('button');b.className='pill';b.textContent=t;b.onclick=f;desk.querySelector('.bar').appendChild(b);};
+  if(kind==='low'){
+    btn('20 %, экономия включилась',()=>{st.pct=20;clearTimeout(wait);wait=setTimeout(()=>show(N.low(20,true)),1200);});
+    btn('20 %, без экономии',()=>{st.pct=20;clearTimeout(wait);wait=setTimeout(()=>show(N.low(20,false)),3000);});
+    btn('15 %',()=>{st.pct=15;show(N.low(15,true));});
+  }
+  if(kind==='crit'){
+    [10,9,3].forEach(p=>btn(p+' %',()=>{st.pct=p;st.plugged=false;show(N.crit(p));}));
+    btn('Подключить зарядку',()=>{st.plugged=true;show(N.plug(st.pct||9));});
+  }
+  if(kind==='plug'){
+    btn('Подключить',()=>show(N.plug(47)));
+    btn('Отключить',()=>show(N.unplug(47)));
+    btn('Зарядилась',()=>show(N.full()));
+    btn('Медленная зарядка',()=>show(N.slow(34)));
+  }
+  if(kind==='drain'){
+    btn('Лидер: Chrome',()=>show(N.drain('leader')));
+    btn('Три приложения',()=>show(N.drain('three')));
+    btn('Никто не выделяется',()=>show(N.drain('none')));
+  }
+  if(kind==='load'){
+    btn('Лидер: OBS',()=>show(N.load('leader')));
+    btn('Без лидера',()=>show(N.load('none')));
+  }
+}
+document.querySelectorAll('.desk').forEach(demo);
+
+/* ── sizes ── */
+(function(){
+  const box=document.getElementById('sizes');
+  const drain=N.drain('three');
+  [
+    ['S',N.low(20,true).html,'<b>Маленький</b> · 30, ширина по содержимому'],
+    ['M',drain.html,'<b>Средний</b> · 300 × 52'],
+    ['C',CARD,'<b>Карточка</b> · 64, ширина 240–380'],
+    ['L',drain.hover(),'<b>Большой</b> · 340, высота по содержимому'],
+  ].forEach(([s,html,cap])=>{
+    const cell=document.createElement('div');cell.className='cell';
+    const island=document.createElement('div');island.className='island';island.innerHTML=html;
+    const [w,h]=dims(s,html);
+    island.style.cssText=`width:${w}px;height:${h}px;border-radius:${radius(h)}px`;
+    cell.appendChild(island);cell.insertAdjacentHTML('beforeend',`<p>${cap}</p>`);box.appendChild(cell);
+  });
+})();
+</script>
+</body>
+</html>

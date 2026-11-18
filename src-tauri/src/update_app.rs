@@ -108,9 +108,9 @@ fn update_fit(window: WebviewWindow, height: f64) {
 pub fn run(island_lang: Option<Lang>) {
     match island_lang {
         Some(lang) => lang::fix(lang),
-        None => crate::settings_app::select_language(
-            Settings::load(&persist::settings_path()).language,
-        ),
+        None => {
+            crate::settings_app::select_language(Settings::load(&persist::settings_path()).language)
+        }
     }
     if !platform::claim_single_instance("Local\\GreatIsland.Update") {
         return;

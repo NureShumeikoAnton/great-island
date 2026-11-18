@@ -11,10 +11,10 @@ use windows::{
     UI::{
         Color,
         Composition::{
-            AnimationIterationBehavior, CompositionColorBrush, CompositionDrawingSurface,
-            CompositionEasingFunction, CompositionGraphicsDevice, CompositionMappingMode,
-            CompositionObject, CompositionRadialGradientBrush, Compositor, ContainerVisual,
-            Desktop::DesktopWindowTarget, SpriteVisual,
+            AnimationDelayBehavior, AnimationIterationBehavior, CompositionColorBrush,
+            CompositionDrawingSurface, CompositionEasingFunction, CompositionGraphicsDevice,
+            CompositionMappingMode, CompositionObject, CompositionRadialGradientBrush, Compositor,
+            ContainerVisual, Desktop::DesktopWindowTarget, SpriteVisual,
         },
     },
     Win32::{
@@ -422,6 +422,43 @@ impl Comp {
         }
         anim.SetDuration(duration(ms))?;
         anim.SetIterationBehavior(AnimationIterationBehavior::Forever)?;
+        target
+            .cast::<CompositionObject>()?
+            .StartAnimation(&HSTRING::from(property), &anim)
+    }
+
+    /// Keyframes with the curve of the segment leading to each one, after `delay_ms`; the first
+    /// value holds during the delay. `times`: how often it plays, `None` = forever.
+    #[allow(clippy::too_many_arguments)]
+    pub fn scalar_keys(
+        &self,
+        target: &impl Interface,
+        property: &str,
+        keys: &[(f32, f32, Motion)],
+        ms: u32,
+        delay_ms: u32,
+        times: Option<u32>,
+    ) -> Result<()> {
+        let anim = self.compositor.CreateScalarKeyFrameAnimation()?;
+        for &(at, value, motion) in keys {
+            anim.InsertKeyFrameWithEasingFunction(
+                at.clamp(0.0, 1.0),
+                value,
+                &self.easing(motion)?,
+            )?;
+        }
+        anim.SetDuration(duration(ms))?;
+        if delay_ms > 0 {
+            anim.SetDelayTime(duration(delay_ms))?;
+            anim.SetDelayBehavior(AnimationDelayBehavior::SetInitialValueBeforeDelay)?;
+        }
+        match times {
+            Some(n) => {
+                anim.SetIterationBehavior(AnimationIterationBehavior::Count)?;
+                anim.SetIterationCount(n.max(1) as i32)?;
+            }
+            None => anim.SetIterationBehavior(AnimationIterationBehavior::Forever)?,
+        }
         target
             .cast::<CompositionObject>()?
             .StartAnimation(&HSTRING::from(property), &anim)
