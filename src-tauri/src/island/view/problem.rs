@@ -132,8 +132,7 @@ impl Scene {
         let reason = self.comp.fit(problem.reason, reason_style, room);
         let title = self.comp.text(&title, title_style, self.scale)?;
         let reason = self.comp.text(&reason, reason_style, self.scale)?;
-        let block = title.height + 2.0 + reason.height;
-        let y = snap((HEIGHT - block) / 2.0, self.scale);
+        let y = snap(self.comp.stack_top(&title, &reason, 2.0, HEIGHT), self.scale);
         self.place(&root, &title.visual, x, y)?;
         self.place(&root, &reason.visual, x, y + title.height + 2.0)?;
 

@@ -1,7 +1,9 @@
-//! App icon for the expanded player card: the real colored one, like in the Start menu. The Windows
-//! shell provides it, both for ordinary programs and for Store apps.
+//! Pictures the Windows shell gives: an app's real colored icon, like in the Start menu (the
+//! player card, the load notices), both for ordinary programs and for Store apps; a file's
+//! thumbnail (a download).
 
 use super::app;
+use std::path::Path;
 use windows::{
     Win32::{
         Foundation::SIZE,
@@ -10,8 +12,8 @@ use windows::{
             GetDIBits, GetObjectW, HBITMAP, HGDIOBJ, ReleaseDC,
         },
         UI::Shell::{
-            IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK,
-            SIIGBF_ICONONLY,
+            IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF,
+            SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY, SIIGBF_THUMBNAILONLY,
         },
     },
     core::{HSTRING, Interface},
@@ -42,13 +44,22 @@ pub fn load_exe(path: &str) -> Option<Icon> {
     from_item(shell_item(path)?)
 }
 
+/// The file's own picture (a photo, a video's frame, a page) fitted into `side` pixels, where
+/// Windows has a thumbnail for it. `None` for a file that only has its type's icon. Slow for
+/// a large file: not on the island's thread.
+pub fn thumbnail(path: &Path, side: i32) -> Option<Icon> {
+    let item = shell_item(&path.to_string_lossy())?;
+    picture(item, side, SIIGBF_THUMBNAILONLY)
+}
+
 fn from_item(item: IShellItem) -> Option<Icon> {
+    picture(item, ICON_SIZE, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK)
+}
+
+fn picture(item: IShellItem, side: i32, flags: SIIGBF) -> Option<Icon> {
     let factory: IShellItemImageFactory = item.cast().ok()?;
-    let size = SIZE {
-        cx: ICON_SIZE,
-        cy: ICON_SIZE,
-    };
-    let bitmap = unsafe { factory.GetImage(size, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK) }.ok()?;
+    let size = SIZE { cx: side, cy: side };
+    let bitmap = unsafe { factory.GetImage(size, flags) }.ok()?;
     let icon = read_bitmap(bitmap);
     unsafe {
         let _ = DeleteObject(HGDIOBJ(bitmap.0));

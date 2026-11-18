@@ -56,6 +56,8 @@ export interface Settings {
   notifyCharging: boolean;
   /** Fast drain on battery, high load without it. */
   notifyUsage: boolean;
+  /** A download coming and the files that arrived in Downloads. */
+  notifyDownloads: boolean;
   /** The control center's bottom line: the charge in numbers. */
   batteryPercent: boolean;
   clockSeconds: boolean;

@@ -13,7 +13,7 @@ mod worker;
 
 pub use app::open_app;
 pub use cover::{Cover, NEUTRAL_TINT};
-pub use icon::{Icon, load_exe as icon_of_exe};
+pub use icon::{Icon, load_exe as icon_of_exe, thumbnail};
 pub use meter::{Level, LevelSource, Meter, output_is_headphones};
 pub use tracker::{PlayerEvent, Tracker};
 

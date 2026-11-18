@@ -169,6 +169,8 @@ impl App {
             Some(Hit::Timer(_)) => Zone::Hold,
             // The text is wide and sits where a swipe starts: a click on it copies, a move swipes.
             Some(Hit::Player(PlayerHit::Copy)) if self.stage.can_swipe() => Zone::Swipe,
+            // The downloads card is all picture and text: a move over them takes the notice away.
+            Some(Hit::DownloadOpen | Hit::DownloadFolder) => Zone::Swipe,
             Some(_) => Zone::Button,
             None if self.stage.can_swipe() => Zone::Swipe,
             None => Zone::Button,
@@ -352,6 +354,10 @@ impl App {
                 self.step_to(dir);
             }
             Output::Bump(dir) => log(self.scene.bump(dir)),
+            Output::Dismiss => {
+                let changed = self.stage.dismiss(self.now_ms());
+                self.after_stage(changed);
+            }
             Output::HoldStart => {
                 if let Some(Hit::Timer(id)) = self.pointer.pressed.clone() {
                     self.start_skip(id);
@@ -396,6 +402,8 @@ impl App {
             Hit::ToIsland => self.return_front(),
             Hit::Control(id) => self.press_control(id),
             Hit::Panel(press) => self.panel_click(press),
+            Hit::DownloadOpen => self.open_download(),
+            Hit::DownloadFolder => self.show_downloads(),
         }
     }
 }

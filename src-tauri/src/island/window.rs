@@ -53,6 +53,8 @@ pub const WM_STRIP: u32 = WM_APP + 11;
 pub const WM_SAVE: u32 = WM_APP + 12;
 /// The update check on its thread has an answer. (WM_APP + 13 is `update::LEAVE_MESSAGE`, sent by the update window.)
 pub const WM_UPDATE: u32 = WM_APP + 14;
+/// The Downloads folder's watch has news (its thread, to the island).
+pub const WM_DOWNLOAD: u32 = WM_APP + 15;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 

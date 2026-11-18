@@ -15,7 +15,9 @@ export function MainPage() {
   const on = settings.reminders.filter((r) => r.enabled).length;
   const battery = info?.battery ?? false;
   const notifying =
-    settings.notifyUsage || (battery && (settings.notifyLowCharge || settings.notifyCharging));
+    settings.notifyUsage ||
+    settings.notifyDownloads ||
+    (battery && (settings.notifyLowCharge || settings.notifyCharging));
 
   return (
     <>

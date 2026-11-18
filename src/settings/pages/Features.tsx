@@ -126,7 +126,7 @@ export function PlayerPage() {
   );
 }
 
-/** Without a battery only the load notice applies. */
+/** Without a battery the charge rows are left out. */
 export function NotificationsPage() {
   const { t } = useTranslation();
   const { settings, update, info } = useSettings();
@@ -154,6 +154,12 @@ export function NotificationsPage() {
         sub={t(battery ? "notify.usage_sub" : "notify.load_sub")}
         on={settings.notifyUsage}
         onChange={(notifyUsage) => update({ notifyUsage })}
+      />
+      <ToggleRow
+        label={t("notify.downloads")}
+        sub={t("notify.downloads_sub")}
+        on={settings.notifyDownloads}
+        onChange={(notifyDownloads) => update({ notifyDownloads })}
       />
     </Group>
   );

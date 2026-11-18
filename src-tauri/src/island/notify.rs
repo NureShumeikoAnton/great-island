@@ -240,12 +240,7 @@ impl App {
     }
 
     fn deliver(&mut self, notice: Notice) {
-        let enabled = Enabled {
-            low_charge: self.settings.notify_low_charge,
-            charging: self.settings.notify_charging,
-            usage: self.settings.notify_usage,
-        };
-        match notify::gate(&notice, enabled, self.notice_context()) {
+        match notify::gate(&notice, self.notify_enabled(), self.notice_context()) {
             Verdict::Show => self.show_notice(notice),
             Verdict::Wait => {
                 let now = self.now_ms();
@@ -255,7 +250,16 @@ impl App {
         }
     }
 
-    fn notice_context(&self) -> Context {
+    pub(super) fn notify_enabled(&self) -> Enabled {
+        Enabled {
+            low_charge: self.settings.notify_low_charge,
+            charging: self.settings.notify_charging,
+            usage: self.settings.notify_usage,
+            downloads: self.settings.notify_downloads,
+        }
+    }
+
+    pub(super) fn notice_context(&self) -> Context {
         Context {
             quiet: self.controls.is_on(ControlId::DoNotDisturb),
             fullscreen: self.fullscreen && self.settings.fullscreen != Fullscreen::Show,

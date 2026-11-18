@@ -104,6 +104,27 @@ pub fn current() -> Lang {
     }
 }
 
+/// The form a word takes after a number: Russian has three ("1 файл, 3 файла, 5 файлов"),
+/// English uses the first and the last.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Count {
+    One,
+    Few,
+    Many,
+}
+
+pub fn count(n: u64) -> Count {
+    match current() {
+        Lang::En if n == 1 => Count::One,
+        Lang::En => Count::Many,
+        Lang::Ru => match (n % 10, n % 100) {
+            (1, h) if h != 11 => Count::One,
+            (2..=4, h) if !(12..=14).contains(&h) => Count::Few,
+            _ => Count::Many,
+        },
+    }
+}
+
 #[cfg(test)]
 mod forced {
     use super::Lang;
@@ -289,6 +310,26 @@ mod tests {
                 assert!(have.contains(key), "{}: no text for {key}", lang.code());
             }
         }
+    }
+
+    #[test]
+    fn a_count_takes_its_language_s_form() {
+        with(Lang::Ru, || {
+            let forms: Vec<Count> = [1, 2, 5, 11, 12, 21, 22, 25, 101, 112]
+                .into_iter()
+                .map(count)
+                .collect();
+            use Count::*;
+            assert_eq!(
+                forms,
+                [One, Few, Many, Many, Many, One, Few, Many, One, Many]
+            );
+        });
+        with(Lang::En, || {
+            assert_eq!(count(1), Count::One);
+            assert_eq!(count(3), Count::Many);
+            assert_eq!(count(21), Count::Many);
+        });
     }
 
     #[test]

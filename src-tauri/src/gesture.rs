@@ -73,6 +73,8 @@ pub struct Edges {
     /// Whether a vertical pull is possible and why. `Close` = the menu is open: paging the ribbon
     /// and wheel steps are not allowed from it.
     pub pull: Option<Pull>,
+    /// A notice is on screen: any swipe only takes it away; the other edges are ignored.
+    pub dismiss: bool,
 }
 
 impl Edges {
@@ -108,6 +110,7 @@ pub enum Output {
     /// true = settle it (open or close the menu), false = bring it back.
     PullEnd(Pull, bool),
     Bump(Dir),
+    Dismiss,
 }
 
 #[derive(Debug)]
@@ -123,6 +126,11 @@ enum State {
     },
     Holding,
     Dragging(Drag),
+    Dismissing {
+        x: f32,
+        y: f32,
+        far: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -199,6 +207,8 @@ pub struct Gestures {
     /// Axis (true = menu pull) and direction of the last touchpad gesture, to tell its inertia from a new swipe.
     touchpad_tail: Option<(bool, i32)>,
     wheel_quiet_until: u64,
+    /// Two fingers over a notice to take away: how far they went (px) and when last.
+    sweep: (f32, u64),
 }
 
 impl Default for Gestures {
@@ -215,6 +225,7 @@ impl Gestures {
             touchpad_quiet_until: 0,
             touchpad_tail: None,
             wheel_quiet_until: 0,
+            sweep: (0.0, 0),
         }
     }
 
@@ -250,6 +261,14 @@ impl Gestures {
                 if *zone == Zone::Button || dx.abs().max(dy.abs()) < SWIPE_THRESHOLD {
                     return None;
                 }
+                if self.edges.dismiss {
+                    self.state = State::Dismissing {
+                        x: *x0,
+                        y: *y0,
+                        far: false,
+                    };
+                    return None;
+                }
                 let horizontal = dx.abs() >= dy.abs();
                 // The offset counts from the threshold point, so the content doesn't jump by 6 px.
                 if horizontal && !*wandered && !self.edges.in_menu() {
@@ -283,6 +302,10 @@ impl Gestures {
                 };
                 Some(self.follow(drag))
             }
+            State::Dismissing { x: x0, y: y0, far } => {
+                *far |= (x - *x0).hypot(y - *y0) >= COMMIT_DISTANCE;
+                None
+            }
             _ => None,
         }
     }
@@ -290,6 +313,7 @@ impl Gestures {
     pub fn release(&mut self) -> Option<Output> {
         match std::mem::replace(&mut self.state, State::Idle) {
             State::Pressed { wandered, .. } => (!wandered).then_some(Output::Click),
+            State::Dismissing { far, .. } => far.then_some(Output::Dismiss),
             State::Holding => Some(Output::HoldEnd),
             State::Dragging(drag) if !drag.touchpad => Some(self.finish(&drag)),
             other => {
@@ -332,6 +356,9 @@ impl Gestures {
 
     /// Horizontal two-finger scroll (WM_MOUSEHWHEEL): positive delta = right.
     pub fn hscroll(&mut self, now: u64, delta: i32, edges: Edges) -> Option<Output> {
+        if edges.dismiss {
+            return self.sweep(now, delta);
+        }
         if edges.in_menu() && matches!(self.state, State::Idle) {
             return None;
         }
@@ -343,6 +370,9 @@ impl Gestures {
     /// are a two-finger touchpad pull of the menu. A positive delta is scroll up: with the default
     /// touchpad setting that is fingers moving down, so the content moves down too.
     pub fn vscroll(&mut self, now: u64, delta: i32, edges: Edges) -> Option<Output> {
+        if edges.dismiss {
+            return self.sweep(now, delta);
+        }
         let pulling = match &self.state {
             State::Dragging(drag) if drag.touchpad => drag.pull,
             _ => None,
@@ -407,6 +437,31 @@ impl Gestures {
             return Some(self.end_touchpad(now));
         }
         Some(self.follow(drag))
+    }
+
+    /// Far enough any way takes the notice; the inertia after it is swallowed so it doesn't take the next one.
+    fn sweep(&mut self, now: u64, delta: i32) -> Option<Output> {
+        if !matches!(self.state, State::Idle) {
+            return None;
+        }
+        if now < self.touchpad_quiet_until {
+            self.touchpad_quiet_until = now + TOUCHPAD_INERTIA_MS;
+            return None;
+        }
+        let (far, last) = self.sweep;
+        let far = if now.saturating_sub(last) > TOUCHPAD_END_MS {
+            0.0
+        } else {
+            far
+        };
+        let far = far + delta.unsigned_abs() as f32 * TOUCHPAD_PX_PER_UNIT;
+        if far < COMMIT_DISTANCE {
+            self.sweep = (far, now);
+            return None;
+        }
+        self.sweep = (0.0, now);
+        self.touchpad_quiet_until = now + TOUCHPAD_INERTIA_MS;
+        Some(Output::Dismiss)
     }
 
     /// Touchpad gesture ended: settle, then stay quiet until the inertia dies down.
@@ -534,22 +589,73 @@ mod tests {
         prev: true,
         next: true,
         pull: None,
+        dismiss: false,
     };
     const NONE: Edges = Edges {
         prev: false,
         next: false,
         pull: None,
+        dismiss: false,
     };
     const CAN_OPEN: Edges = Edges {
         prev: true,
         next: true,
         pull: Some(Pull::Open),
+        dismiss: false,
     };
     const MENU: Edges = Edges {
         prev: false,
         next: false,
         pull: Some(Pull::Close),
+        dismiss: false,
     };
+    const NOTICE: Edges = Edges {
+        prev: false,
+        next: false,
+        pull: None,
+        dismiss: true,
+    };
+
+    #[test]
+    fn a_drag_any_way_takes_a_notice_away_and_a_short_one_does_nothing() {
+        for (dx, dy) in [(-40.0, 0.0), (40.0, 0.0), (0.0, 40.0), (0.0, -40.0)] {
+            let mut g = Gestures::new();
+            g.press(0, 100.0, 15.0, Zone::Swipe, NOTICE);
+            assert_eq!(g.move_to(10, 100.0 + dx / 2.0, 15.0 + dy / 2.0), None);
+            assert_eq!(
+                g.move_to(20, 100.0 + dx, 15.0 + dy),
+                None,
+                "no drag, no pull"
+            );
+            assert_eq!(g.release(), Some(Output::Dismiss), "{dx} {dy}");
+        }
+        let mut g = Gestures::new();
+        g.press(0, 100.0, 15.0, Zone::Swipe, NOTICE);
+        g.move_to(10, 112.0, 15.0);
+        assert_eq!(g.release(), None, "neither a click nor a swipe");
+        g.press(100, 100.0, 15.0, Zone::Swipe, NOTICE);
+        assert_eq!(g.release(), Some(Output::Click));
+    }
+
+    #[test]
+    fn two_fingers_or_the_wheel_take_a_notice_away_once() {
+        let mut g = Gestures::new();
+        assert_eq!(
+            g.vscroll(0, 120, NOTICE),
+            Some(Output::Dismiss),
+            "a wheel click"
+        );
+        assert_eq!(g.vscroll(100, 120, NOTICE), None, "the next one waits");
+        let mut g = Gestures::new();
+        assert_eq!(g.hscroll(0, -20, NOTICE), None);
+        assert_eq!(g.hscroll(20, -20, NOTICE), Some(Output::Dismiss));
+        assert_eq!(g.hscroll(40, -20, NOTICE), None, "inertia is swallowed");
+        assert_eq!(
+            g.vscroll(1_000, 5, NOTICE),
+            None,
+            "a new gesture starts from zero"
+        );
+    }
 
     #[test]
     fn pulling_down_opens_the_menu() {

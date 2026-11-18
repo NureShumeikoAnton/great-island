@@ -1,6 +1,6 @@
 [package]
 name = "great-island"
-version = "0.8.0"
+version = "0.8.1"
 description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
 authors = []
 license = "GPL-3.0-or-later"
@@ -101,6 +101,9 @@ windows = { version = "0.62", features = [
     # System notifications: the battery report and every process's processor time
     "Devices_Power",
     "Win32_System_ProcessStatus",
+    # Downloads: the folder's changes, several files selected in Explorer
+    "Win32_System_IO",
+    "Win32_UI_Shell_Common",
 ] }
 # Texts of the island in each language, embedded into the exe at build time (no files at runtime).
 rust-i18n = "4.2.4"

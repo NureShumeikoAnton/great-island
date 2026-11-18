@@ -43,6 +43,7 @@ pub enum What {
     AreaOpen,
     AreaKey,
     FolderOpen,
+    FileOpen,
     Copy,
     SettingsOpen,
     SettingsRestored,
@@ -60,7 +61,7 @@ pub enum What {
 }
 
 impl What {
-    pub const ALL: [What; 40] = [
+    pub const ALL: [What; 41] = [
         What::RecordStart,
         What::RecordBroken,
         What::RecordLost,
@@ -87,6 +88,7 @@ impl What {
         What::AreaOpen,
         What::AreaKey,
         What::FolderOpen,
+        What::FileOpen,
         What::Copy,
         What::SettingsOpen,
         What::SettingsRestored,
@@ -152,6 +154,7 @@ impl What {
             Self::AreaOpen => "AREA-OPEN",
             Self::AreaKey => "AREA-KEY",
             Self::FolderOpen => "FOLDER-OPEN",
+            Self::FileOpen => "FILE-OPEN",
             Self::Copy => "COPY",
             Self::SettingsOpen => "SET-OPEN",
             Self::SettingsRestored => "SET-RESTORED",
@@ -202,6 +205,7 @@ impl What {
             Self::AreaOpen => tr_for!(lang, "fault.title.area_open"),
             Self::AreaKey => tr_for!(lang, "fault.title.area_key"),
             Self::FolderOpen => tr_for!(lang, "fault.title.folder_open"),
+            Self::FileOpen => tr_for!(lang, "fault.title.file_open"),
             Self::Copy => tr_for!(lang, "fault.title.copy"),
             Self::SettingsOpen => tr_for!(lang, "fault.title.settings_open"),
             Self::SettingsRestored => tr_for!(lang, "fault.title.settings_restored"),

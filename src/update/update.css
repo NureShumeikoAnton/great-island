@@ -195,14 +195,15 @@ html[data-window="update"] #root {
   margin: 0 0 4px;
 }
 
-.win .row {
+/* Not `.row`: both windows share one stylesheet bundle, and the settings' `.row` would pad these. */
+.win .actions {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
-.win .row:first-of-type {
-  margin-top: 16px;
+.win .actions + .actions {
+  margin-top: 8px;
 }
 
 .win .btn {

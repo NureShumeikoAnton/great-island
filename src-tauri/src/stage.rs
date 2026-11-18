@@ -73,6 +73,9 @@ pub enum NoticeKind {
     SlowCharge,
     /// Fast drain or high load.
     Usage,
+    /// A download is coming: a state, held until nothing comes any more.
+    Downloading,
+    Download,
 }
 
 impl NoticeKind {
@@ -99,7 +102,9 @@ impl NoticeKind {
             | Self::CriticalCharge
             | Self::Power
             | Self::SlowCharge
-            | Self::Usage => None,
+            | Self::Usage
+            | Self::Downloading
+            | Self::Download => None,
         }
     }
 
@@ -122,10 +127,12 @@ impl NoticeKind {
             Self::UpdateAnswer => 75,
             Self::UpdateDone => 65,
             Self::UpdateChecking => 35,
-            Self::Track | Self::Usage => 60,
+            Self::Track | Self::Usage | Self::Download => 60,
             Self::Paused => 40,
             // A state ranks lowest: news briefly sits over it.
             Self::Viewing => 10,
+            // Over the viewer status, under a recording: three states, one place.
+            Self::Downloading => 11,
             // Recording hides the viewer status while it runs: both can't fit.
             Self::Recording => 12,
         }
@@ -139,7 +146,8 @@ impl NoticeKind {
             | Self::Viewing
             | Self::Countdown
             | Self::Recording
-            | Self::UpdateChecking => None,
+            | Self::UpdateChecking
+            | Self::Downloading => None,
             Self::UpdateDone => Some(3000),
             Self::UpdateAnswer => Some(5000),
             Self::AlertDone => Some(1500),
@@ -155,6 +163,7 @@ impl NoticeKind {
             Self::Power => Some(4000),
             Self::SlowCharge => Some(5000),
             Self::Usage => Some(7000),
+            Self::Download => Some(4000),
         }
     }
 
@@ -175,7 +184,9 @@ impl NoticeKind {
             | Self::Warning
             | Self::Failure
             // The charge is still that low when the way is clear.
-            | Self::CriticalCharge => None,
+            | Self::CriticalCharge
+            // Still coming when the way is clear.
+            | Self::Downloading => None,
             // Nobody wants "checking" or "up to date" after the moment has passed.
             Self::UpdateChecking => Some(500),
             Self::UpdateDone => Some(2000),
@@ -184,6 +195,7 @@ impl NoticeKind {
             }
             Self::Track | Self::LowCharge | Self::SlowCharge | Self::Usage => Some(2000),
             Self::Power => Some(1000),
+            Self::Download => Some(5000),
         }
     }
 
@@ -215,6 +227,8 @@ impl NoticeKind {
                 | Self::Power
                 | Self::SlowCharge
                 | Self::Usage
+                | Self::Downloading
+                | Self::Download
         )
     }
 
@@ -231,6 +245,11 @@ impl NoticeKind {
     /// but the control center opens over it.
     fn fixed(self) -> bool {
         matches!(self, Self::Viewing | Self::Recording)
+    }
+
+    /// A swipe only takes it away. Reminders and track news page with their activity, so they are excluded.
+    fn dismissable(self) -> bool {
+        self.activity().is_none() && self.swipeable() && !self.fixed()
     }
 }
 
@@ -414,6 +433,12 @@ impl Stage {
                 ..Edges::default()
             };
         }
+        if self.shows_dismissable() {
+            return Edges {
+                dismiss: true,
+                ..Edges::default()
+            };
+        }
         if self.shows_fixed() {
             return Edges {
                 pull: Some(Pull::Open),
@@ -424,11 +449,25 @@ impl Stage {
             prev: self.neighbor(Dir::Prev).is_some(),
             next: self.neighbor(Dir::Next).is_some(),
             pull: Some(Pull::Open),
+            dismiss: false,
+        }
+    }
+
+    pub fn dismiss(&mut self, now: u64) -> bool {
+        match self.shown.notice {
+            Some(shown) if self.shows_dismissable() => {
+                self.notices.retain(|n| n.id != shown.id);
+                self.settle(now)
+            }
+            _ => false,
         }
     }
 
     /// Swipe to a neighbour. The neighbour becomes the manual background choice; a shown notice is swiped away.
     pub fn step(&mut self, dir: Dir, now: u64) -> bool {
+        if self.shows_dismissable() {
+            return self.dismiss(now);
+        }
         if !self.can_swipe() || self.menu || self.shows_fixed() {
             return false;
         }
@@ -452,6 +491,10 @@ impl Stage {
                 None => n.kind.stale_ms().map(|s| n.posted + s),
             })
             .min()
+    }
+
+    fn shows_dismissable(&self) -> bool {
+        !self.menu && self.shown.notice.is_some_and(|n| n.kind.dismissable())
     }
 
     fn shows_fixed(&self) -> bool {
@@ -948,6 +991,58 @@ mod tests {
         quiet.post(CriticalCharge, 0);
         assert_eq!(kind(&quiet), Some(CriticalCharge));
         assert!(!quiet.shown().menu);
+    }
+
+    #[test]
+    fn a_swipe_over_a_notice_only_takes_it_away() {
+        let mut s = Stage::new();
+        playing(&mut s, 0);
+        s.post(Downloading, 0);
+        s.post(Usage, 0);
+        assert_eq!(
+            s.edges(),
+            Edges {
+                dismiss: true,
+                ..Edges::default()
+            },
+            "ни листать, ни открыть центр управления"
+        );
+        assert!(s.dismiss(100));
+        assert_eq!((s.shown().activity, kind(&s)), (Player, Some(Downloading)));
+        assert!(s.step(Dir::Prev, 200), "шаг тоже только убирает");
+        assert_eq!((s.shown().activity, kind(&s)), (Player, None));
+
+        s.post(Track, 300);
+        assert!(!s.edges().dismiss, "анонс трека листается с плеером");
+        assert!(!s.dismiss(400));
+    }
+
+    #[test]
+    fn a_coming_download_holds_under_news_and_a_recording() {
+        let mut s = Stage::new();
+        playing(&mut s, 0);
+        s.post(Viewing, 0);
+        s.post(Downloading, 0);
+        assert_eq!(kind(&s), Some(Downloading), "над окном просмотра");
+        assert_eq!(s.next_wake(), None, "держится, пока идёт загрузка");
+        s.post(Download, 100);
+        assert_eq!(kind(&s), Some(Download));
+        s.post(Download, 3_000);
+        s.tick(6_000);
+        assert_eq!(kind(&s), Some(Download), "новый файл продлевает показ");
+        s.tick(7_000);
+        assert_eq!(kind(&s), Some(Downloading));
+        s.post(Recording, 7_000);
+        assert_eq!(kind(&s), Some(Recording), "запись важнее");
+        s.end(Recording, 8_000);
+        assert!(s.can_swipe());
+        s.step(Dir::Prev, 8_100);
+        assert!(!s.has(Downloading), "смахивается");
+
+        let mut quiet = Stage::new();
+        quiet.set_quiet(true, 0);
+        assert!(!quiet.post(Downloading, 0));
+        assert!(!quiet.post(Download, 0));
     }
 
     #[test]

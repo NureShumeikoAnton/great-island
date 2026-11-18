@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — загрузки</title>
+<style>
+:root{
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --dl:#0A84FF;
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --desk:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:48px 0 6px;font-weight:700}
+h2 .tag{display:inline-block;vertical-align:middle;margin-left:8px;font-size:12px;font-weight:600;color:var(--page-dim);
+  border:1px solid var(--page-line);border-radius:999px;padding:1px 9px}
+h3{font-size:15px;margin:26px 0 10px;font-weight:600}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 10px}
+.sub{color:var(--page-dim);margin:0 0 14px;max-width:900px}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;margin:0 auto;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  height:30px;border-radius:15px;
+  transition:width var(--dur-island) var(--ease-island),height var(--dur-island) var(--ease-island),border-radius var(--dur-island) var(--ease-island)}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:5}
+.layer{position:absolute;top:0;left:50%;height:100%;transform:translateX(-50%);display:flex;align-items:center;white-space:nowrap;transition:opacity 180ms}
+.layer.wide{left:0;transform:none;width:100%}
+.layer.out{opacity:0;pointer-events:none}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* only the arrow moves: it drops into the still tray */
+.dlg{overflow:visible;flex:none}
+.dlg .arr{animation:arr 620ms var(--ease-out) 160ms both}
+@keyframes arr{from{transform:translateY(-7px);opacity:0}60%{opacity:1}}
+
+/* collapsed island at rest */
+.tc{gap:9px;padding:0 13px}
+.tc .rings{display:flex;gap:5px}
+.tc .ring{width:11px;height:11px;border-radius:50%;border:2.2px solid}
+.tc .t{font-size:13px;font-weight:600;color:var(--digits)}
+
+/* S: 30 px */
+.s{gap:8px;padding:0 14px 0 12px;font-size:13px;font-weight:600}
+.s .dim{color:var(--text-2);font-weight:400}
+.s .stack{display:flex;align-items:center}
+.s .stack>*{margin-left:-6px;box-shadow:0 0 0 1.5px #000;border-radius:4px}
+.s .stack>*:first-child{margin-left:0}
+.mini{display:block;width:18px;height:18px;border-radius:4px;flex:none}
+.mini.doc{display:grid;place-items:center;background:#1c1c1f}
+
+/* Card: 64 */
+.card{padding:0 18px 0 12px;gap:12px}
+.card .meta{flex:1;min-width:0}
+.t1{font-size:14px;font-weight:600;line-height:18px;overflow:hidden;text-overflow:ellipsis}
+.t2{font-size:12px;line-height:16px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.thumb{flex:none;position:relative;width:64px;height:40px;border-radius:6px;display:grid;place-items:center;background:#1c1c1f}
+.tap{cursor:pointer;transition:opacity 160ms}
+.thumb.tap:hover,.tile.tap:hover,.pile.tap:hover{opacity:.75}
+.meta.tap:hover .t1{color:#fff}
+.badge{position:absolute;top:-6px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--dl);
+  font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px #000}
+.pile{flex:none;position:relative;width:64px;height:40px}
+.pile .thumb{position:absolute;inset:0;box-shadow:0 0 0 1.5px #000}
+.pile .thumb:nth-last-child(2){transform:rotate(-7deg) translate(-5px,1px)}
+.pile .thumb:nth-last-child(3){transform:rotate(7deg) translate(5px,1px)}
+.strip{flex:none;display:flex;gap:6px}
+.tile{flex:none;width:40px;height:40px;border-radius:6px;display:grid;place-items:center;background:#1c1c1f;font-size:13px;font-weight:600;color:var(--digits)}
+
+/* L: 340 × content */
+.l{flex-direction:column;align-items:stretch;justify-content:flex-start;padding:10px 12px 10px 12px;white-space:normal}
+.l .head{display:flex;align-items:center;gap:12px;min-height:36px;padding:0 6px 0 4px;border-radius:8px}
+.l .head .glyph{flex:none;display:grid;place-items:center;width:28px}
+.l .head .meta{flex:1;min-width:0}
+.l .rows{margin:6px 0 0;display:flex;flex-direction:column;gap:2px}
+.l .row{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px 0 8px;border-radius:8px;font-size:13px;cursor:pointer}
+.l .row:hover,.l .head.tap:hover{background:rgba(255,255,255,.07);opacity:1}
+.l .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.l .row .sz{flex:none;font-size:12px;color:var(--text-2)}
+.l .more{margin:4px 8px 2px;font-size:12px;color:var(--text-2)}
+
+/* ══════════ PAGE ══════════ */
+.variant{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:860px){.variant{grid-template-columns:1fr}}
+.desk{position:relative;background:var(--desk);border:1px solid var(--page-line);border-radius:14px;height:210px;overflow:hidden}
+.desk.tall{height:330px}
+.desk .stage{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:center}
+.desk .bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+.desk .log{position:absolute;left:14px;right:14px;bottom:48px;font-size:12px;color:var(--page-dim);min-height:18px}
+.desk .log b{color:var(--page-text);font-weight:600}
+button.pill{font:inherit;font-size:12px;color:var(--page-text);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;padding:4px 11px;cursor:pointer}
+button.pill:hover{background:rgba(255,255,255,.14)}
+.spec{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;font-size:13px}
+.spec dl{margin:0;display:grid;grid-template-columns:84px 1fr;gap:6px 10px}
+.spec dt{color:var(--page-dim)}
+.spec dd{margin:0}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+td:first-child{color:var(--page-dim);width:220px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Загрузки</h1>
+  <p class="lead">Файл скачан — остров коротко говорит об этом в маленьком размере. Наведение раскрывает его до карточки, где файл можно открыть или показать в проводнике. Кнопки под островом показывают уведомление вживую; клики по острову пишут, что произошло бы.</p>
+
+  <h2>1. Один файл</h2>
+  <p class="sub">Маленький размер: значок загрузки, имя (середина длинного имени сокращается, расширение видно всегда) и размер. Под курсором — карточка.</p>
+  <div class="variant">
+    <div class="desk" data-demo="single"><div class="stage"></div><div class="log">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький; под курсором — карточка.</dd>
+      <dt>Значок</dt><dd>Стрелка опускается в лоток, лоток чуть пружинит.</dd>
+      <dt>Миниатюра</dt><dd>Превью от Windows (картинки, видео, иногда PDF), иначе значок типа.</dd>
+      <dt>Вторая строка</dt><dd>Размер · сайт, если Windows его записала, иначе только размер.</dd>
+      <dt>Клик</dt><dd>Миниатюра — открыть файл; текст — показать в проводнике.</dd>
+      <dt>Держится</dt><dd>4 с; под курсором — пока он там.</dd>
+    </dl></div>
+  </div>
+
+  <h2>2. Несколько файлов <span class="tag">варианты</span></h2>
+  <p class="sub">Файлы, которые приходят, пока уведомление на экране, присоединяются к нему: число растёт, время показа начинается заново. Маленький размер одинаков во всех вариантах, кроме А; различается карточка.</p>
+
+  <h3>А. Стопка</h3>
+  <div class="variant">
+    <div class="desk" data-demo="multi" data-v="pile"><div class="stage"></div><div class="log">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Маленький</dt><dd>Миниатюры стопкой вместо значка, «3 файла», общий размер.</dd>
+      <dt>Карточка</dt><dd>Стопка из последних трёх, число и общий размер.</dd>
+      <dt>Клик</dt><dd>Везде одно: проводник с выделенными файлами.</dd>
+      <dt>Плюс</dt><dd>Самая тихая, ширина не меняется.</dd>
+      <dt>Минус</dt><dd>Открыть отдельный файл нельзя.</dd>
+    </dl></div>
+  </div>
+
+  <h3>Б. Лента</h3>
+  <div class="variant">
+    <div class="desk" data-demo="multi" data-v="strip"><div class="stage"></div><div class="log">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Карточка</dt><dd>До четырёх миниатюр в ряд, дальше «+N».</dd>
+      <dt>Клик</dt><dd>Миниатюра — открыть этот файл; «+N» и текст — проводник со всеми выделенными.</dd>
+      <dt>Плюс</dt><dd>Любой файл в один клик.</dd>
+      <dt>Минус</dt><dd>Имён не видно, только картинки; карточка шире.</dd>
+    </dl></div>
+  </div>
+
+  <h3>В. Последний и счётчик <span class="tag">рекомендую</span></h3>
+  <div class="variant">
+    <div class="desk" data-demo="multi" data-v="badge"><div class="stage"></div><div class="log">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Карточка</dt><dd>Как у одного файла, на миниатюре — число; вторая строка «и ещё 2 · 12 МБ».</dd>
+      <dt>Клик</dt><dd>Миниатюра — открыть последний; текст — проводник со всеми выделенными.</dd>
+      <dt>Плюс</dt><dd>Та же карточка, что у одного файла; последний обычно и нужен.</dd>
+      <dt>Минус</dt><dd>Открыть не последний — только через проводник.</dd>
+    </dl></div>
+  </div>
+
+  <h3>Г. Список</h3>
+  <div class="variant">
+    <div class="desk tall" data-demo="multi" data-v="list"><div class="stage"></div><div class="log">Наведи на остров</div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Под курсором</dt><dd>Большой размер: строка на файл (значок, имя, размер), до пяти, дальше «и ещё N».</dd>
+      <dt>Клик</dt><dd>Строка — открыть файл; заголовок — проводник со всеми выделенными.</dd>
+      <dt>Плюс</dt><dd>Видно имена всех, любой в один клик.</dd>
+      <dt>Минус</dt><dd>Больше всех; уже похоже на историю загрузок, которую мы отложили.</dd>
+    </dl></div>
+  </div>
+
+  <h2>Общее</h2>
+  <table>
+    <tr><td>Что считается загрузкой</td><td>Новый файл в самих «Загрузках» (без папок внутри: там кеш приложений), только что записанный. Временные файлы браузеров не показываются. Скопированное, перемещённое и распакованное сохраняет старую дату и не показывается.</td></tr>
+    <tr><td>Очередь</td><td>Общая с остальными уведомлениями, на уровне анонса трека.</td></tr>
+    <tr><td>Запись экрана</td><td>Ждёт конца записи; устаревшее пропадает.</td></tr>
+    <tr><td>«Не беспокоить», полноэкранное</td><td>Молчит.</td></tr>
+    <tr><td>Настройки → Уведомления</td><td>«Загрузки», включено.</td></tr>
+    <tr><td>Анимации выключены</td><td>Стрелка сразу в лотке.</td></tr>
+  </table>
+</div>
+
+<script>
+const MB=1048576;
+const FILES={
+  photo:{name:'photo_2026-11-13_20-50-10.jpg',bytes:2.4*MB,src:'Telegram Desktop',img:'linear-gradient(135deg,#f2994a,#eb5757 45%,#6a3093)'},
+  shot:{name:'screenshot_0412.png',bytes:0.8*MB,src:'',img:'linear-gradient(160deg,#43cea2,#185a9d)'},
+  pdf:{name:'Лекция 7. Сети.pdf',bytes:1.1*MB,src:'dl.nure.ua'},
+  zip:{name:'wiztree_4_28_portable.zip',bytes:9.8*MB,src:'diskanalyzer.com'},
+  exe:{name:'setup_x64.exe',bytes:64*MB,src:''},
+  doc:{name:'Отчёт по лабораторной работе №6, финальная версия (2).docx',bytes:312*1024,src:'mail.google.com'},
+  txt:{name:'notes.txt',bytes:4*1024,src:'Telegram Desktop'},
+};
+const EXT_COL={pdf:'#FF453A',zip:'#E0A800',docx:'#0A84FF',doc:'#0A84FF',exe:'#636366',txt:'#636366'};
+const ext=f=>f.name.split('.').pop().toLowerCase();
+
+function size(b){
+  if(b<MB)return Math.max(1,Math.round(b/1024))+' КБ';
+  if(b<1024*MB)return (b/MB).toFixed(1).replace('.',',').replace(',0','')+' МБ';
+  return (b/1024/MB).toFixed(1).replace('.',',')+' ГБ';
+}
+function files(n){const m10=n%10,m100=n%100;
+  return n+' '+(m10===1&&m100!==11?'файл':m10>=2&&m10<=4&&(m100<12||m100>14)?'файла':'файлов');}
+/* the middle goes, the extension stays */
+function mid(name,max){
+  if(name.length<=max)return name;
+  const dot=name.lastIndexOf('.');const tail=name.slice(Math.max(0,dot-5));
+  return name.slice(0,max-tail.length-1).trimEnd()+'…'+tail;
+}
+
+const GLYPH=`<svg class="dlg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="var(--dl)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><g class="arr"><path d="M10 2.8v9"/><path d="M6.4 8.4 10 12l3.6-3.6"/></g><path class="tray" d="M3.4 12.6v2.4a2 2 0 0 0 2 2h9.2a2 2 0 0 0 2-2v-2.4"/></svg>`;
+function docIcon(f,w){
+  const e=ext(f),c=EXT_COL[e]||'#636366',h=w*1.2;
+  return `<svg width="${w}" height="${h.toFixed(1)}" viewBox="0 0 20 24"><path d="M3.5 1h9L18 6.5V21.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 21.5v-19A1.5 1.5 0 0 1 3.5 1z" fill="#3a3a3f"/><path d="M12.5 1v4a1.5 1.5 0 0 0 1.5 1.5h4" fill="#5a5a60"/><rect x="2" y="13.5" width="16" height="6.5" fill="${c}"/><text x="10" y="18.6" font-size="5.2" font-weight="700" text-anchor="middle" fill="#fff" font-family="Segoe UI,sans-serif">${e.toUpperCase().slice(0,4)}</text></svg>`;
+}
+const thumb=(f,extra='',attrs='')=>f.img
+  ?`<span class="thumb ${extra}" style="background:${f.img}" ${attrs}></span>`
+  :`<span class="thumb ${extra}" ${attrs}>${docIcon(f,22)}</span>`;
+const tile=(f,attrs)=>f.img?`<span class="tile tap" style="background:${f.img}" ${attrs}></span>`:`<span class="tile tap" ${attrs}>${docIcon(f,18)}</span>`;
+const mini=f=>f.img?`<span class="mini" style="background:${f.img}"></span>`:`<span class="mini doc">${docIcon(f,12)}</span>`;
+const total=list=>size(list.reduce((s,f)=>s+f.bytes,0));
+const line2=f=>size(f.bytes)+(f.src?' · '+f.src:'');
+const OPEN=f=>`data-hint="Открыть" data-act="open" data-file="${f.name}"`;
+const FOLDER=(list,hint='Показать в папке')=>`data-hint="${hint}" data-act="folder" data-files="${list.map(f=>f.name).join('|')}"`;
+
+/* ── views ── */
+const REST=`<div class="layer tc"><span class="rings"><i class="ring" style="border-color:#FF9F0A"></i><i class="ring" style="border-color:#64D2FF"></i></span><span class="t num">12:40</span></div>`;
+function small(list,v){
+  const last=list[list.length-1];
+  if(list.length===1)return `<div class="layer s">${GLYPH}<span>${mid(last.name,26)}</span><span class="dim num">${size(last.bytes)}</span></div>`;
+  const icon=v==='pile'?`<span class="stack">${list.slice(-3).map(mini).join('')}</span>`:GLYPH;
+  return `<div class="layer s">${icon}<span class="num">${files(list.length)}</span><span class="dim num">${total(list)}</span></div>`;
+}
+const meta=(t1,t2,attrs)=>`<span class="meta tap" ${attrs}><div class="t1">${t1}</div><div class="t2 num" data-def="${t2}">${t2}</div></span>`;
+function card(list,v){
+  const last=list[list.length-1],n=list.length;
+  if(n===1)return `<div class="layer wide card">${thumb(last,'tap',OPEN(last))}${meta(mid(last.name,34),line2(last),FOLDER(list))}</div>`;
+  if(v==='pile')return `<div class="layer wide card"><span class="pile tap" ${FOLDER(list)}>${list.slice(-3).map(f=>thumb(f)).join('')}</span>${meta(files(n),total(list),FOLDER(list))}</div>`;
+  if(v==='strip'){
+    const shown=n>4?list.slice(-3):list.slice(-4);
+    const more=n>4?`<span class="tile tap num" ${FOLDER(list)}>+${n-3}</span>`:'';
+    return `<div class="layer wide card"><span class="strip">${shown.map(f=>tile(f,OPEN(f))).join('')}${more}</span>${meta(files(n),total(list),FOLDER(list))}</div>`;
+  }
+  return `<div class="layer wide card">${thumb(last,'tap',OPEN(last)).replace('</span>',`<span class="badge num">${n}</span></span>`)}${meta(mid(last.name,30),`и ещё ${n-1} · ${total(list)}`,FOLDER(list,'Показать все в папке'))}</div>`;
+}
+function large(list){
+  const rows=list.slice(-5).reverse().map(f=>`<div class="row" ${OPEN(f)}>${f.img?mini(f):docIcon(f,15)}<span class="nm">${f.name}</span><span class="sz num">${size(f.bytes)}</span></div>`).join('');
+  const more=list.length>5?`<div class="more">и ещё ${list.length-5}</div>`:'';
+  return `<div class="layer wide l"><div class="head tap" ${FOLDER(list,'Показать все в папке')}><span class="glyph">${GLYPH}</span><span class="meta"><div class="t1 num">${files(list.length)}</div><div class="t2 num" data-def="${total(list)}">${total(list)}</div></span></div><div class="rows">${rows}</div>${more}</div>`;
+}
+
+/* ── island ── */
+function measure(kind,html){
+  const probe=document.createElement('div');
+  probe.className='island';
+  probe.style.cssText=`position:absolute;visibility:hidden;transition:none;${kind==='L'?'width:340px;height:auto':'width:auto'}`;
+  probe.innerHTML=html;document.body.appendChild(probe);
+  const layer=probe.firstElementChild;
+  let r;
+  if(kind==='L'){layer.style.cssText='position:static;transform:none;width:340px;display:flex';r=Math.ceil(layer.scrollHeight);}
+  else{layer.style.cssText=`position:static;transform:none;display:inline-flex;height:${kind==='C'?64:30}px`;r=Math.ceil(layer.scrollWidth);}
+  probe.remove();return r;
+}
+const radius=h=>Math.min(h/2,24);
+function dims(kind,html){
+  if(kind==='S')return [measure('S',html),30];
+  if(kind==='C')return [Math.min(380,Math.max(240,measure('C',html))),64];
+  return [340,measure('L',html)];
+}
+function place(island,kind,html){
+  const [w,h]=dims(kind,html);
+  island.style.width=w+'px';island.style.height=h+'px';island.style.borderRadius=radius(h)+'px';
+  island.querySelectorAll('.layer').forEach(old=>{old.classList.add('out');setTimeout(()=>old.remove(),200);});
+  const tmp=document.createElement('div');tmp.innerHTML=html;
+  const layer=tmp.firstElementChild;layer.classList.add('out');
+  island.appendChild(layer);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>layer.classList.remove('out')));
+}
+
+/* ── demos ── */
+function demo(desk){
+  const v=desk.dataset.v||'badge';
+  const log=desk.querySelector('.log');
+  const island=document.createElement('div');island.className='island';
+  desk.querySelector('.stage').appendChild(island);
+  const st={list:[],hover:false,expired:false};
+  let back=null;
+  const big=()=>v==='list'&&st.list.length>1?['L',large(st.list)]:['C',card(st.list,v)];
+  const render=()=>{
+    if(!st.list.length){place(island,'S',REST);return;}
+    if(st.hover)place(island,...big());else place(island,'S',small(st.list,v));
+  };
+  const arm=ms=>{clearTimeout(back);back=setTimeout(()=>{if(st.hover){st.expired=true;return;}st.list=[];render();},ms);};
+  const add=more=>{
+    st.list=st.list.length?st.list.concat(more):more.slice();
+    st.expired=false;render();arm(4000);
+  };
+  island.addEventListener('mouseenter',()=>{st.hover=true;if(st.list.length)render();});
+  island.addEventListener('mouseleave',()=>{
+    st.hover=false;if(!st.list.length)return;
+    render();arm(st.expired?1200:2500);
+  });
+  island.addEventListener('click',e=>{
+    const el=e.target.closest('[data-act]');if(!el)return;
+    if(el.dataset.act==='open')log.innerHTML=`Откроется <b>${el.dataset.file}</b> в программе по умолчанию`;
+    else{const names=el.dataset.files.split('|');
+      log.innerHTML=`Проводник: «Загрузки», выделено: <b>${names.length===1?names[0]:files(names.length)}</b>`;}
+  });
+  render();
+  const btn=(t,f)=>{const b=document.createElement('button');b.className='pill';b.textContent=t;b.onclick=f;desk.querySelector('.bar').appendChild(b);};
+  const F=FILES;
+  if(desk.dataset.demo==='single'){
+    btn('Картинка',()=>{st.list=[];add([F.photo]);});
+    btn('PDF',()=>{st.list=[];add([F.pdf]);});
+    btn('Архив',()=>{st.list=[];add([F.zip]);});
+    btn('Длинное имя',()=>{st.list=[];add([F.doc]);});
+    btn('Без источника',()=>{st.list=[];add([F.exe]);});
+  }else{
+    const pool=[F.shot,F.txt,F.zip,F.photo,F.doc,F.pdf];
+    btn('Один файл',()=>{st.list=[];add([F.pdf]);});
+    btn('+ ещё файл',()=>add([pool[st.list.length%pool.length]]));
+    btn('3 файла сразу',()=>{st.list=[];add([F.zip,F.pdf,F.photo]);});
+    btn('6 файлов',()=>{st.list=[];add(pool);});
+  }
+}
+document.querySelectorAll('.desk').forEach(demo);
+</script>
+</body>
+</html>

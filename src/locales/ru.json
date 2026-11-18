@@ -83,6 +83,8 @@
   "notify.usage_sub": "Называет приложение, которое нагружает процессор",
   "notify.load": "Высокая нагрузка",
   "notify.load_sub": "Называет приложение, которое нагружает процессор",
+  "notify.downloads": "Загрузки",
+  "notify.downloads_sub": "Ход загрузки и скачанные файлы",
   "player.announce": "Уведомление о новом треке",
   "player.silent_drop": "Убирать плеер, если молчит",
   "player.silent_drop_hint": "0 — никогда.",

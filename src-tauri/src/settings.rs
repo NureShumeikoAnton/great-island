@@ -80,6 +80,7 @@ pub struct Settings {
     pub notify_charging: bool,
     /// Fast drain on battery, high load without it.
     pub notify_usage: bool,
+    pub notify_downloads: bool,
     pub battery_percent: bool,
     pub clock_seconds: bool,
 }
@@ -182,6 +183,7 @@ impl Settings {
             notify_low_charge: true,
             notify_charging: true,
             notify_usage: true,
+            notify_downloads: true,
             battery_percent: false,
             clock_seconds: true,
         }
@@ -417,6 +419,7 @@ mod tests {
         assert!(!old.video_muted);
         assert!(!old.video_remaining);
         assert!(old.notify_low_charge && old.notify_charging && old.notify_usage);
+        assert!(old.notify_downloads);
         assert!(!old.battery_percent && old.clock_seconds);
     }
 

@@ -7,8 +7,8 @@
 //! This file is the switchboard: the state ([`App`]), start and stop, and which handler gets
 //! a window message or a timer. What a handler does lives with its feature:
 //!
-//! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify` —
-//!   a feature each: its state and what it does on the island;
+//! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify`,
+//!   `downloads` — a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
 //!   global key;
@@ -22,6 +22,7 @@ mod capture;
 mod comp;
 mod config;
 mod controls;
+mod downloads;
 mod flight;
 mod glyph;
 mod hotkeys;
@@ -62,6 +63,7 @@ use crate::{
     settings::{Language, Settings},
     stage::Stage,
 };
+use downloads::Downloads;
 use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
 use notify::Notify;
@@ -84,7 +86,8 @@ use update::Updates;
 use view::Scene;
 use watch::Watch;
 use window::{
-    WM_CONTROLS, WM_DEMO, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD, WM_SAVE, WM_UPDATE,
+    WM_CONTROLS, WM_DEMO, WM_DOWNLOAD, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD, WM_SAVE,
+    WM_UPDATE,
 };
 use windows::{
     Win32::{
@@ -374,6 +377,7 @@ struct App {
     problems: Problems,
     updates: Updates,
     notify: Notify,
+    downloads: Downloads,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -483,6 +487,7 @@ impl App {
             problems,
             updates: Updates::new(),
             notify: Notify::default(),
+            downloads: Downloads::default(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -511,6 +516,7 @@ impl App {
         self.sync_area_key();
         self.sweep_recordings();
         self.start_notify();
+        self.sync_downloads();
         self.problems.booting = false;
         journal::info(tr!(
             "journal.started",
@@ -526,6 +532,7 @@ impl App {
         self.flush_shots();
         self.finish_recording();
         self.stop_notify();
+        self.stop_downloads();
         self.close_settings();
         journal::info(tr!("journal.stopped"));
     }
@@ -562,6 +569,7 @@ impl App {
             WM_RECORD => self.on_record_events(),
             WM_SAVE => self.on_video_save(),
             WM_UPDATE => self.on_update_message(),
+            WM_DOWNLOAD => self.on_downloads(),
             crate::update::COMMAND_MESSAGE => self.on_update_command(wparam.0),
             WM_FAULT => self.on_faults(),
             WM_POWERBROADCAST => {
@@ -720,6 +728,7 @@ impl App {
         self.sync_problem();
         self.sync_record_panel();
         self.sync_notify();
+        self.sync_downloads_stage();
         self.sync_clock();
     }
 

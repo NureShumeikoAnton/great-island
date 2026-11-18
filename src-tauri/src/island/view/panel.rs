@@ -263,8 +263,7 @@ impl Scene {
         let title = self.comp.fit(&title, bold(15.0, TEXT), TEXT_W);
         let title = self.comp.text(&title, bold(15.0, TEXT), self.scale)?;
         let summary = self.comp.text("", style(12.0, false, MUTED), self.scale)?;
-        let block = title.height + 2.0 + summary.height;
-        let top = PAD + (START - block) / 2.0;
+        let top = PAD + self.comp.stack_top(&title, &summary, 2.0, START);
         self.place(&rest, &title.visual, TEXT_X, top)?;
         self.place(&rest, &summary.visual, TEXT_X, top + title.height + 2.0)?;
 

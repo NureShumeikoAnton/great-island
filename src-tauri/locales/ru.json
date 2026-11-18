@@ -26,6 +26,7 @@
   "fault.title.area_open": "Выбор области не открылся",
   "fault.title.area_key": "Клавиша области не работает",
   "fault.title.folder_open": "Папка не открылась",
+  "fault.title.file_open": "Файл не открылся",
   "fault.title.copy": "Не скопировано",
   "fault.title.settings_open": "Настройки не открылись",
   "fault.title.settings_restored": "Настройки восстановлены",
@@ -265,5 +266,9 @@
   "journal.battery_unreadable": "Батарея не читается: %{error}",
   "journal.power_events_failed": "Windows не сообщает об изменениях питания: %{error}",
   "journal.processes_unreadable": "Не читается нагрузка процессов: %{error}",
-  "journal.battery_memory_failed": "battery.json не записан: %{error}"
+  "journal.battery_memory_failed": "battery.json не записан: %{error}",
+  "download.files_one": "%{n} файл",
+  "download.files_few": "%{n} файла",
+  "download.files_many": "%{n} файлов",
+  "journal.downloads_unwatched": "Папка «Загрузки» не отслеживается: %{error}"
 }

@@ -10,13 +10,14 @@ use super::{
     record_panel::PanelInput,
     timers,
     view::{
-        AppModel, CardModel, Mode, Model, Modes, PlayerForm, PlayerModel, ProblemModel,
-        RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel, has_list,
+        AppModel, CardModel, DownloadModel, FileModel, Mode, Model, Modes, PlayerForm, PlayerModel,
+        ProblemModel, RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel, has_list,
     },
 };
 use crate::{
     capture::Image,
     control::{ControlId, Item},
+    download::Progress,
     fault::Level,
     gesture::Dir,
     media::{Icon, LevelSource, Session},
@@ -57,6 +58,21 @@ pub(super) struct ViewInput {
     panel: Option<PanelInput>,
     system: Option<SystemInput>,
     strip: Option<StripModel>,
+    download: Option<DownloadInput>,
+}
+
+struct DownloadInput {
+    coming: Option<Progress>,
+    /// Newest last.
+    files: Vec<FileInput>,
+    decor: bool,
+}
+
+struct FileInput {
+    name: String,
+    bytes: u64,
+    source: Option<String>,
+    picture: Option<Arc<Icon>>,
 }
 
 /// A system notice with its apps' names and icons, in its order.
@@ -132,6 +148,20 @@ impl ViewInput {
                 decor: s.decor,
             }),
             strip: self.strip,
+            download: self.download.as_ref().map(|d| DownloadModel {
+                coming: d.coming.as_ref(),
+                files: d
+                    .files
+                    .iter()
+                    .map(|f| FileModel {
+                        name: &f.name,
+                        bytes: f.bytes,
+                        source: f.source.as_deref(),
+                        picture: f.picture.as_deref(),
+                    })
+                    .collect(),
+                decor: d.decor,
+            }),
         }
     }
 }
@@ -179,6 +209,14 @@ impl App {
             ) && self.update_notice().is_some() =>
             {
                 Mode::Update
+            }
+            _ if notice == Some(NoticeKind::Download) && !self.downloads.shelf.is_empty() => {
+                Mode::Download {
+                    open: self.expanded,
+                }
+            }
+            _ if notice == Some(NoticeKind::Downloading) && self.downloads.coming.is_some() => {
+                Mode::Downloading
             }
             _ if self.system_notice().is_some() => Mode::System {
                 open: self.expanded && self.system_notice().is_some_and(has_list),
@@ -267,6 +305,28 @@ impl App {
                 Mode::Menu => Some(self.strip_input()),
                 _ => None,
             },
+            download: match mode {
+                Mode::Downloading | Mode::Download { .. } => Some(self.download_input()),
+                _ => None,
+            },
+        }
+    }
+
+    fn download_input(&self) -> DownloadInput {
+        let d = &self.downloads;
+        DownloadInput {
+            coming: d.coming.clone(),
+            files: d
+                .shelf
+                .iter()
+                .map(|f| FileInput {
+                    name: f.name.clone(),
+                    bytes: f.bytes,
+                    source: f.source.clone(),
+                    picture: f.picture.clone(),
+                })
+                .collect(),
+            decor: self.settings.animations,
         }
     }
 

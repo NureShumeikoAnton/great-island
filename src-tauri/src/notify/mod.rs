@@ -1,7 +1,8 @@
 //! System notifications: what the island tells about the computer by itself, the battery and
 //! the load. Rules only, under tests: `battery` turns power readings into notices, `drain`
 //! knows the usual drain and when it is too fast, `usage` which apps hold the processor.
-//! [`gate`] decides whether a notice may show now, [`Waiting`] keeps the ones a recording holds.
+//! [`allow`] decides whether a kind may show now, for these and for downloads
+//! (`crate::download`); [`Waiting`] keeps the notices a recording holds.
 //!
 //! The Windows side is in `adapters/`.
 
@@ -18,6 +19,7 @@ pub enum Kind {
     /// Plugged in, unplugged, charged, slow charging.
     Charging,
     Usage,
+    Downloads,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +27,7 @@ pub struct Enabled {
     pub low_charge: bool,
     pub charging: bool,
     pub usage: bool,
+    pub downloads: bool,
 }
 
 impl Enabled {
@@ -33,6 +36,7 @@ impl Enabled {
             Kind::LowCharge => self.low_charge,
             Kind::Charging => self.charging,
             Kind::Usage => self.usage,
+            Kind::Downloads => self.downloads,
         }
     }
 }
@@ -128,9 +132,14 @@ pub enum Verdict {
 }
 
 pub fn gate(notice: &Notice, enabled: Enabled, context: Context) -> Verdict {
-    if !enabled.allows(notice.kind()) {
+    allow(notice.kind(), notice.urgent(), enabled, context)
+}
+
+/// `urgent`: shows through Do Not Disturb, a fullscreen app and a recording.
+pub fn allow(kind: Kind, urgent: bool, enabled: Enabled, context: Context) -> Verdict {
+    if !enabled.allows(kind) {
         Verdict::Drop
-    } else if notice.urgent() {
+    } else if urgent {
         Verdict::Show
     } else if context.quiet || context.fullscreen {
         Verdict::Drop
@@ -174,6 +183,7 @@ mod tests {
         low_charge: true,
         charging: true,
         usage: true,
+        downloads: true,
     };
 
     fn low() -> Notice {
@@ -223,6 +233,16 @@ mod tests {
         assert_eq!(gate(&critical(), off, Context::default()), Verdict::Drop);
         let plugged = Notice::Plugged { percent: 40 };
         assert_eq!(gate(&plugged, off, Context::default()), Verdict::Show);
+        let no_downloads = Enabled {
+            downloads: false,
+            ..ALL
+        };
+        let calm = Context::default();
+        assert_eq!(
+            allow(Kind::Downloads, false, no_downloads, calm),
+            Verdict::Drop
+        );
+        assert_eq!(allow(Kind::Downloads, false, ALL, calm), Verdict::Show);
     }
 
     #[test]

@@ -5,6 +5,21 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.8.1 — 2026-11-18
+
+### Added
+
+- Download notices: the progress on the collapsed island, the downloaded file to open or show in Explorer.
+
+### Changed
+
+- A swipe over a notice in any direction takes it away, without paging the island or opening the control center.
+
+### Fixed
+
+- The update window is no longer cut off at the bottom, and its buttons sit evenly without extra spacing.
+- Two-line island cards (update, failure, reminder, screenshot, recording): the text is now centered vertically.
+
 ## 0.8.0 — 2026-11-18
 
 ### Added

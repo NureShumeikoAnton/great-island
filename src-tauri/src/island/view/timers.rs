@@ -369,8 +369,7 @@ impl Scene {
         let subtitle = self
             .comp
             .text(&subtitle, style(12.0, false, MUTED), self.scale)?;
-        let block = title.height + 2.0 + subtitle.height;
-        let top = (66.0 - block) / 2.0;
+        let top = self.comp.stack_top(&title, &subtitle, 2.0, 66.0);
         self.place(&root, &title.visual, 68.0, top)?;
         self.place(&root, &subtitle.visual, 68.0, top + title.height + 2.0)?;
 

@@ -60,8 +60,9 @@ island/viewer/mod.rs — building a shot with edits, opening the editor, showing
 
 == Screen capture: shared by the screenshot and the recording ==
 capture/adapters/clipboard.rs — a picture, a file or text to the clipboard (the clipboard is held by another program)
-capture/adapters/files.rs — finding Windows' Pictures and Videos folders (now: the current folder)
-capture/adapters/files.rs — showing a shot in Explorer (the file is gone: its folder opens; the folder is gone too: a notice), opening a video in a player (no program for MP4)
+files/adapters/shell.rs — finding Windows' Pictures, Videos and Downloads folders (now: the current folder; Downloads: not watched, journal)
+files/adapters/shell.rs — showing a file in Explorer (the file is gone: its folder opens; the folder is gone too: a notice), opening a file in its program (no program for the type; a download: FILE-OPEN)
+files/adapters/shell.rs — showing several downloaded files selected in one Explorer window (some are gone: the rest are selected; all gone: the folder opens; FOLDER-OPEN)
 capture/adapters/screen.rs — hiding the island from shots and recording (Windows older than 2004)
 capture/adapters/screen.rs — the monitor's rectangle for the capture (the monitor was unplugged between calls)
 island/hotkeys.rs — taking the screenshot, area screenshot and record keys (held by another program, PrtSc belongs to Snipping Tool; SHOT-KEY, AREA-KEY, REC-KEY)
@@ -114,6 +115,12 @@ notify/adapters/processes.rs — the list of processes and their processor time 
 notify/adapters/processes.rs — an app's name from its exe's version info (no version info: the file name is shown)
 media/icon.rs — an app's icon for the load list by its exe (none: a grey tile)
 persist.rs — writing battery.json, the usual drain (now: journal once until a success; what was learnt since stays in memory)
+download/adapters/watch.rs — opening the Downloads folder for its changes (the folder is gone or on a drive without change notices, e.g. some network drives; now: journal, no download notices until the setting is switched off and on or the island restarts)
+download/adapters/watch.rs — the folder's changes ending by themselves (the folder was deleted or its drive removed; now: journal, the progress goes)
+download/adapters/watch.rs — a file's size and time (it vanished between the change and the reading: the change is skipped)
+download/adapters/watch.rs — more changes at once than the buffer holds (thousands of files unpacked into Downloads: that list is lost, the next change and the timer go on)
+download/adapters/watch.rs — the site from Windows' mark on the file (no mark: a browser that doesn't write it, a drive without streams (FAT, exFAT), a messenger: only the size is shown)
+media/icon.rs — a file's thumbnail from the shell (no thumbnail handler for the type, a damaged file, a slow handler: the placeholder by the extension; it is read on the watch's thread)
 
 == The installer ==
 update/adapters/http.rs — fetching the manifest and the installer over WinHTTP (no network, a proxy or a firewall that refuses, GitHub unavailable, a server that answers with an error, a stalled download; a background check goes to the journal once, then waits an hour)

@@ -557,7 +557,7 @@ impl Scene {
         Ok(())
     }
 
-    fn rounded_rect(&self, w: f32, h: f32, r: f32, fill: Color) -> Result<ShapeVisual> {
+    pub(super) fn rounded_rect(&self, w: f32, h: f32, r: f32, fill: Color) -> Result<ShapeVisual> {
         let c = &self.comp.compositor;
         let visual = c.CreateShapeVisual()?;
         visual.SetSize(v2(w, h))?;

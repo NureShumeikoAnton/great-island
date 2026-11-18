@@ -26,6 +26,7 @@
   "fault.title.area_open": "Area selection did not open",
   "fault.title.area_key": "Area shot key does not work",
   "fault.title.folder_open": "Folder did not open",
+  "fault.title.file_open": "File did not open",
   "fault.title.copy": "Not copied",
   "fault.title.settings_open": "Settings did not open",
   "fault.title.settings_restored": "Settings restored",
@@ -265,5 +266,9 @@
   "journal.battery_unreadable": "The battery cannot be read: %{error}",
   "journal.power_events_failed": "Windows does not report power changes: %{error}",
   "journal.processes_unreadable": "The processes' processor time cannot be read: %{error}",
-  "journal.battery_memory_failed": "battery.json could not be written: %{error}"
+  "journal.battery_memory_failed": "battery.json could not be written: %{error}",
+  "download.files_one": "%{n} file",
+  "download.files_few": "%{n} files",
+  "download.files_many": "%{n} files",
+  "journal.downloads_unwatched": "The Downloads folder is not watched: %{error}"
 }

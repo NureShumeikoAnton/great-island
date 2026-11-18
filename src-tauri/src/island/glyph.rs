@@ -113,6 +113,14 @@ pub enum Glyph {
     ChipCore,
     /// The control center: on the charger, not charging.
     Plug,
+    /// A download: the arrow drops into the tray on its own.
+    DownloadArrow,
+    DownloadTray,
+    // A file without a picture of its own (`view/file_icon.rs`), viewBox 24: a sheet, its
+    // folded corner and the band the extension sits on, each in its own color.
+    Sheet,
+    SheetFold,
+    SheetBand,
 }
 
 enum Part {
@@ -159,6 +167,7 @@ impl Glyph {
             | Self::BatteryChevrons
             | Self::BatteryPlus => BATTERY_VIEW,
             Self::Dial | Self::Needle | Self::Chip | Self::ChipCore => 20.0,
+            Self::Sheet | Self::SheetFold | Self::SheetBand => 24.0,
             _ => 20.0,
         }
     }
@@ -246,6 +255,37 @@ impl Glyph {
                 Poly(&[(4.6, 10.0), (15.4, 10.0), (12.4, 14.4), (7.6, 14.4)], 1.0),
                 Line(&[Move(10.0, 14.0), To(10.0, 17.6)], 1.8),
             ],
+            Self::DownloadArrow => &[Line(
+                &[
+                    Move(10.0, 2.8),
+                    To(10.0, 11.8),
+                    Move(6.4, 8.4),
+                    To(10.0, 12.0),
+                    To(13.6, 8.4),
+                ],
+                1.9,
+            )],
+            Self::DownloadTray => &[Line(
+                &[
+                    Move(3.4, 12.6),
+                    To(3.4, 16.8),
+                    To(16.6, 16.8),
+                    To(16.6, 12.6),
+                ],
+                1.9,
+            )],
+            Self::Sheet => &[Poly(
+                &[
+                    (4.5, 1.5),
+                    (14.5, 1.5),
+                    (20.0, 7.0),
+                    (20.0, 22.5),
+                    (4.5, 22.5),
+                ],
+                1.5,
+            )],
+            Self::SheetFold => &[Poly(&[(14.5, 1.5), (14.5, 7.0), (20.0, 7.0)], 1.0)],
+            Self::SheetBand => &[Rect(3.75, 13.5, 17.0, 6.5, 0.0)],
             Self::Play => &[Poly(&[(7.6, 4.4), (7.6, 17.6), (18.0, 11.0)], 1.6)],
             Self::Pause => &[
                 Rect(5.5, 4.0, 4.0, 14.0, 1.2),

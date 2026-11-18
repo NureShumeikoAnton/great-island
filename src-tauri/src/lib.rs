@@ -7,7 +7,10 @@
 pub mod capture;
 mod control;
 mod crash;
+/// Public for `examples/download_probe.rs`: the folder watch on a real folder.
+pub mod download;
 mod fault;
+mod files;
 pub mod gesture;
 mod gpu;
 mod hotkey;

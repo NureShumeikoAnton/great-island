@@ -83,6 +83,8 @@
   "notify.usage_sub": "Names the app that loads the processor",
   "notify.load": "High load",
   "notify.load_sub": "Names the app that loads the processor",
+  "notify.downloads": "Downloads",
+  "notify.downloads_sub": "Download progress and downloaded files",
   "player.announce": "New track notification",
   "player.silent_drop": "Remove the player if it stays silent",
   "player.silent_drop_hint": "0 — never.",

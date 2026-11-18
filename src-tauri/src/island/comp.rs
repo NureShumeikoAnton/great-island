@@ -785,6 +785,17 @@ impl Comp {
             .unwrap_or_else(|_| self.layout("н", style).map_or(0.0, |(_, _, h)| h / 2.0))
     }
 
+    /// Centers by the letters (upper capitals to lower baseline), not line boxes, which leave the text visibly low.
+    pub fn stack_top(&self, upper: &Text, lower: &Text, gap: f32, height: f32) -> f32 {
+        let boxes = (height - (upper.height + gap + lower.height)) / 2.0;
+        let above = self.cap_metrics(upper.style).map(|(baseline, cap, _)| baseline - cap);
+        let below = self.cap_metrics(lower.style).map(|(baseline, _, _)| lower.height - baseline);
+        match (above, below) {
+            (Ok(above), Ok(below)) => boxes - (above - below) / 2.0,
+            _ => boxes,
+        }
+    }
+
     fn cap_metrics(&self, style: TextStyle) -> Result<(f32, f32, f32)> {
         let (layout, _, _) = self.layout("Н", style)?;
         unsafe {

@@ -318,8 +318,9 @@ impl Scene {
         self.comp.set_text(&mut parts.title, &title, s)?;
         self.comp.set_text(&mut parts.subtitle, &subtitle, s)?;
         let x = 0.0;
-        let block = parts.title.height + 2.0 + parts.subtitle.height;
-        let top = (HEIGHT - block) / 2.0;
+        let top = self
+            .comp
+            .stack_top(&parts.title, &parts.subtitle, 2.0, HEIGHT);
         parts.title.visual.SetOffset(v3(snap(x, s), snap(top, s)))?;
         if let Some(meta) = &parts.meta {
             meta.visual

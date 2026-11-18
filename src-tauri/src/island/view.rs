@@ -6,6 +6,8 @@
 //! the size by expressions, so the system recomputes them every frame, not us.
 
 mod card;
+mod download;
+mod file_icon;
 mod menu;
 mod microphones;
 mod panel;
@@ -23,6 +25,7 @@ mod update;
 mod viewing;
 
 pub use card::{CardModel, CardPhase, Video};
+pub use download::{DownloadModel, FileModel};
 pub use menu::button_center;
 pub use microphones::{MAX_MICROPHONES, TALLEST as PANEL_TALLEST};
 pub use panel::PanelModel;
@@ -98,11 +101,16 @@ pub enum Mode {
     System {
         open: bool,
     },
+    Downloading,
+    /// Files have arrived; `open` is the card under the cursor.
+    Download {
+        open: bool,
+    },
 }
 
 impl Mode {
     /// Whether the island dims in this view when untouched. Only collapsed activities dim; notices and states
-    /// (the viewer window is open) never do: they are shown to be seen.
+    /// (the viewer window is open, a download is coming) never do: they are shown to be seen.
     pub fn dims(self) -> bool {
         matches!(self, Self::Collapsed | Self::Player(PlayerForm::Collapsed))
     }
@@ -150,6 +158,10 @@ pub enum Hit {
     RecordNow,
     Panel(Press),
     Problem,
+    /// The one arrived file's picture: open it.
+    DownloadOpen,
+    /// The text of the downloads card, or its pile: show the files in Explorer.
+    DownloadFolder,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -209,6 +221,7 @@ pub struct Model<'a> {
     pub panel: Option<PanelModel<'a>>,
     pub system: Option<SystemModel<'a>>,
     pub strip: Option<StripModel>,
+    pub download: Option<DownloadModel<'a>>,
 }
 
 pub struct PlayerModel<'a> {
@@ -280,6 +293,7 @@ struct Content {
     card: Option<card::Parts>,
     viewing: Option<viewing::Parts>,
     record: Option<record::Parts>,
+    download: Option<download::Parts>,
 }
 
 pub struct Scene {
@@ -449,6 +463,8 @@ impl Scene {
             Mode::Problem { open } => self.problem_size(model, open),
             Mode::Update => self.update_size(model),
             Mode::System { open } => self.system_size(model, open),
+            Mode::Downloading => self.downloading_size(model),
+            Mode::Download { open } => self.download_size(model, open),
         }
     }
 
@@ -646,6 +662,7 @@ impl Scene {
             card: None,
             viewing: None,
             record: None,
+            download: None,
         };
         match model.mode {
             Mode::Collapsed => self.build_collapsed(model, &mut content)?,
@@ -664,6 +681,8 @@ impl Scene {
             Mode::Problem { open } => self.build_problem(model, open, &mut content)?,
             Mode::Update => self.build_update(model, &mut content)?,
             Mode::System { open } => self.build_system(model, open, &mut content)?,
+            Mode::Downloading => self.build_downloading(model, &mut content)?,
+            Mode::Download { open } => self.build_download(model, open, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -704,12 +723,14 @@ impl Scene {
             Mode::Recording => self.update_recording(model, content)?,
             Mode::Countdown => self.update_countdown(model, content)?,
             Mode::Viewing => self.update_viewing(model, content)?,
+            Mode::Downloading => self.update_downloading(model, content)?,
             Mode::Indicator(..)
             | Mode::Shutter
             | Mode::Discarded
             | Mode::Problem { .. }
             | Mode::Update
-            | Mode::System { .. } => {}
+            | Mode::System { .. }
+            | Mode::Download { .. } => {}
         }
         Ok(())
     }
@@ -881,6 +902,20 @@ fn content_key(model: &Model) -> String {
                 (format!("{:?}", s.notice), s.decor)
             });
             return format!("{:?}|{notice}|{decor}|{}", model.mode, apps.join(","));
+        }
+        // How much has come changes in place; the name or the count is a new view.
+        (Mode::Downloading, _) => {
+            let coming = model.download.as_ref().and_then(|d| d.coming);
+            let (files, name) = coming.map_or((0, None), |c| (c.files, c.name.as_deref()));
+            return format!("Downloading|{files}|{name:?}");
+        }
+        // One more file is a new view: the count and the stack change.
+        (Mode::Download { open }, _) => {
+            let (names, decor): (Vec<&str>, bool) =
+                model.download.as_ref().map_or((Vec::new(), false), |d| {
+                    (d.files.iter().map(|f| f.name).collect(), d.decor)
+                });
+            return format!("Download|{open}|{decor}|{}", names.join("|"));
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model

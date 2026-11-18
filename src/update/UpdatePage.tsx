@@ -82,7 +82,8 @@ export function UpdatePage() {
   // The window takes the height of the page and stays in the middle of the screen; it appears with the first fit.
   useLayoutEffect(() => {
     if (!card.current) return;
-    const height = Math.ceil(card.current.getBoundingClientRect().height);
+    // offsetHeight, not getBoundingClientRect: until shown the card is scaled down and the window would be cut short.
+    const height = card.current.offsetHeight;
     setFloor((before) => (choosing && height > before ? height : before));
     // The window is shown by this call. Two frames later the hidden look has been painted on screen,
     // so the fade-in runs where it can be seen instead of before the window appears.
@@ -144,7 +145,7 @@ export function UpdatePage() {
               </ul>
             </div>
           </div>
-          <div className="row">
+          <div className="actions">
             <button
               className="btn main grow"
               disabled={pressed}
@@ -157,7 +158,7 @@ export function UpdatePage() {
             </button>
           </div>
           {(offer.canPostpone || offer.canSkip) && (
-            <div className="row">
+            <div className="actions">
               {offer.canPostpone && (
                 <button className="btn grow" disabled={pressed} onClick={postpone}>
                   {t("update.postpone")}
@@ -195,7 +196,7 @@ export function UpdatePage() {
       )}
 
       {failed && (
-        <div className="row">
+        <div className="actions">
           <button className="btn main grow" onClick={leave}>
             {t("update.close")}
           </button>
