@@ -45,7 +45,7 @@ use windows::{
                 FindWindowW, GetCursorPos, HWND_BROADCAST, HWND_TOPMOST, MB_ICONERROR, MB_OK,
                 MB_SETFOREGROUND, MessageBoxW, PostMessageW, SMTO_ABORTIFHUNG, SW_HIDE,
                 SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW,
-                SetWindowPos, ShowWindow, WM_CLOSE, WM_SETTINGCHANGE,
+                SetWindowPos, ShowWindow, WM_CLOSE, WM_SETTINGCHANGE, WindowFromPoint,
             },
         },
     },
@@ -330,6 +330,12 @@ pub fn set_click_area(hwnd: HWND, window: RECT, width: i32, height: i32) {
         let region = CreateRectRgn(x, 0, x + w, h);
         SetWindowRgn(hwnd, Some(region), false);
     }
+}
+
+/// The cursor is over this window right now; a window region counts in the hit test.
+pub fn cursor_over(hwnd: HWND) -> bool {
+    let mut point = POINT::default();
+    unsafe { GetCursorPos(&mut point).is_ok() && WindowFromPoint(point) == hwnd }
 }
 
 /// Takes a named mutex. false = such an instance is already running. The mutex lives until the process ends.

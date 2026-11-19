@@ -10,13 +10,15 @@ use super::{
     record_panel::PanelInput,
     timers,
     view::{
-        AppModel, CardModel, DownloadModel, FileModel, Mode, Model, Modes, PlayerForm, PlayerModel,
-        ProblemModel, RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel, has_list,
+        AppModel, CardModel, DeviceModel, DownloadModel, FileModel, Mode, Model, Modes, PlayerForm,
+        PlayerModel, ProblemModel, RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel,
+        has_list,
     },
 };
 use crate::{
     capture::Image,
     control::{ControlId, Item},
+    devices,
     download::Progress,
     fault::Level,
     gesture::Dir,
@@ -59,6 +61,7 @@ pub(super) struct ViewInput {
     system: Option<SystemInput>,
     strip: Option<StripModel>,
     download: Option<DownloadInput>,
+    device: Option<(devices::Notice, bool)>,
 }
 
 struct DownloadInput {
@@ -162,6 +165,10 @@ impl ViewInput {
                     .collect(),
                 decor: d.decor,
             }),
+            device: self.device.as_ref().map(|(notice, decor)| DeviceModel {
+                notice,
+                decor: *decor,
+            }),
         }
     }
 }
@@ -221,6 +228,7 @@ impl App {
             _ if self.system_notice().is_some() => Mode::System {
                 open: self.expanded && self.system_notice().is_some_and(has_list),
             },
+            _ if self.device_notice().is_some() => Mode::Device,
             _ if notice == Some(NoticeKind::Viewing) => Mode::Viewing,
             Activity::Timers if self.expanded || self.reminders.skip.is_some() => Mode::Expanded,
             Activity::Timers => Mode::Collapsed,
@@ -307,6 +315,12 @@ impl App {
             },
             download: match mode {
                 Mode::Downloading | Mode::Download { .. } => Some(self.download_input()),
+                _ => None,
+            },
+            device: match mode {
+                Mode::Device => self
+                    .device_notice()
+                    .map(|n| (n.clone(), self.settings.animations)),
                 _ => None,
             },
         }

@@ -261,6 +261,11 @@
   "notify.load_app": "%{app} · %{m} мин",
   "notify.load_long": "Уже %{m} мин",
   "notify.many": "Нагрузку дают многие приложения понемногу",
+  "device.connected": "Подключено",
+  "device.disconnected": "Отключено",
+  "device.low": "Низкий заряд",
+  "device.sound": "Звук переключен",
+  "device.microphone": "Микрофон переключен",
   "strip.left": "~%{time}",
   "strip.to_full": "до полной ~%{time}",
   "journal.battery_unreadable": "Батарея не читается: %{error}",
@@ -270,5 +275,6 @@
   "download.files_one": "%{n} файл",
   "download.files_few": "%{n} файла",
   "download.files_many": "%{n} файлов",
-  "journal.downloads_unwatched": "Папка «Загрузки» не отслеживается: %{error}"
+  "journal.downloads_unwatched": "Папка «Загрузки» не отслеживается: %{error}",
+  "journal.devices_unwatched": "Устройства не отслеживаются: %{error}"
 }

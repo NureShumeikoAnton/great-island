@@ -121,6 +121,11 @@ pub enum Glyph {
     Sheet,
     SheetFold,
     SheetBand,
+    // The devices of the small device notices, in the manner of the headphones and the speaker.
+    Mouse,
+    Keyboard,
+    Gamepad,
+    Phone,
 }
 
 enum Part {
@@ -160,6 +165,7 @@ impl Glyph {
             Self::Play | Self::Pause => 22.0,
             Self::Previous | Self::Next => 18.0,
             Self::Headphones | Self::Speaker | Self::Note | Self::Video => 16.0,
+            Self::Mouse | Self::Keyboard | Self::Gamepad | Self::Phone => 16.0,
             Self::Caution | Self::CautionMark | Self::Disc | Self::DiscMark => 16.0,
             Self::BatteryShell
             | Self::BatteryTip
@@ -286,6 +292,36 @@ impl Glyph {
             )],
             Self::SheetFold => &[Poly(&[(14.5, 1.5), (14.5, 7.0), (20.0, 7.0)], 1.0)],
             Self::SheetBand => &[Rect(3.75, 13.5, 17.0, 6.5, 0.0)],
+            Self::Mouse => &[
+                RectOutline(4.5, 1.5, 7.0, 13.0, 3.5, 1.3),
+                Line(&[Move(8.0, 4.0), To(8.0, 6.4)], 1.3),
+            ],
+            Self::Keyboard => &[
+                RectOutline(1.0, 4.0, 14.0, 8.5, 1.8, 1.3),
+                Circle(4.0, 6.9, 0.75),
+                Circle(6.67, 6.9, 0.75),
+                Circle(9.33, 6.9, 0.75),
+                Circle(12.0, 6.9, 0.75),
+                Line(&[Move(5.2, 9.8), To(10.8, 9.8)], 1.3),
+            ],
+            Self::Gamepad => &[
+                RectOutline(1.0, 4.0, 14.0, 8.5, 4.25, 1.3),
+                Line(
+                    &[
+                        Move(4.9, 6.6),
+                        To(4.9, 9.9),
+                        Move(3.25, 8.25),
+                        To(6.55, 8.25),
+                    ],
+                    1.1,
+                ),
+                Circle(10.9, 7.4, 0.8),
+                Circle(12.5, 9.1, 0.8),
+            ],
+            Self::Phone => &[
+                RectOutline(4.5, 1.5, 7.0, 13.0, 1.8, 1.3),
+                Line(&[Move(7.0, 12.2), To(9.0, 12.2)], 1.1),
+            ],
             Self::Play => &[Poly(&[(7.6, 4.4), (7.6, 17.6), (18.0, 11.0)], 1.6)],
             Self::Pause => &[
                 Rect(5.5, 4.0, 4.0, 14.0, 1.2),

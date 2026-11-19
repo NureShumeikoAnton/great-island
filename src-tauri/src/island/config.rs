@@ -47,6 +47,7 @@ impl App {
         self.sync_record_key();
         self.sync_marks();
         self.sync_downloads();
+        self.sync_devices();
         self.relayout();
         self.on_reminder_events(&events);
         self.sync_visibility();

@@ -121,6 +121,10 @@ download/adapters/watch.rs — a file's size and time (it vanished between the c
 download/adapters/watch.rs — more changes at once than the buffer holds (thousands of files unpacked into Downloads: that list is lost, the next change and the timer go on)
 download/adapters/watch.rs — the site from Windows' mark on the file (no mark: a browser that doesn't write it, a drive without streams (FAT, exFAT), a messenger: only the size is shown)
 media/icon.rs — a file's thumbnail from the shell (no thumbnail handler for the type, a damaged file, a slow handler: the placeholder by the extension; it is read on the watch's thread)
+devices/adapters/watch.rs — starting the devices' watch (no Bluetooth stack or a broken device enumeration service; now: journal, no device notices until a setting is switched off and on or the island restarts)
+devices/adapters/bluetooth.rs — a paired device's link and kind (Windows doesn't fill the category for some devices: the Bluetooth class decides; none of them: a generic device, not announced)
+devices/adapters/bluetooth.rs — a device's battery (many headphones don't report it to Windows, only to their maker's app: "Connected" shows no ring; it is read from the hands-free node, so headphones connected for music only may lack it)
+devices/adapters/endpoints.rs — the default sound endpoint's properties (it vanished between the event and the reading: that switch is skipped)
 
 == The installer ==
 update/adapters/http.rs — fetching the manifest and the installer over WinHTTP (no network, a proxy or a firewall that refuses, GitHub unavailable, a server that answers with an error, a stalled download; a background check goes to the journal once, then waits an hour)

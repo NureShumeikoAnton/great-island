@@ -261,6 +261,11 @@
   "notify.load_app": "%{app} · %{m} min",
   "notify.load_long": "For %{m} min",
   "notify.many": "Many apps share the load",
+  "device.connected": "Connected",
+  "device.disconnected": "Disconnected",
+  "device.low": "Low battery",
+  "device.sound": "Sound output changed",
+  "device.microphone": "Microphone changed",
   "strip.left": "~%{time}",
   "strip.to_full": "full in ~%{time}",
   "journal.battery_unreadable": "The battery cannot be read: %{error}",
@@ -270,5 +275,6 @@
   "download.files_one": "%{n} file",
   "download.files_few": "%{n} files",
   "download.files_many": "%{n} files",
-  "journal.downloads_unwatched": "The Downloads folder is not watched: %{error}"
+  "journal.downloads_unwatched": "The Downloads folder is not watched: %{error}",
+  "journal.devices_unwatched": "Devices are not watched: %{error}"
 }

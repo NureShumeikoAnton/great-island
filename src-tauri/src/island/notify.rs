@@ -256,6 +256,9 @@ impl App {
             charging: self.settings.notify_charging,
             usage: self.settings.notify_usage,
             downloads: self.settings.notify_downloads,
+            devices: self.settings.notify_devices,
+            device_battery: self.settings.notify_device_battery,
+            audio_switch: self.settings.notify_audio_switch,
         }
     }
 

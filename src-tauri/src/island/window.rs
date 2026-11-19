@@ -55,6 +55,8 @@ pub const WM_SAVE: u32 = WM_APP + 12;
 pub const WM_UPDATE: u32 = WM_APP + 14;
 /// The Downloads folder's watch has news (its thread, to the island).
 pub const WM_DOWNLOAD: u32 = WM_APP + 15;
+/// The devices' watch has news (its thread, to the island).
+pub const WM_DEVICES: u32 = WM_APP + 16;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 

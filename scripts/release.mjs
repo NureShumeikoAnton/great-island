@@ -211,6 +211,17 @@ function treeState() {
 }
 let staged = [];
 
+/** The paths of the running great-island processes; an empty list off Windows or when none runs. */
+function runningIslands() {
+  if (!IS_WINDOWS) return [];
+  const result = run(
+    'powershell',
+    ['-NoProfile', '-Command', '(Get-Process great-island* -ErrorAction SilentlyContinue).Path'],
+    { capture: true, allowFail: true },
+  );
+  return (result.stdout ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+}
+
 // ---- the questions and the checks that need no changes yet
 console.log(`Релиз Great Island. Сообщение коммита: «${message}»`);
 step('Проверяю, что всё на месте');
@@ -229,6 +240,23 @@ if (!options.dryRun) {
   git('fetch', 'origin', '--tags');
   if (Number(gitOut('rev-list', '--count', 'HEAD..origin/main')) > 0) {
     fail('на GitHub есть коммиты, которых у вас нет: сначала git pull');
+  }
+  // A running island holds its exe: from target\release the build can't replace it and fails minutes
+  // later; any other copy keeps running the old version.
+  const running = runningIslands();
+  const inBuild = running.filter((p) => p.toLowerCase().startsWith(path.join(root, 'src-tauri', 'target').toLowerCase()));
+  if (inBuild.length > 0) {
+    fail(
+      `остров запущен из папки сборки:\n${inBuild.map((p) => `    ${p}`).join('\n')}\n` +
+        'Сборка не сможет заменить его exe. Закройте остров через трей и запустите скрипт снова',
+    );
+  }
+  if (running.length > 0) {
+    console.log('\nВнимание: остров сейчас запущен:');
+    console.log(running.map((p) => `    ${p}`).join('\n'));
+    console.log('Сборке он не мешает, но будет работать старая версия, пока его не перезапустить.');
+    const answer = (await line('Продолжить? [y/N] ')).trim().toLowerCase();
+    if (answer !== 'y' && answer !== 'д') fail('остановлено: ничего не менялось и не публиковалось');
   }
   const state = treeState();
   if (state.left.length > 0) {
@@ -273,6 +301,11 @@ console.log('его не примет. Пароль нигде не сохран
 const password =
   process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? (await secret('Пароль ключа (Enter, если пароля нет): '));
 const signEnv = { TAURI_SIGNING_PRIVATE_KEY_PASSWORD: password };
+
+// The signer is the Tauri CLI from node_modules: without it the probe below fails as if the password were wrong.
+if (run('npx', ['tauri', '--version'], { capture: true, shell: IS_WINDOWS, allowFail: true }).status !== 0) {
+  fail('не запускается Tauri CLI (npx tauri): пакеты повреждены или не установлены. Выполните npm ci и запустите скрипт снова');
+}
 
 // A wrong password is found now, not after a three-minute build.
 const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'great-island-sign-'));

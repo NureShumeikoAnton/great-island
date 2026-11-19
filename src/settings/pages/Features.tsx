@@ -161,6 +161,24 @@ export function NotificationsPage() {
         on={settings.notifyDownloads}
         onChange={(notifyDownloads) => update({ notifyDownloads })}
       />
+      <ToggleRow
+        label={t("notify.devices")}
+        sub={t("notify.devices_sub")}
+        on={settings.notifyDevices}
+        onChange={(notifyDevices) => update({ notifyDevices })}
+      />
+      <ToggleRow
+        label={t("notify.device_battery")}
+        sub={t("notify.device_battery_sub")}
+        on={settings.notifyDeviceBattery}
+        onChange={(notifyDeviceBattery) => update({ notifyDeviceBattery })}
+      />
+      <ToggleRow
+        label={t("notify.audio_switch")}
+        sub={t("notify.audio_switch_sub")}
+        on={settings.notifyAudioSwitch}
+        onChange={(notifyAudioSwitch) => update({ notifyAudioSwitch })}
+      />
     </Group>
   );
 }

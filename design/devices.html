@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Great Island — устройства</title>
+<style>
+:root{
+  --island-bg:#000000;
+  --island-stroke:rgba(255,255,255,.08);
+  --text-1:#F5F5F7;
+  --text-2:#8E8E93;
+  --digits:#D1D1D6;
+  --warn:#FF9F0A;
+  --crit:#FF453A;
+  --charge:#30D158;
+  --ease-island:cubic-bezier(0.32,1.28,0.5,1);
+  --dur-island:420ms;
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Inter",sans-serif;
+
+  --page-bg:#0d0d0f;
+  --page-card:#151518;
+  --page-line:#2a2a30;
+  --page-text:#e9e9ee;
+  --page-dim:#9b9ba5;
+  --desk:radial-gradient(120% 140% at 20% 0%,#2a3446 0%,#151b26 45%,#0b0e14 100%);
+  --slot:#5ac8fa;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;margin:48px 0 6px;font-weight:700}
+h2 .tag{display:inline-block;vertical-align:middle;margin-left:8px;font-size:12px;font-weight:600;color:var(--page-dim);
+  border:1px solid var(--page-line);border-radius:999px;padding:1px 9px}
+.lead{color:var(--page-dim);max-width:860px;margin:0 0 10px}
+.sub{color:var(--page-dim);margin:0 0 14px;max-width:900px}
+.toggles{display:flex;gap:18px;flex-wrap:wrap}
+.toggles label{display:inline-flex;gap:8px;align-items:center;color:var(--page-dim);font-size:13px;cursor:pointer}
+
+/* ══════════ ISLAND ══════════ */
+.island{position:relative;margin:0 auto;background:var(--island-bg);overflow:hidden;color:var(--text-1);
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  width:120px;height:30px;border-radius:15px;
+  transition:width var(--dur-island) var(--ease-island),height var(--dur-island) var(--ease-island),border-radius var(--dur-island) var(--ease-island)}
+.island::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--island-stroke);pointer-events:none;z-index:5}
+.layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:nowrap;transition:opacity 180ms}
+.layer.out{opacity:0}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+.rest{font-size:13px;font-weight:600;color:var(--digits)}
+
+/* S: 30 px, width by content */
+.s{gap:8px;padding:0 14px 0 11px;font-size:13px;font-weight:600;justify-content:flex-start}
+.s .dim{color:var(--text-2);font-weight:400}
+.s .glyph{flex:none;display:grid;place-items:center;height:20px}
+
+/* L: 340 × content. The device notice. */
+.dev{flex-direction:column;justify-content:flex-start;padding:12px 18px 14px}
+.dev .head{text-align:center;height:36px}
+.dev .t1{font-size:14px;font-weight:600;line-height:18px}
+.dev .t2{font-size:12px;line-height:16px;color:var(--text-2)}
+.dev .stage{position:relative;width:304px;height:104px;margin-top:6px}
+.dev .stage svg{position:absolute;inset:0}
+.dev .frame{position:absolute;top:0;border:1px dashed var(--slot);border-radius:8px;opacity:0;transition:opacity 200ms;pointer-events:none}
+.dev .frame span{position:absolute;left:50%;bottom:-1px;transform:translate(-50%,100%);font-size:10px;line-height:14px;color:var(--slot);white-space:nowrap}
+.marks .dev .frame{opacity:.9}
+.dev .levels{position:relative;width:304px;height:24px;margin-top:6px}
+.dev .lvl{position:absolute;top:0;display:flex;align-items:center;gap:6px;transform:translateX(-50%);
+  font-size:12px;font-weight:600;color:var(--digits);opacity:0}
+.dev .lvl .cap{font-weight:400;color:var(--text-2)}
+.dev .lvl.on{animation:lvl 520ms var(--ease-out) both}
+@keyframes lvl{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translate(-50%,0)}}
+.ring circle.v{transition:stroke-dashoffset 800ms var(--ease-out)}
+.ring .v.okc{stroke:var(--charge)}
+.ring .v.warn{stroke:var(--warn)}
+.ring .v.crit{stroke:var(--crit)}
+
+/* The line art is a mask; what shows through it is the silver (a gradient and a highlight that follow the light).
+   b: a body (its black fill hides what is drawn behind it), l: a line, f: a faint line, dot: a filled dot. */
+.art{stroke-linecap:round;stroke-linejoin:round}
+.art .b{fill:#000;stroke:#fff;stroke-width:calc(var(--sw) * 1px)}
+.art .l{fill:none;stroke:#fff;stroke-width:calc(var(--sw) * 1px)}
+.art .f{fill:none;stroke:#fff;stroke-width:calc(var(--sw) * .7px);opacity:.5}
+.art .dot{fill:#fff;stroke:none}
+.tiny .art .f{display:none}
+svg.silver{display:block;overflow:visible}
+
+/* ══════════ PAGE ══════════ */
+.variant{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:860px){.variant{grid-template-columns:1fr}}
+.desk{position:relative;background:var(--desk);border:1px solid var(--page-line);border-radius:14px;height:200px;overflow:hidden}
+.desk.tall{height:330px}
+.desk .stagebox{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:center}
+.desk .bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+button.pill{font:inherit;font-size:12px;color:var(--page-text);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;padding:4px 11px;cursor:pointer}
+button.pill:hover{background:rgba(255,255,255,.14)}
+.spec{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;font-size:13px}
+.spec dl{margin:0;display:grid;grid-template-columns:84px 1fr;gap:6px 10px}
+.spec dt{color:var(--page-dim)}
+.spec dd{margin:0}
+.table{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;color:var(--page-dim);font-weight:600;padding:8px 10px}
+td{border-top:1px solid var(--page-line);padding:8px 10px;vertical-align:top}
+td:first-child{color:var(--page-dim);width:220px}
+.models td:first-child{color:var(--page-text);font-weight:600}
+.models .pic{background:#000;border-radius:12px;padding:8px 10px;display:inline-block}
+.icons{display:flex;flex-wrap:wrap;gap:10px}
+.icons .ic{background:#000;border:1px solid var(--page-line);border-radius:12px;padding:12px 14px;display:flex;
+  flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--page-dim);min-width:120px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Устройства</h1>
+  <p class="lead">Линейные рисунки. На большом уведомлении — серебро с переливом: блик сам идёт по кругу, а под курсором следует за ним.
+    Маленькие — белые. Кнопки под островом показывают уведомление вживую, с теми же длительностями, что на острове.</p>
+  <div class="toggles">
+    <label><input type="checkbox" id="marks"> Разметка: рамки и размеры частей</label>
+    <label><input type="checkbox" id="anim" checked> Анимации</label>
+  </div>
+
+  <h2>Модели <span class="tag">утверждены</span></h2>
+  <p class="sub">Формы близкие к оригиналу, детали свои, без логотипов. Модель узнаём по коду модели от Apple, по имени устройства в Windows,
+    а у Samsung, возможно, ещё и по коду в эфирном пакете (покажет стенд). Остальные — заглушка.</p>
+  <div class="table"><table class="models" id="models">
+    <tr><th>Модель</th><th>Рисунок</th><th>Заряд</th><th>Как узнаём</th></tr>
+  </table></div>
+
+  <h2>1. Подключено <span class="tag">большой</span></h2>
+  <p class="sub">Сверху название. Наушники стоят в ряд по бокам кейса и смотрят от него; под каждой частью — круг заряда и процент.
+    Когда Windows знает только один процент на все наушники, круг один, под кейсом.</p>
+  <div class="variant">
+    <div class="desk tall" data-demo="connect"><div class="stagebox"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Большой, 340 × ~210.</dd>
+      <dt>Порядок</dt><dd>Левый · кейс · правый.</dd>
+      <dt>Появление</dt><dd>Плавное, ~0,6 с: кейс, следом наушники. Круги появляются вместе и заполняются.</dd>
+      <dt>Перелив</dt><dd>Блик идёт по рисунку по кругу, пока уведомление на экране. Под курсором — следует за ним, с лёгкой инерцией; курсор ушёл — снова идёт сам.</dd>
+      <dt>Круг</dt><dd>Зелёный; 20% и ниже — оранжевый, 10% и ниже — красный. Молния — заряжается в кейсе или кейс от провода.</dd>
+      <dt>Держится</dt><dd>5 с; под курсором — пока он там.</dd>
+      <dt>Звук</dt><dd>Нет: наушники и Windows уже звучат сами.</dd>
+      <dt>Клик</dt><dd>Ничего.</dd>
+    </dl></div>
+  </div>
+
+  <h2>2. Отключено <span class="tag">маленький</span></h2>
+  <div class="variant">
+    <div class="desk" data-demo="disconnect"><div class="stagebox"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький.</dd>
+      <dt>Значок</dt><dd>Пара наушников тем же рисунком, белым.</dd>
+      <dt>Держится</dt><dd>2,5 с.</dd>
+    </dl></div>
+  </div>
+
+  <h2>3. Низкий заряд устройства <span class="tag">20%, 10%</span></h2>
+  <p class="sub">Один раз на каждом пороге, пока устройство не зарядится. Для наушников с двумя процентами — по меньшему.</p>
+  <div class="variant">
+    <div class="desk" data-demo="low"><div class="stagebox"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький.</dd>
+      <dt>Процент</dt><dd>Оранжевый на 20%, красный на 10%.</dd>
+      <dt>Держится</dt><dd>3 с.</dd>
+    </dl></div>
+  </div>
+
+  <h2>4. Звук и микрофон переключены <span class="tag">маленький</span></h2>
+  <p class="sub">Когда Windows меняет устройство по умолчанию: вставили провод, выбрали другое в Windows, подключились наушники.
+    Если это те же наушники, что только что подключились, второго уведомления нет — «Подключено» его заменяет.</p>
+  <div class="variant">
+    <div class="desk" data-demo="switch"><div class="stagebox"></div><div class="bar"></div></div>
+    <div class="spec"><dl>
+      <dt>Размер</dt><dd>Маленький.</dd>
+      <dt>Значок</dt><dd>По типу устройства (ниже).</dd>
+      <dt>Имя</dt><dd>Имя самого устройства, без приставок Windows вроде «Headphones (…)».</dd>
+      <dt>Держится</dt><dd>2,5 с.</dd>
+    </dl></div>
+  </div>
+  <p class="sub" style="margin-top:14px">Значки по типу, который сообщает Windows:</p>
+  <div class="icons pagelit" id="icons"></div>
+
+  <h2>Общее</h2>
+  <div class="table"><table>
+    <tr><td>Очередь</td><td>Общая с остальными уведомлениями острова, на уровне анонса трека.</td></tr>
+    <tr><td>«Не беспокоить», полноэкранное</td><td>Ничего не показывается.</td></tr>
+    <tr><td>Запись экрана</td><td>Ждёт конца записи; устаревшее пропадает.</td></tr>
+    <tr><td>Настройки → Уведомления</td><td>«Подключение устройств», «Заряд устройств», «Переключение звука» (и микрофона) — все включены.</td></tr>
+    <tr><td>Анимации выключены</td><td>Всё сразу на месте, круги заполнены, блик сам не ходит. За курсором перелив идёт по-прежнему.</td></tr>
+    <tr><td>Цена</td><td>В покое — ноль. Рисунки векторные: в exe несколько КБ на все модели, рисуются один раз при показе.
+      Блик двигает компоновщик Windows, только пока большое уведомление на экране.</td></tr>
+  </table></div>
+</div>
+
+<script>
+const anim=()=>document.getElementById('anim').checked;
+let UID=0;
+
+/* ── line art: each piece in its own box; the right bud and the case as drawn, the left bud mirrored ──
+   The same drawings as the island's (device_art.rs). m: from the drawing's own units into its box (scale x, scale y, offset x, y).
+   vb: the drawing's tight bounds in its box. */
+const ART={
+  /* traced from a common AirPods Pro icon: a round head, the tip with its collar, an angled stem, the sensor */
+  budA:{w:64,h:104,vb:[0,12,64,80],m:[1.1,1.1,-27.95,-53.05],svg:`
+    <rect class="b" x="58" y="62" width="25" height="34" rx="10"/>
+    <path class="l" d="M67 63.5V94.5"/>
+    <path class="b" d="M31.9 92.6L50.5 128A6.1 6.1 0 0 0 61.3 122.4L42.7 87Z"/>
+    <circle class="b" cx="44" cy="78" r="18"/>
+    <rect class="l" x="37.5" y="72.5" width="15" height="8" rx="4"/>`},
+  /* traced from a Galaxy Buds icon: a tilted head, the tip behind it, a flat blade stem with a pointed end, the sensor dash */
+  budS:{w:64,h:104,vb:[0,12,64,79],m:[-0.19,0.19,69.525,2.505],svg:`
+    <path class="b" d="M118 150C70 148 30 185 32 240C34 290 85 312 140 298L160 200Z"/>
+    <path class="b" d="M245 55C315 50 368 95 365 160C362 205 320 235 287 258L220 292C160 268 112 200 115 145C118 90 175 58 245 55Z"/>
+    <path class="b" d="M220 182V440L247 466L287 450V258"/>
+    <path class="l" d="M262 148L298 124"/>`},
+  /* Redmi Buds 8 Lite: a round head, a short wide stub, a touch spot */
+  budR:{w:64,h:104,vb:[-1,15,66,74],m:[1.25,1.25,-33,-59.875],svg:`
+    <rect class="b" x="54" y="64" width="24" height="28" rx="10"/>
+    <path class="b" d="M33 86V112A7 7 0 0 0 47 112V86Z"/>
+    <circle class="b" cx="44" cy="78" r="18"/>
+    <circle class="l" cx="40" cy="73" r="3.2"/>`},
+  /* fallback: a plain straight stem */
+  budF:{w:64,h:104,vb:[5,12,54,79],m:[1.08,1.08,-23.62,-53.3],svg:`
+    <rect class="b" x="55" y="65" width="21" height="26" rx="9"/>
+    <path class="b" d="M35 86V128A5.5 5.5 0 0 0 46 128V86Z"/>
+    <circle class="b" cx="44" cy="78" r="17"/>
+    <path class="l" d="M38 71H46"/>`},
+
+  /* a wide case, the lid seam a third down, the light in front */
+  caseA:{w:112,h:104,vb:[6,22,100,68],svg:`
+    <rect class="b" x="8" y="24" width="96" height="64" rx="22"/>
+    <path class="l" d="M8 45H104"/>
+    <circle class="dot" cx="56" cy="68" r="2.2"/>`},
+  /* a squarer case with a smoked lid: the buds show through it */
+  caseS:{w:112,h:104,vb:[16,16,80,76],svg:`
+    <rect class="b" x="18" y="18" width="76" height="72" rx="22"/>
+    <path class="l" d="M18 46H94"/>
+    <circle class="f" cx="42" cy="33" r="7"/><circle class="f" cx="70" cy="33" r="7"/>
+    <circle class="dot" cx="56" cy="72" r="2.2"/>`},
+  /* a pill case with a thumb notch */
+  caseR:{w:112,h:104,vb:[10,24,92,64],svg:`
+    <rect class="b" x="12" y="26" width="88" height="60" rx="30"/>
+    <path class="l" d="M12.6 50H99.4"/>
+    <path class="l" d="M50 50C54 53.5 58 53.5 62 50"/>
+    <circle class="dot" cx="56" cy="72" r="2.2"/>`},
+  caseF:{w:112,h:104,vb:[14,20,84,68],svg:`
+    <rect class="b" x="16" y="22" width="80" height="64" rx="18"/>
+    <path class="l" d="M16 44H96"/>
+    <circle class="dot" cx="56" cy="68" r="2.2"/>`},
+
+  /* WH-1000XM6-like: a padded band, oval cups, the cushions peeking inside */
+  over:{w:140,h:104,vb:[10,2,120,96],svg:`
+    <rect class="b" x="36" y="54" width="11" height="34" rx="5.5"/>
+    <rect class="b" x="93" y="54" width="11" height="34" rx="5.5"/>
+    <path class="b" d="M26 52V44C26 16 46 4 70 4C94 4 114 16 114 44V52H106V44C106 22 90 12 70 12C50 12 34 22 34 44V52Z"/>
+    <rect class="b" x="12" y="46" width="30" height="50" rx="15"/>
+    <rect class="b" x="98" y="46" width="30" height="50" rx="15"/>
+    <path class="l" d="M20 62V80"/>
+    <circle class="dot" cx="113" cy="86" r="1.8"/>`},
+};
+
+/* the silver: a soft metal ramp with faint rose, ice and champagne tints near the bright band */
+const STOPS=[[0,'#7f7f87'],[.14,'#b4b4bb'],[.26,'#e2e2e6'],[.33,'#f2dde9'],[.40,'#ffffff'],[.47,'#d7ebf5'],[.56,'#efe7d2'],[.67,'#c8c8ce'],[.83,'#9a9aa2'],[1,'#85858d']]
+  .map(([o,c])=>`<stop offset="${o}" stop-color="${c}"/>`).join('');
+
+/* plain: the lines in the text's color, for the small notices */
+function silverSvg(pieces,{vb,width=vb[2],height=vb[3],sw=3,cls='',plain=false}){
+  const id='s'+(++UID);
+  const R=`x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}"`;
+  let defs=plain?'':`<linearGradient id="${id}g" gradientUnits="userSpaceOnUse" spreadMethod="reflect">${STOPS}</linearGradient>
+    <radialGradient id="${id}h" gradientUnits="userSpaceOnUse" cx="-999" cy="-999" r="40"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+  let body='';
+  pieces.forEach((p,i)=>{
+    const y=p.y||0, t=p.mirror?`translate(${p.x+p.art.w},${y}) scale(-1,1)`:`translate(${p.x},${y})`;
+    const m=p.art.m, inner=m?`<g transform="matrix(${m[0]} 0 0 ${m[1]} ${m[2]} ${m[3]})" style="--sw:${sw/Math.abs(m[1])}">${p.art.svg}</g>`:p.art.svg;
+    defs+=`<mask id="${id}m${i}" maskUnits="userSpaceOnUse" ${R}><g class="art" style="--sw:${sw}" transform="${t}">${inner}</g></mask>`;
+    const fill=plain?`<rect ${R} fill="var(--text-1)"/>`:`<rect ${R} fill="url(#${id}g)"/><rect ${R} fill="url(#${id}h)"/>`;
+    body+=`<g class="pc" data-k="${p.k}" mask="url(#${id}m${i})" style="transform-origin:${p.x+p.art.w/2}px ${y+p.art.h/2}px">${fill}</g>`;
+  });
+  return `<svg class="${plain?'plainart':'silver'} ${cls}" width="${width}" height="${height}" viewBox="${vb.join(' ')}">${'<defs>'+defs+'</defs>'+body}</svg>`;
+}
+
+/* The bright band of the ramp passes through the light; the highlight sits on it. Lengths are in screen px,
+   so the sheen runs on without a seam across every drawing of one island. */
+const RAMP=320, GLOW=52;
+function shine(svg,cx,cy,deg){
+  const ctm=svg.getScreenCTM(); if(!ctm)return;
+  const p=new DOMPoint(cx,cy).matrixTransform(ctm.inverse()), s=Math.hypot(ctm.a,ctm.b)||1;
+  const a=deg*Math.PI/180, dx=Math.cos(a), dy=Math.sin(a), L=RAMP/s;
+  const g=svg.querySelector('linearGradient'), h=svg.querySelector('radialGradient');
+  const x1=p.x-dx*L*.40, y1=p.y-dy*L*.40;
+  g.setAttribute('x1',x1);g.setAttribute('y1',y1);g.setAttribute('x2',x1+dx*L);g.setAttribute('y2',y1+dy*L);
+  h.setAttribute('cx',p.x);h.setAttribute('cy',p.y);h.setAttribute('r',GLOW/s);
+}
+
+/* The light of one island, as on the island: while a silver picture shows, it drifts right by itself, one ramp
+   period (2 × RAMP) per 3.6 s so the loop has no seam; over the island it follows the pointer with a little
+   inertia and drifts on from there when the pointer leaves. With animations off it waits above the top left. */
+const DRIFT_FROM=-160, DRIFT_SPEED=2*RAMP/3600;
+function lightFor(island){
+  const L={x:-80,y:-80,tx:-80,ty:-80,hover:false,drift:false,raf:0,t:0};
+  const rest=r=>({x:r.width*.18,y:-r.height*.6});
+  const mid=r=>r.height*.48;
+  const frame=t=>{
+    L.raf=0;
+    const svgs=island.querySelectorAll('svg.silver');
+    if(!svgs.length){L.drift=false;return;}
+    const r=island.getBoundingClientRect(), dt=L.t?t-L.t:0;L.t=t;
+    if(L.drift&&!L.hover){
+      L.tx+=DRIFT_SPEED*dt;L.ty=mid(r);
+      if(L.tx>r.width-DRIFT_FROM){L.tx-=2*RAMP;L.x-=2*RAMP;}
+    }
+    L.x+=(L.tx-L.x)*.16;L.y+=(L.ty-L.y)*.16;
+    svgs.forEach(s=>shine(s,r.left+L.x,r.top+L.y,22));
+    if(L.drift||Math.abs(L.tx-L.x)>.3||Math.abs(L.ty-L.y)>.3)L.raf=requestAnimationFrame(frame);else L.t=0;
+  };
+  const kick=()=>{if(!L.raf)L.raf=requestAnimationFrame(frame);};
+  island.addEventListener('mousemove',e=>{const r=island.getBoundingClientRect();L.hover=true;L.tx=e.clientX-r.left;L.ty=e.clientY-r.top;kick();});
+  island.addEventListener('mouseleave',()=>{
+    L.hover=false;const r=island.getBoundingClientRect();
+    if(L.drift){L.tx=L.x;L.ty=mid(r);}else{const p=rest(r);L.tx=p.x;L.ty=p.y;}
+    kick();
+  });
+  return {
+    show(){
+      const r=island.getBoundingClientRect();
+      L.drift=anim();
+      if(!L.hover){const p=L.drift?{x:DRIFT_FROM,y:mid(r)}:rest(r);L.x=L.tx=p.x;L.y=L.ty=p.y;}
+      L.t=0;kick();
+    },
+  };
+}
+
+/* the page's own drawings (the table, the icons) follow the pointer anywhere on the page */
+let pageXY=[0,0],pageRaf=0;
+const lightPage=()=>{pageRaf=0;document.querySelectorAll('.pagelit svg.silver').forEach(s=>shine(s,pageXY[0],pageXY[1],24));};
+addEventListener('mousemove',e=>{pageXY=[e.clientX,e.clientY];if(!pageRaf)pageRaf=requestAnimationFrame(lightPage);});
+addEventListener('scroll',()=>{if(!pageRaf)pageRaf=requestAnimationFrame(lightPage);},{passive:true});
+
+/* ── models ── */
+const MODELS={
+  airpods:{name:'AirPods Pro',bud:'budA',cas:'caseA',levels:{L:85,C:40,R:80},charge:{C:true},
+    how:'Код модели в эфирном пакете Apple',bat:'Левый, правый, кейс (шаг 10%)',row:'AirPods Pro 3 (и Pro 2)'},
+  buds:{name:'Buds4 Pro',bud:'budS',cas:'caseS',levels:{one:70},
+    how:'Имя устройства; код в пакете Samsung — проверим',bat:'Один процент от Windows; левый, правый и кейс — позже, по протоколу Samsung',row:'Galaxy Buds4 Pro (и Buds4)'},
+  budsFull:{name:'Buds4 Pro',bud:'budS',cas:'caseS',levels:{L:72,C:55,R:68},charge:{}},
+  redmi:{name:'Redmi Buds 8 Lite',bud:'budR',cas:'caseR',levels:{one:15},
+    how:'Имя устройства',bat:'Один процент от Windows, если наушники его дают',row:'Redmi Buds 8 Lite'},
+  sony:{name:'WH-1000XM6',over:true,levels:{one:60},
+    how:'Имя устройства',bat:'Один процент от Windows',row:'Sony WH-1000XM6'},
+  generic:{name:'CMF Buds Pro 2',bud:'budF',cas:'caseF',levels:{},
+    how:'Всё остальное',bat:'Один процент, если Windows его знает; иначе без круга',row:'Заглушка'},
+};
+
+/* slots: the centres of left · case · right in the 304 × 104 stage */
+const SLOT={L:44,C:152,R:260};
+const LABEL={L:'левый',C:'кейс',R:'правый',O:'наушники'};
+function stagePieces(m){
+  if(m.over)return [{k:'O',x:SLOT.C-70,art:ART.over}];
+  const b=ART[m.bud];
+  return [{k:'C',x:SLOT.C-56,art:ART[m.cas]},{k:'L',x:SLOT.L-32,art:b,mirror:true},{k:'R',x:SLOT.R-32,art:b}];
+}
+
+(function(){
+  const t=document.getElementById('models');
+  ['airpods','buds','redmi','sony','generic'].forEach(k=>{
+    const m=MODELS[k];
+    const pic=silverSvg(stagePieces(m),{vb:[0,0,304,104],width:182,height:62,sw:3.6});
+    t.insertAdjacentHTML('beforeend',`<tr><td>${m.row}</td><td><div class="pic pagelit">${pic}</div></td><td>${m.bat}</td><td>${m.how}</td></tr>`);
+  });
+})();
+
+/* ── small glyphs ── */
+function miniPair(m,hgt=18){
+  const a=ART[m.bud||'budF'], [x,y,w,h]=a.vb, gap=58;
+  const vb=[64-x-w-1,y-1,gap+x+w-(64-x-w)+2,h+2];
+  return silverSvg([{k:'L',x:0,art:a,mirror:true},{k:'R',x:gap,art:a}],{vb,height:hgt,width:hgt*vb[2]/vb[3],sw:1.5*vb[3]/hgt,cls:'tiny',plain:true});
+}
+function miniOver(hgt=18){
+  const vb=ART.over.vb;
+  return silverSvg([{k:'O',x:0,art:ART.over}],{vb,height:hgt,width:hgt*vb[2]/vb[3],sw:1.5*vb[3]/hgt,cls:'tiny',plain:true});
+}
+const GLYPH={
+  headphones:`<path d="M3.5 13V10a6.5 6.5 0 0 1 13 0v3"/><rect x="2.8" y="11.5" width="3.6" height="6" rx="1.6"/><rect x="13.6" y="11.5" width="3.6" height="6" rx="1.6"/>`,
+  headset:`<path d="M3.5 12V10a6.5 6.5 0 0 1 13 0v2"/><rect x="2.8" y="10.5" width="3.6" height="5.6" rx="1.6"/><rect x="13.6" y="10.5" width="3.6" height="5.6" rx="1.6"/><path d="M15.4 16.2c0 1.4-1.6 2.2-4 2.2"/>`,
+  speakers:`<rect x="4.5" y="2.5" width="11" height="15" rx="2.5"/><circle cx="10" cy="12" r="2.8"/><circle cx="10" cy="6" r=".5"/>`,
+  display:`<rect x="2.5" y="3.5" width="15" height="10" rx="2"/><path d="M7 17h6M10 13.5V17"/>`,
+  mic:`<rect x="7.2" y="2.5" width="5.6" height="10" rx="2.8"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5"/>`,
+  line:`<path d="M10 2.5v6M7 8.5h6v3.5a3 3 0 0 1-6 0zM10 15v2.5"/>`,
+  mouse:`<path d="M8.6 2.5C13 2.5 15.5 5.2 15.5 10.2 15.5 15.2 13 17.5 10 17.5 6.6 17.5 4.5 15.1 4.5 10.6 4.5 5.6 5.9 2.5 8.6 2.5Z"/><path d="M10.2 3.2v4"/><path d="M4.6 9.6h1.6"/>`,
+};
+function glyph(k,size=18){
+  return silverSvg([{k:'g',x:0,art:{w:20,h:20,svg:`<g fill="none" stroke="#fff" stroke-width="1.7">${GLYPH[k]}</g>`}}],{vb:[0,0,20,20],width:size,height:size,plain:true});
+}
+
+/* ── a battery ring ── */
+function ring(p,charging){
+  const cls=p<=10?'crit':p<=20?'warn':'okc', c=2*Math.PI*8;
+  const bolt=charging?`<path d="M11.2 5.6 7.9 10.4h2.3l-1 4 3.4-4.9H10.3z" fill="#fff"/>`:'';
+  return `<svg class="ring" width="20" height="20" viewBox="0 0 20 20" style="transform:rotate(-90deg)">
+    <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="2.4"/>
+    <circle class="v ${cls}" cx="10" cy="10" r="8" fill="none" stroke-width="2.4" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${c}" data-to="${c*(1-p/100)}"/>
+    <g style="transform:rotate(90deg);transform-origin:10px 10px">${bolt}</g></svg>`;
+}
+
+/* ── the island ── */
+function radius(h){return Math.min(h/2,30);}
+function place(island,w,h,html){
+  const old=island.querySelector('.layer:not(.out)');
+  if(old){old.classList.add('out');setTimeout(()=>old.remove(),200);}
+  island.style.width=w+'px';island.style.height=h+'px';island.style.borderRadius=radius(h)+'px';
+  const layer=document.createElement('div');layer.className='layer '+(html.cls||'');
+  layer.innerHTML=html.body;layer.style.opacity=0;island.appendChild(layer);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>layer.style.opacity=1));
+  return layer;
+}
+function measure(html){
+  const probe=document.createElement('div');probe.className='island';probe.style.cssText='position:absolute;visibility:hidden;width:auto;transition:none';
+  probe.innerHTML=`<div class="layer s" style="position:static">${html}</div>`;document.body.appendChild(probe);
+  const w=probe.firstChild.scrollWidth;probe.remove();return Math.ceil(w);
+}
+const REST={cls:'rest num',body:'14:32'};
+
+/* ── the connected notice ── */
+function connectBody(m){
+  const one=m.levels.one!==undefined, none=!Object.keys(m.levels).length;
+  const pcs=stagePieces(m);
+  const frames=pcs.map(p=>`<div class="frame" style="left:${p.x}px;width:${p.art.w}px;height:${p.art.h}px"><span>${LABEL[p.k]} ${p.art.w} × ${p.art.h}</span></div>`).join('');
+  let levels='';
+  if(one) levels=`<div class="lvl" style="left:${SLOT.C}px">${ring(m.levels.one)}<span class="num">${m.levels.one}%</span></div>`;
+  else if(!none) levels=['L','C','R'].map(k=>`<div class="lvl" style="left:${SLOT[k]}px">${ring(m.levels[k],m.charge&&m.charge[k])}<span class="num">${m.levels[k]}%</span><span class="cap">${k==='C'?'':k}</span></div>`).join('');
+  const h=12+36+6+104+(none?0:6+24)+14;
+  return {h,html:{cls:'dev',body:`<div class="head"><div class="t1">${m.name}</div><div class="t2">Подключено</div></div>
+    <div class="stage">${silverSvg(pcs,{vb:[0,0,304,104]})}${frames}</div>${none?'':`<div class="levels">${levels}</div>`}`}};
+}
+
+/* No opening: the pieces come up in place (the case, then the buds), the rings together after them. */
+function animateConnect(layer){
+  const on=anim();
+  const fill=l=>{const v=l.querySelector('circle.v');if(!on){l.style.opacity=1;v.style.transition='none';}else l.classList.add('on');v.style.strokeDashoffset=v.dataset.to;};
+  if(!on){layer.querySelectorAll('.lvl').forEach(fill);return;}
+  /* attributes stepped by script: a masked group animated by CSS is skipped by some renderers */
+  const t0=performance.now(), out=k=>1-Math.pow(1-k,3);
+  const pcs=[...layer.querySelectorAll('.pc')].map(g=>{
+    const [ox,oy]=g.style.transformOrigin.split(' ').map(parseFloat);
+    g.style.transformOrigin='';g.setAttribute('opacity',0);
+    return {g,ox,oy,delay:g.dataset.k==='C'||g.dataset.k==='O'?120:220};
+  });
+  const step=t=>{
+    let busy=false;
+    pcs.forEach(p=>{
+      const k=Math.max(0,Math.min(1,(t-t0-p.delay)/650)), e=out(k), s=.95+.05*e;
+      p.g.setAttribute('opacity',e);
+      p.g.setAttribute('transform',`translate(${p.ox*(1-s)} ${p.oy*(1-s)}) scale(${s})`);
+      busy||=k<1;
+    });
+    if(busy)requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  setTimeout(()=>layer.querySelectorAll('.lvl').forEach(fill),480);
+}
+
+/* ── small notices ── */
+const S=(icon,a,b,extra='')=>`<span class="glyph">${icon}</span>${a}${b?` <span class="dim">${b}</span>`:''}${extra}`;
+
+/* ── demos ── */
+function demo(desk){
+  const kind=desk.dataset.demo;
+  const island=document.createElement('div');island.className='island';
+  desk.querySelector('.stagebox').appendChild(island);
+  const light=lightFor(island);
+  let back=null,hover=false;
+  island.addEventListener('mouseenter',()=>hover=true);
+  island.addEventListener('mouseleave',()=>{hover=false;});
+  const rest=()=>{if(hover){back=setTimeout(rest,600);return;}place(island,120,30,REST);};
+  const arm=ms=>{clearTimeout(back);back=setTimeout(rest,ms);};
+  const small=(body,ms)=>{place(island,measure(body),30,{cls:'s',body});arm(ms);};
+  rest();
+  const btn=(t,f)=>{const b=document.createElement('button');b.className='pill';b.textContent=t;b.onclick=f;desk.querySelector('.bar').appendChild(b);};
+  const connect=m=>{const {h,html}=connectBody(m);const layer=place(island,340,h,html);animateConnect(layer);light.show();arm(5000);};
+  if(kind==='connect'){
+    btn('AirPods Pro',()=>connect(MODELS.airpods));
+    btn('Buds4 Pro',()=>connect(MODELS.buds));
+    btn('Buds4 Pro — позже, по протоколу',()=>connect(MODELS.budsFull));
+    btn('Redmi, 15%',()=>connect(MODELS.redmi));
+    btn('Sony',()=>connect(MODELS.sony));
+    btn('Заглушка, без заряда',()=>connect(MODELS.generic));
+  }
+  if(kind==='disconnect'){
+    btn('Buds4 Pro',()=>small(S(miniPair(MODELS.buds),'Buds4 Pro','Отключено'),2500));
+    btn('AirPods Pro',()=>small(S(miniPair(MODELS.airpods),'AirPods Pro','Отключено'),2500));
+    btn('Sony',()=>small(S(miniOver(),'WH-1000XM6','Отключено'),2500));
+  }
+  if(kind==='low'){
+    const low=(icon,name,p)=>{
+      const col=p<=10?'var(--crit)':'var(--warn)';
+      small(S(icon,name,'Низкий заряд',` <span class="num" style="color:${col};margin-left:2px">${p}%</span>`),3000);
+    };
+    btn('Buds4 Pro, 20%',()=>low(miniPair(MODELS.buds),'Buds4 Pro',20));
+    btn('MX Master 3S, 10%',()=>low(glyph('mouse'),'MX Master 3S',10));
+  }
+  if(kind==='switch'){
+    btn('Звук: Buds4 Pro',()=>small(S(glyph('headphones'),'Звук переключен','Buds4 Pro'),2500));
+    btn('Звук: монитор',()=>small(S(glyph('display'),'Звук переключен','DELL U2723QE'),2500));
+    btn('Звук: динамики',()=>small(S(glyph('speakers'),'Звук переключен','Динамики'),2500));
+    btn('Микрофон: CMF Buds Pro 2',()=>small(S(glyph('mic'),'Микрофон переключен','CMF Buds Pro 2'),2500));
+  }
+}
+document.querySelectorAll('.desk').forEach(demo);
+
+/* ── icon catalog ── */
+(function(){
+  const box=document.getElementById('icons');
+  [['headphones','Наушники'],['headset','Гарнитура'],['speakers','Динамики'],['display','Монитор (HDMI, DP)'],['line','Линейный выход'],['mic','Микрофон'],['mouse','Мышь (низкий заряд)']]
+    .forEach(([k,t])=>box.insertAdjacentHTML('beforeend',`<div class="ic">${glyph(k,26)}${t}</div>`));
+  box.insertAdjacentHTML('beforeend',`<div class="ic">${miniPair(MODELS.buds,26)}Пара наушников</div>`);
+  box.insertAdjacentHTML('beforeend',`<div class="ic">${miniOver(26)}Накладные</div>`);
+  requestAnimationFrame(lightPage);
+})();
+
+document.getElementById('marks').addEventListener('change',e=>document.body.classList.toggle('marks',e.target.checked));
+</script>
+</body>
+</html>

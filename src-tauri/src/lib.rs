@@ -8,6 +8,7 @@ pub mod capture;
 mod control;
 mod crash;
 /// Public for `examples/download_probe.rs`: the folder watch on a real folder.
+pub mod devices;
 pub mod download;
 mod fault;
 mod files;
@@ -72,6 +73,8 @@ pub fn run() {
             Some(island::Demo::Problem(fault::Level::Warning))
         } else if has("--demo-system") {
             Some(island::Demo::System)
+        } else if has("--demo-devices") {
+            Some(island::Demo::Devices)
         } else {
             None
         };

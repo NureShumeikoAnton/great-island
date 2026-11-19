@@ -58,6 +58,12 @@ export interface Settings {
   notifyUsage: boolean;
   /** A download coming and the files that arrived in Downloads. */
   notifyDownloads: boolean;
+  /** Bluetooth headphones and speakers connected or disconnected. */
+  notifyDevices: boolean;
+  /** A Bluetooth device's low battery. */
+  notifyDeviceBattery: boolean;
+  /** Windows moved the sound or the microphone to another device. */
+  notifyAudioSwitch: boolean;
   /** The control center's bottom line: the charge in numbers. */
   batteryPercent: boolean;
   clockSeconds: boolean;

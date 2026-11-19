@@ -81,6 +81,11 @@ pub struct Settings {
     /// Fast drain on battery, high load without it.
     pub notify_usage: bool,
     pub notify_downloads: bool,
+    /// Headphones and other Bluetooth devices that play sound connected or left.
+    pub notify_devices: bool,
+    pub notify_device_battery: bool,
+    /// Windows moved the sound or the microphone to another device.
+    pub notify_audio_switch: bool,
     pub battery_percent: bool,
     pub clock_seconds: bool,
 }
@@ -184,6 +189,9 @@ impl Settings {
             notify_charging: true,
             notify_usage: true,
             notify_downloads: true,
+            notify_devices: true,
+            notify_device_battery: true,
+            notify_audio_switch: true,
             battery_percent: false,
             clock_seconds: true,
         }
@@ -420,6 +428,7 @@ mod tests {
         assert!(!old.video_remaining);
         assert!(old.notify_low_charge && old.notify_charging && old.notify_usage);
         assert!(old.notify_downloads);
+        assert!(old.notify_devices && old.notify_device_battery && old.notify_audio_switch);
         assert!(!old.battery_percent && old.clock_seconds);
     }
 

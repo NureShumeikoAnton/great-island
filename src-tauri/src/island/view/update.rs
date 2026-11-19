@@ -143,7 +143,10 @@ impl Scene {
         let reason = self.comp.fit(update.reason, reason_style, room);
         let title = self.comp.text(&title, title_style, self.scale)?;
         let reason = self.comp.text(&reason, reason_style, self.scale)?;
-        let y = snap(self.comp.stack_top(&title, &reason, 2.0, HEIGHT), self.scale);
+        let y = snap(
+            self.comp.stack_top(&title, &reason, 2.0, HEIGHT),
+            self.scale,
+        );
         self.place(&root, &title.visual, x, y)?;
         self.place(&root, &reason.visual, x, y + title.height + 2.0)
     }

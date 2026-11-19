@@ -2,6 +2,9 @@
 //! whom to ask: what a click or a swipe does is the feature's business.
 //!
 //! Telling a click from a swipe or a hold is `crate::gesture`.
+//!
+//! A press that ends past the island (a swipe that went too far) doesn't fold it: it stays open
+//! until the cursor comes back and leaves again, or for `OUTSIDE_MS`.
 
 use super::{
     App, log,
@@ -11,17 +14,19 @@ use super::{
 };
 use crate::control::ControlId;
 use crate::gesture::{Dir, Gestures, Output, Pull, Settle, Zone};
+use crate::platform;
 use crate::record::panel::Press;
 use windows::Win32::{
     Foundation::{LPARAM, WPARAM},
     UI::Input::KeyboardAndMouse::{
-        ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
+        GetCapture, ReleaseCapture, SetCapture, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
     },
 };
 
 const HOVER_DELAY_MS: u32 = 150;
 /// After a swipe the island doesn't expand on hover at once: not in the middle of a series of swipes.
 const REOPEN_AFTER_SWIPE_MS: u32 = 600;
+const OUTSIDE_MS: u32 = 5000;
 
 pub(super) struct Pointer {
     pub(super) inside: bool,
@@ -37,6 +42,8 @@ pub(super) struct Pointer {
     /// A control-center button is held: its ring runs.
     pub(super) held: Option<ControlId>,
     pub(super) gestures: Gestures,
+    /// A press ended past the island and the leave waits: `timers::OUTSIDE` runs.
+    outside: bool,
 }
 
 impl Pointer {
@@ -50,6 +57,7 @@ impl Pointer {
             balancing: false,
             held: None,
             gestures: Gestures::new(),
+            outside: false,
         }
     }
 }
@@ -68,15 +76,10 @@ impl App {
     pub(super) fn on_mouse_move(&mut self, p: (i32, i32)) {
         if !self.pointer.inside {
             self.pointer.inside = true;
-            let mut track = TRACKMOUSEEVENT {
-                cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
-                dwFlags: TME_LEAVE,
-                hwndTrack: self.island,
-                dwHoverTime: 0,
-            };
-            unsafe {
-                let _ = TrackMouseEvent(&mut track);
+            if std::mem::take(&mut self.pointer.outside) {
+                self.kill_timer(timers::OUTSIDE);
             }
+            self.track_leave();
             self.set_timer(timers::HOVER, HOVER_DELAY_MS);
             self.keep_menu();
             let held = self.stage.hold(true, self.now_ms());
@@ -115,7 +118,29 @@ impl App {
         }
     }
 
+    fn track_leave(&self) {
+        let mut track = TRACKMOUSEEVENT {
+            cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
+            dwFlags: TME_LEAVE,
+            hwndTrack: self.island,
+            dwHoverTime: 0,
+        };
+        unsafe {
+            let _ = TrackMouseEvent(&mut track);
+        }
+    }
+
+    /// WM_MOUSELEAVE. While a press holds the mouse, and after it ended past the island, the
+    /// leave waits: `end_press` decides.
     pub(super) fn on_mouse_leave(&mut self) {
+        let pressing = unsafe { GetCapture() } == self.island;
+        if pressing || self.pointer.outside {
+            return;
+        }
+        self.leave();
+    }
+
+    fn leave(&mut self) {
         self.pointer.inside = false;
         self.kill_timer(timers::HOVER);
         log(self.scene.set_hovered(None));
@@ -186,6 +211,35 @@ impl App {
     }
 
     pub(super) fn on_mouse_up(&mut self, p: (i32, i32)) {
+        self.release(p);
+        self.end_press();
+    }
+
+    /// After a press, once the mouse is free: the leave it held back. Past the island the island
+    /// stays as it is a while; over it, the leave is watched for again (the held one is spent).
+    fn end_press(&mut self) {
+        if !self.pointer.inside || self.pointer.outside {
+            return;
+        }
+        if platform::cursor_over(self.island) {
+            self.track_leave();
+            return;
+        }
+        self.pointer.inside = false;
+        self.pointer.outside = true;
+        self.kill_timer(timers::HOVER);
+        log(self.scene.set_hovered(None));
+        self.set_timer(timers::OUTSIDE, OUTSIDE_MS);
+    }
+
+    pub(super) fn on_outside_timer(&mut self) {
+        self.kill_timer(timers::OUTSIDE);
+        if std::mem::take(&mut self.pointer.outside) && !self.pointer.inside {
+            self.leave();
+        }
+    }
+
+    fn release(&mut self, p: (i32, i32)) {
         let (x, y) = self.logical(p);
         if self.pointer.seeking {
             self.pointer.seeking = false;
@@ -211,7 +265,7 @@ impl App {
             } else {
                 log(self.scene.slide_back());
             }
-            if !self.pointer.inside {
+            if !platform::cursor_over(self.island) {
                 self.expanded = false;
                 self.render();
             }
@@ -279,6 +333,7 @@ impl App {
         if let Some(output) = self.pointer.gestures.cancel() {
             self.on_gesture(output);
         }
+        self.end_press();
     }
 
     pub(super) fn on_hover_timer(&mut self) {

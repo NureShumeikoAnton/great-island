@@ -17,6 +17,9 @@ export function MainPage() {
   const notifying =
     settings.notifyUsage ||
     settings.notifyDownloads ||
+    settings.notifyDevices ||
+    settings.notifyDeviceBattery ||
+    settings.notifyAudioSwitch ||
     (battery && (settings.notifyLowCharge || settings.notifyCharging));
 
   return (

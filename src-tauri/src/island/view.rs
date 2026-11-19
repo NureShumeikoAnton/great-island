@@ -6,6 +6,8 @@
 //! the size by expressions, so the system recomputes them every frame, not us.
 
 mod card;
+mod device;
+mod device_art;
 mod download;
 mod file_icon;
 mod menu;
@@ -25,6 +27,7 @@ mod update;
 mod viewing;
 
 pub use card::{CardModel, CardPhase, Video};
+pub use device::DeviceModel;
 pub use download::{DownloadModel, FileModel};
 pub use menu::button_center;
 pub use microphones::{MAX_MICROPHONES, TALLEST as PANEL_TALLEST};
@@ -106,6 +109,8 @@ pub enum Mode {
     Download {
         open: bool,
     },
+    /// A device notice (`crate::devices`).
+    Device,
 }
 
 impl Mode {
@@ -222,6 +227,7 @@ pub struct Model<'a> {
     pub system: Option<SystemModel<'a>>,
     pub strip: Option<StripModel>,
     pub download: Option<DownloadModel<'a>>,
+    pub device: Option<DeviceModel<'a>>,
 }
 
 pub struct PlayerModel<'a> {
@@ -294,6 +300,8 @@ struct Content {
     viewing: Option<viewing::Parts>,
     record: Option<record::Parts>,
     download: Option<download::Parts>,
+    /// Kept alive because an expression holds it only weakly; dropped, the gradient falls back to a one-DIP silver stripe.
+    _light: Option<CompositionPropertySet>,
 }
 
 pub struct Scene {
@@ -465,6 +473,7 @@ impl Scene {
             Mode::System { open } => self.system_size(model, open),
             Mode::Downloading => self.downloading_size(model),
             Mode::Download { open } => self.download_size(model, open),
+            Mode::Device => self.device_size(model),
         }
     }
 
@@ -663,6 +672,7 @@ impl Scene {
             viewing: None,
             record: None,
             download: None,
+            _light: None,
         };
         match model.mode {
             Mode::Collapsed => self.build_collapsed(model, &mut content)?,
@@ -683,6 +693,7 @@ impl Scene {
             Mode::System { open } => self.build_system(model, open, &mut content)?,
             Mode::Downloading => self.build_downloading(model, &mut content)?,
             Mode::Download { open } => self.build_download(model, open, &mut content)?,
+            Mode::Device => self.build_device(model, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -730,7 +741,8 @@ impl Scene {
             | Mode::Problem { .. }
             | Mode::Update
             | Mode::System { .. }
-            | Mode::Download { .. } => {}
+            | Mode::Download { .. }
+            | Mode::Device => {}
         }
         Ok(())
     }
@@ -916,6 +928,13 @@ fn content_key(model: &Model) -> String {
                     (d.files.iter().map(|f| f.name).collect(), d.decor)
                 });
             return format!("Download|{open}|{decor}|{}", names.join("|"));
+        }
+        // A new notice plays its animation again.
+        (Mode::Device, _) => {
+            let (notice, decor) = model.device.as_ref().map_or((String::new(), false), |d| {
+                (format!("{:?}", d.notice), d.decor)
+            });
+            return format!("Device|{notice}|{decor}");
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model

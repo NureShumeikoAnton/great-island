@@ -5,6 +5,18 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.8.2 — 2026-11-19
+
+### Added
+
+- A notice when Bluetooth headphones connect: the buds and the case drawn with a silver sheen, the battery under them.
+- Notices when a device disconnects, a device runs low, and the sound or the microphone switches.
+- "Device connections", "Device battery" and "Audio device changes" switches in the Notifications section.
+
+### Fixed
+
+- The island no longer folds right away after a swipe that went past its edge.
+
 ## 0.8.1 — 2026-11-18
 
 ### Added

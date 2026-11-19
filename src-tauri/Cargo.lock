@@ -1264,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "great-island"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "base64 0.23.1",
  "minisign-verify",
@@ -1274,6 +1274,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "windows",
+ "windows-collections",
  "windows-core",
  "windows-numerics",
 ]

@@ -22,6 +22,7 @@ mod capture;
 mod comp;
 mod config;
 mod controls;
+mod devices;
 mod downloads;
 mod flight;
 mod glyph;
@@ -63,6 +64,7 @@ use crate::{
     settings::{Language, Settings},
     stage::Stage,
 };
+use devices::Devices;
 use downloads::Downloads;
 use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
@@ -86,8 +88,8 @@ use update::Updates;
 use view::Scene;
 use watch::Watch;
 use window::{
-    WM_CONTROLS, WM_DEMO, WM_DOWNLOAD, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD, WM_SAVE,
-    WM_UPDATE,
+    WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD,
+    WM_SAVE, WM_UPDATE,
 };
 use windows::{
     Win32::{
@@ -114,6 +116,7 @@ const WM_MOUSELEAVE: u32 = 0x02A3;
 
 /// WM_DEMO's wparam for a system notice; 0 and 1 are a warning and a failure.
 const DEMO_SYSTEM: usize = 2;
+const DEMO_DEVICES: usize = 3;
 
 const TICK_MS: u32 = 1000;
 const SAVE_EVERY_TICKS: u32 = 15;
@@ -164,6 +167,10 @@ mod timers {
     pub const SAVER_WAIT: usize = 32;
     /// The control center's clock: the next second.
     pub const CLOCK: usize = 33;
+    /// A device notice waits for the battery, or a sound switch for its device's link.
+    pub const DEVICE_WAIT: usize = 34;
+    /// A press ended past the island: it stays open until the cursor comes back, or this long.
+    pub const OUTSIDE: usize = 35;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -185,6 +192,8 @@ pub enum Demo {
     Problem(Level),
     /// The next system notice of the list, at each start with the flag.
     System,
+    /// The next device notice of the list, the same way.
+    Devices,
 }
 
 /// `restart` — this island replaces a running one (tray, after a crash, a start retry).
@@ -202,6 +211,7 @@ pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
         let (msg, wparam) = match demo {
             Some(Demo::Problem(level)) => (WM_DEMO, usize::from(level == Level::Critical)),
             Some(Demo::System) => (WM_DEMO, DEMO_SYSTEM),
+            Some(Demo::Devices) => (WM_DEMO, DEMO_DEVICES),
             None => (WM_OPEN_SETTINGS, 0),
         };
         unsafe {
@@ -378,6 +388,7 @@ struct App {
     updates: Updates,
     notify: Notify,
     downloads: Downloads,
+    devices: Devices,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -488,6 +499,7 @@ impl App {
             updates: Updates::new(),
             notify: Notify::default(),
             downloads: Downloads::default(),
+            devices: Devices::default(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -517,6 +529,7 @@ impl App {
         self.sweep_recordings();
         self.start_notify();
         self.sync_downloads();
+        self.sync_devices();
         self.problems.booting = false;
         journal::info(tr!(
             "journal.started",
@@ -533,6 +546,7 @@ impl App {
         self.finish_recording();
         self.stop_notify();
         self.stop_downloads();
+        self.stop_devices();
         self.close_settings();
         journal::info(tr!("journal.stopped"));
     }
@@ -570,6 +584,7 @@ impl App {
             WM_SAVE => self.on_video_save(),
             WM_UPDATE => self.on_update_message(),
             WM_DOWNLOAD => self.on_downloads(),
+            WM_DEVICES => self.on_devices(),
             crate::update::COMMAND_MESSAGE => self.on_update_command(wparam.0),
             WM_FAULT => self.on_faults(),
             WM_POWERBROADCAST => {
@@ -577,6 +592,7 @@ impl App {
                 return Some(LRESULT(1));
             }
             WM_DEMO if wparam.0 == DEMO_SYSTEM => self.demo_system(),
+            WM_DEMO if wparam.0 == DEMO_DEVICES => self.demo_devices(),
             WM_DEMO => self.demo_problem(wparam.0 != 0),
             WM_OPEN_SETTINGS => self.open_settings(),
             WM_DISPLAYCHANGE => {
@@ -633,6 +649,8 @@ impl App {
             timers::NOTIFY => self.on_notify_sample(),
             timers::SAVER_WAIT => self.on_saver_wait(),
             timers::CLOCK => self.on_clock_timer(),
+            timers::DEVICE_WAIT => self.on_device_wait(),
+            timers::OUTSIDE => self.on_outside_timer(),
             _ => {}
         }
     }
@@ -729,6 +747,7 @@ impl App {
         self.sync_record_panel();
         self.sync_notify();
         self.sync_downloads_stage();
+        self.sync_devices_stage();
         self.sync_clock();
     }
 

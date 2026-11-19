@@ -1,8 +1,9 @@
 //! System notifications: what the island tells about the computer by itself, the battery and
 //! the load. Rules only, under tests: `battery` turns power readings into notices, `drain`
 //! knows the usual drain and when it is too fast, `usage` which apps hold the processor.
-//! [`allow`] decides whether a kind may show now, for these and for downloads
-//! (`crate::download`); [`Waiting`] keeps the notices a recording holds.
+//! [`allow`] decides whether a kind may show now, for these, for downloads
+//! (`crate::download`) and for devices (`crate::devices`); [`Waiting`] keeps the notices a
+//! recording holds.
 //!
 //! The Windows side is in `adapters/`.
 
@@ -20,6 +21,11 @@ pub enum Kind {
     Charging,
     Usage,
     Downloads,
+    /// A device connected or left.
+    Devices,
+    DeviceBattery,
+    /// Windows moved the sound or the microphone to another device.
+    AudioSwitch,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,6 +34,9 @@ pub struct Enabled {
     pub charging: bool,
     pub usage: bool,
     pub downloads: bool,
+    pub devices: bool,
+    pub device_battery: bool,
+    pub audio_switch: bool,
 }
 
 impl Enabled {
@@ -37,6 +46,9 @@ impl Enabled {
             Kind::Charging => self.charging,
             Kind::Usage => self.usage,
             Kind::Downloads => self.downloads,
+            Kind::Devices => self.devices,
+            Kind::DeviceBattery => self.device_battery,
+            Kind::AudioSwitch => self.audio_switch,
         }
     }
 }
@@ -184,6 +196,9 @@ mod tests {
         charging: true,
         usage: true,
         downloads: true,
+        devices: true,
+        device_battery: true,
+        audio_switch: true,
     };
 
     fn low() -> Notice {

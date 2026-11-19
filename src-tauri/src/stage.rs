@@ -76,6 +76,12 @@ pub enum NoticeKind {
     /// A download is coming: a state, held until nothing comes any more.
     Downloading,
     Download,
+    /// Devices (`crate::devices`): connected with the picture and the battery, left, low.
+    DeviceConnected,
+    DeviceDisconnected,
+    DeviceLow,
+    /// Windows moved the sound or the microphone to another device.
+    AudioSwitch,
 }
 
 impl NoticeKind {
@@ -104,7 +110,11 @@ impl NoticeKind {
             | Self::SlowCharge
             | Self::Usage
             | Self::Downloading
-            | Self::Download => None,
+            | Self::Download
+            | Self::DeviceConnected
+            | Self::DeviceDisconnected
+            | Self::DeviceLow
+            | Self::AudioSwitch => None,
         }
     }
 
@@ -120,14 +130,20 @@ impl NoticeKind {
             // A screenshot answers the button just pressed: more important than news.
             Self::Shutter | Self::Shot | Self::Countdown | Self::Clip => 80,
             Self::Sound | Self::Microphone | Self::Discarded => 70,
+            // Answers the cable just plugged in, like the sound indicator.
+            Self::AudioSwitch => 70,
             // Answers the plug just pulled, like the sound indicator.
             Self::Power => 70,
-            Self::LowCharge => 62,
+            Self::LowCharge | Self::DeviceLow => 62,
             Self::SlowCharge => 61,
             Self::UpdateAnswer => 75,
             Self::UpdateDone => 65,
             Self::UpdateChecking => 35,
-            Self::Track | Self::Usage | Self::Download => 60,
+            Self::Track
+            | Self::Usage
+            | Self::Download
+            | Self::DeviceConnected
+            | Self::DeviceDisconnected => 60,
             Self::Paused => 40,
             // A state ranks lowest: news briefly sits over it.
             Self::Viewing => 10,
@@ -164,6 +180,10 @@ impl NoticeKind {
             Self::SlowCharge => Some(5000),
             Self::Usage => Some(7000),
             Self::Download => Some(4000),
+            // The connection's animation takes ~2 s of it (`view/device.rs`).
+            Self::DeviceConnected => Some(5000),
+            Self::DeviceDisconnected | Self::AudioSwitch => Some(2500),
+            Self::DeviceLow => Some(3000),
         }
     }
 
@@ -194,8 +214,9 @@ impl NoticeKind {
                 Some(1000)
             }
             Self::Track | Self::LowCharge | Self::SlowCharge | Self::Usage => Some(2000),
-            Self::Power => Some(1000),
+            Self::Power | Self::DeviceDisconnected | Self::AudioSwitch => Some(1000),
             Self::Download => Some(5000),
+            Self::DeviceConnected | Self::DeviceLow => Some(2000),
         }
     }
 
@@ -229,6 +250,10 @@ impl NoticeKind {
                 | Self::Usage
                 | Self::Downloading
                 | Self::Download
+                | Self::DeviceConnected
+                | Self::DeviceDisconnected
+                | Self::DeviceLow
+                | Self::AudioSwitch
         )
     }
 
@@ -1043,6 +1068,21 @@ mod tests {
         quiet.set_quiet(true, 0);
         assert!(!quiet.post(Downloading, 0));
         assert!(!quiet.post(Download, 0));
+    }
+
+    #[test]
+    fn device_news_is_quiet_in_do_not_disturb_and_holds_through_its_animation() {
+        let mut quiet = Stage::new();
+        quiet.set_quiet(true, 0);
+        for k in [DeviceConnected, DeviceDisconnected, DeviceLow, AudioSwitch] {
+            assert!(!quiet.post(k, 0), "{k:?}");
+        }
+        let mut s = Stage::new();
+        s.post(DeviceConnected, 0);
+        s.tick(4_900);
+        assert_eq!(kind(&s), Some(DeviceConnected));
+        s.tick(5_100);
+        assert_eq!(kind(&s), None);
     }
 
     #[test]
