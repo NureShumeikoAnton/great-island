@@ -447,6 +447,7 @@ impl App {
             Hit::Player(hit) => self.player_click(hit),
             Hit::Card => self.open_card(),
             Hit::CardCopy => self.copy_card(false),
+            Hit::RecordMic => self.toggle_record_mic(),
             Hit::RecordPause => self.toggle_pause(),
             Hit::RecordStop => self.stop_recording(),
             Hit::RecordNow => self.begin_recording(),

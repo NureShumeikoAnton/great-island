@@ -216,6 +216,11 @@ export function ShotsPage() {
           fallback={defaultShots}
           onChange={(screenshotDir) => update({ screenshotDir })}
         />
+        <ToggleRow
+          label={t("shots.clipboard")}
+          on={settings.shotClipboard}
+          onChange={(shotClipboard) => update({ shotClipboard })}
+        />
       </Group>
     </>
   );

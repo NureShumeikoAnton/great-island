@@ -85,6 +85,12 @@ impl Shot {
         Ok(())
     }
 
+    /// By the setting, at once: the picture is in the clipboard, but nothing is decided about the
+    /// shot, and its card says nothing about it. Ctrl+C still copies and says so.
+    pub fn lend(&self, clipboard: &mut impl Clipboard) -> Result<(), Failed> {
+        clipboard.put(&self.image)
+    }
+
     /// Ctrl+X: only the clipboard. If the file is already written (the shot was opened) it is deleted;
     /// if deleting fails it stays, and this is just a copy.
     pub fn cut(
@@ -270,6 +276,16 @@ mod tests {
         let mut shot = shot();
         assert!(shot.copy(&mut board).is_ok());
         assert_eq!(shot.status(), Status::Copied);
+        assert!(matches!(shot.finish(&mut album), Ok(Some(_))));
+        assert_eq!((board.puts, album.saves), (1, 1));
+    }
+
+    #[test]
+    fn lent_to_the_clipboard_the_shot_is_still_undecided() {
+        let (mut album, mut board) = (Album::default(), board());
+        let shot = shot();
+        assert!(shot.lend(&mut board).is_ok());
+        assert_eq!(shot.status(), Status::Fresh);
         assert!(matches!(shot.finish(&mut album), Ok(Some(_))));
         assert_eq!((board.puts, album.saves), (1, 1));
     }

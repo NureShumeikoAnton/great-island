@@ -12,8 +12,10 @@
 //!    go on; the next press records without it (the journal keeps the reason), until it
 //!    works again. A chosen microphone that isn't plugged in gives way to the Windows default.
 //!    Losing the microphone or the computer's sound mid-way is a warning; the recording goes on.
-//! 2. While it runs the island shows REC, time, pause and stop; on hover — file size
-//!    and a cancel knob to slide. The control center's button shows the time and stops it too.
+//! 2. While it runs the island shows REC, time, pause and stop, and the microphone button
+//!    when the microphone is recorded: it mutes the microphone in this recording only. On
+//!    hover — file size and a cancel knob to slide. The control center's button shows the
+//!    time and stops it too.
 //! 3. Stop: the recording thread closes the file and sends the last frame; the island
 //!    shows the card, like a screenshot's: the thumbnail opens the video window (`watch.rs`),
 //!    text or Ctrl+C copies the file, Ctrl+X leaves it only in the clipboard.
@@ -57,9 +59,15 @@ pub(super) struct Live {
     clock: Clock,
     bytes: u64,
     closing: bool,
+    /// Muted in the recording; `None` — the recording has no microphone.
+    muted: Option<bool>,
 }
 
 impl Live {
+    pub(super) fn muted(&self) -> Option<bool> {
+        self.muted
+    }
+
     pub(super) fn elapsed(&self, now: u64) -> u64 {
         self.clock.elapsed(now)
     }
@@ -293,6 +301,7 @@ impl App {
             clock: Clock::start(now),
             bytes: 0,
             closing: false,
+            muted: self.recording.sound.microphone().then_some(false),
         });
         self.recording.since.set(Some(now));
         self.sync_marks();
@@ -318,6 +327,18 @@ impl App {
             live.engine.pause();
         }
         self.sync_record_time();
+        self.render();
+    }
+
+    pub(super) fn toggle_record_mic(&mut self) {
+        let Some(live) = self.recording.live.as_mut().filter(|l| !l.closing) else {
+            return;
+        };
+        let Some(muted) = live.muted.as_mut() else {
+            return;
+        };
+        *muted = !*muted;
+        live.engine.mute(*muted);
         self.render();
     }
 

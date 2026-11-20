@@ -278,7 +278,15 @@ mod tests {
                 for (opener, in_second_place) in [("tr!(", false), ("tr_for!(", true)] {
                     let mut rest = source.as_str();
                     while let Some(at) = rest.find(opener) {
+                        // Part of a longer name (`include_str!(`): not ours.
+                        let inside = rest[..at]
+                            .chars()
+                            .next_back()
+                            .is_some_and(|c| c.is_alphanumeric() || c == '_');
                         rest = &rest[at + opener.len()..];
+                        if inside {
+                            continue;
+                        }
                         // `tr_for!` has the language first: the key is the first quoted text.
                         let key = if in_second_place {
                             rest.find('"').map(|quote| &rest[quote..])

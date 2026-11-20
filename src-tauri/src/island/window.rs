@@ -1,5 +1,6 @@
 //! Window creation: the transparent island window, a hidden window for the tray and service messages,
-//! the screenshot flight window with the click "catcher", the viewer window and the area selection.
+//! the screenshot flight window with the click "catcher", the viewer window, the area selection and
+//! the dialogs.
 
 use windows::{
     Win32::{
@@ -34,6 +35,7 @@ const OVERLAY_CLASS: PCWSTR = w!("GreatIslandOverlay");
 const VIEWER_CLASS: PCWSTR = w!("GreatIslandViewer");
 const CATCHER_CLASS: PCWSTR = w!("GreatIslandCatcher");
 const SELECT_CLASS: PCWSTR = w!("GreatIslandSelect");
+const DIALOG_CLASS: PCWSTR = w!("GreatIslandDialog");
 /// App icon in the exe resources (embedded by the Tauri build).
 const APP_ICON: PCWSTR = PCWSTR(32512 as *const u16);
 
@@ -51,7 +53,7 @@ pub const WM_DECK: u32 = WM_APP + 9;
 pub const WM_STRIP: u32 = WM_APP + 11;
 /// The edited video's save moved on (its thread, to the island).
 pub const WM_SAVE: u32 = WM_APP + 12;
-/// The update check on its thread has an answer. (WM_APP + 13 is `update::LEAVE_MESSAGE`, sent by the update window.)
+/// The update check on its thread has an answer. (WM_APP + 13 is `update::COMMAND_MESSAGE`, sent by the settings window.)
 pub const WM_UPDATE: u32 = WM_APP + 14;
 /// The Downloads folder's watch has news (its thread, to the island).
 pub const WM_DOWNLOAD: u32 = WM_APP + 15;
@@ -60,12 +62,13 @@ pub const WM_DEVICES: u32 = WM_APP + 16;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 
-/// `viewer_proc` handles viewer windows, `select_proc` the area selection: their classes are
-/// registered here, while the windows are created when they are needed.
+/// `viewer_proc` handles viewer windows, `select_proc` the area selection, `dialog_proc` the
+/// dialogs: their classes are registered here, while the windows are created when they are needed.
 pub fn create(
     wndproc: WndProc,
     viewer_proc: WndProc,
     select_proc: WndProc,
+    dialog_proc: WndProc,
 ) -> Result<(HWND, HWND)> {
     unsafe {
         let instance = GetModuleHandleW(None)?;
@@ -82,6 +85,7 @@ pub fn create(
             (CATCHER_CLASS, wndproc, none, hand),
             (VIEWER_CLASS, viewer_proc, CS_DBLCLKS, arrow),
             (SELECT_CLASS, select_proc, none, cross),
+            (DIALOG_CLASS, dialog_proc, none, arrow),
         ];
         for (class, proc, style, cursor) in classes {
             let wc = WNDCLASSW {
@@ -208,6 +212,30 @@ pub fn create_selector(rect: RECT) -> Result<HWND> {
             None,
         )?;
         not_fullscreen(hwnd);
+        Ok(hwnd)
+    }
+}
+
+/// A dialog at `rect` (physical pixels), hidden: no buffer of its own (Composition draws), above
+/// other windows, not on the taskbar; without the frame and corners Windows gives windows.
+pub fn create_dialog(rect: RECT, title: &str) -> Result<HWND> {
+    unsafe {
+        let instance = GetModuleHandleW(None)?;
+        let hwnd = CreateWindowExW(
+            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            DIALOG_CLASS,
+            &HSTRING::from(title),
+            WS_POPUP,
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            None,
+            None,
+            Some(instance.into()),
+            None,
+        )?;
+        set_framed(hwnd, false);
         Ok(hwnd)
     }
 }

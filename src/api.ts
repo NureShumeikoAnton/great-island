@@ -42,6 +42,8 @@ export interface Settings {
   /** A screenshot of an area picked first. */
   areaKey: Hotkey | null;
   viewerBar: ViewerBar;
+  /** Every screenshot is in the clipboard at once; the card looks as without it. */
+  shotClipboard: boolean;
   /** Empty = the default recordings folder. */
   recordingsDir: string;
   /** Sound, countdown, quality and the rest are the island's pre-start panel: not edited here. */
@@ -193,10 +195,8 @@ export const api = {
   clearJournal: () => invoke<void>("clear_journal"),
   appInfo: () => invoke<AppInfo>("app_info"),
   openProjectPage: (page: "home" | "license" | "changes") => invoke<boolean>("open_project_page", { page }),
-  // Updates: the island does the work; the windows read the status and send commands.
+  // Updates: the island does the work; "About" reads the status and sends commands.
   updateStatus: () => invoke<UpdateView>("update_status"),
   /** False: there is no island to hear it. */
   updateCommand: (name: UpdateCommand) => invoke<boolean>("update_command", { name }),
-  updateExit: () => invoke<void>("update_exit"),
-  updateFit: (height: number) => invoke<void>("update_fit", { height }),
 };

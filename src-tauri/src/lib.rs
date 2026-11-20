@@ -9,6 +9,7 @@ mod control;
 mod crash;
 /// Public for `examples/download_probe.rs`: the folder watch on a real folder.
 pub mod devices;
+mod dialog;
 pub mod download;
 mod fault;
 mod files;
@@ -40,7 +41,6 @@ mod sound;
 pub mod stage;
 /// Public until the island uses it.
 pub mod update;
-mod update_app;
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -54,13 +54,6 @@ pub fn run() {
             .find_map(|arg| arg.strip_prefix("--lang="))
             .and_then(lang::Lang::from_code);
         settings_app::run(island_lang);
-    } else if has("--update") {
-        crash::install(crash::Role::Settings);
-        let island_lang = args
-            .iter()
-            .find_map(|arg| arg.strip_prefix("--lang="))
-            .and_then(lang::Lang::from_code);
-        update_app::run(island_lang);
     } else {
         crash::install(crash::Role::Island);
         let attempt = args
@@ -75,6 +68,8 @@ pub fn run() {
             Some(island::Demo::System)
         } else if has("--demo-devices") {
             Some(island::Demo::Devices)
+        } else if has("--demo-update") {
+            Some(island::Demo::Update)
         } else {
             None
         };

@@ -50,8 +50,7 @@ pub(super) struct ViewInput {
     card: Option<Card>,
     viewing: Option<Arc<Image>>,
     viewing_play: Option<bool>,
-    /// Recording: elapsed ms, still (paused or closing), file bytes, hover.
-    record: Option<(u64, bool, u64, bool)>,
+    record: Option<RecordModel>,
     countdown: Option<u32>,
     /// A problem: is it critical, what went wrong, why.
     problem: Option<(bool, String, String)>,
@@ -111,14 +110,7 @@ impl ViewInput {
             }),
             viewing: self.viewing.as_ref(),
             viewing_play: self.viewing_play,
-            record: self
-                .record
-                .map(|(elapsed_ms, paused, bytes, hover)| RecordModel {
-                    elapsed_ms,
-                    paused,
-                    bytes,
-                    hover,
-                }),
+            record: self.record,
             countdown: self.countdown,
             problem: self
                 .problem
@@ -284,7 +276,13 @@ impl App {
             record: match (mode, &self.recording.live) {
                 (Mode::Recording, Some(live)) => {
                     let now = self.now_ms();
-                    Some((live.elapsed(now), live.still(), live.bytes(), self.expanded))
+                    Some(RecordModel {
+                        elapsed_ms: live.elapsed(now),
+                        paused: live.still(),
+                        bytes: live.bytes(),
+                        hover: self.expanded,
+                        muted: live.muted(),
+                    })
                 }
                 _ => None,
             },

@@ -1,6 +1,6 @@
 [package]
 name = "great-island"
-version = "0.8.2"
+version = "0.8.3"
 description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
 authors = []
 license = "GPL-3.0-or-later"

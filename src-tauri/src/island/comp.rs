@@ -40,9 +40,10 @@ use windows::{
             DirectWrite::{
                 DWRITE_FACTORY_TYPE_SHARED, DWRITE_FONT_FEATURE,
                 DWRITE_FONT_FEATURE_TAG_TABULAR_FIGURES, DWRITE_FONT_METRICS,
-                DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT_NORMAL,
-                DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_LINE_METRICS, DWRITE_TEXT_METRICS,
-                DWRITE_TEXT_RANGE, DWriteCreateFactory, IDWriteFactory, IDWriteTextLayout,
+                DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT,
+                DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_LINE_METRICS,
+                DWRITE_TEXT_METRICS, DWRITE_TEXT_RANGE, DWriteCreateFactory, IDWriteFactory,
+                IDWriteTextLayout,
             },
             Dxgi::{Common::DXGI_FORMAT_B8G8R8A8_UNORM, IDXGIDevice},
         },
@@ -806,24 +807,12 @@ impl Comp {
             let mut lines = [DWRITE_LINE_METRICS::default()];
             let mut count = 0;
             layout.GetLineMetrics(Some(&mut lines), &mut count)?;
-            let mut collection = None;
-            self.dwrite
-                .GetSystemFontCollection(&mut collection, false)?;
-            let collection = collection.ok_or_else(windows::core::Error::empty)?;
-            let (mut index, mut exists) = (0, BOOL::default());
-            collection.FindFamilyName(&HSTRING::from(FONT), &mut index, &mut exists)?;
             let weight = if style.bold {
                 DWRITE_FONT_WEIGHT_SEMI_BOLD
             } else {
                 DWRITE_FONT_WEIGHT_NORMAL
             };
-            let font = collection.GetFontFamily(index)?.GetFirstMatchingFont(
-                weight,
-                DWRITE_FONT_STRETCH_NORMAL,
-                DWRITE_FONT_STYLE_NORMAL,
-            )?;
-            let mut metrics = DWRITE_FONT_METRICS::default();
-            font.GetMetrics(&mut metrics);
+            let metrics = self.font_metrics(FONT, weight.0)?;
             let em = f32::from(metrics.designUnitsPerEm.max(1));
             let cap = f32::from(metrics.capHeight) / em * style.size;
             let x = f32::from(metrics.xHeight) / em * style.size;
@@ -858,14 +847,7 @@ impl Comp {
 
     /// `scale` is the monitor's scale: text is drawn in its physical pixels.
     pub fn text(&self, content: &str, style: TextStyle, scale: f32) -> Result<Text> {
-        let surface = self.graphics.CreateDrawingSurface(
-            Size {
-                Width: 1.0,
-                Height: 1.0,
-            },
-            DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            DirectXAlphaMode::Premultiplied,
-        )?;
+        let surface = self.text_surface()?;
         let visual = self.compositor.CreateSpriteVisual()?;
         visual.SetBrush(&self.compositor.CreateSurfaceBrushWithSurface(&surface)?)?;
         let mut text = Text {
@@ -898,17 +880,39 @@ impl Comp {
 
     fn draw_text(&self, text: &mut Text, content: &str, scale: f32) -> Result<()> {
         let (layout, width, height) = self.layout(content, text.style)?;
+        let size = self.draw_layout(
+            &text.surface,
+            &layout,
+            (width, height),
+            text.style.color,
+            scale,
+        )?;
+        text.content = content.to_string();
+        text.width = width;
+        text.height = height;
+        text.visual.SetSize(size)
+    }
+
+    /// Draws a text layout of `size` into `surface`, sized to it in physical pixels; returns the
+    /// visual's size in logical ones.
+    pub(super) fn draw_layout(
+        &self,
+        surface: &CompositionDrawingSurface,
+        layout: &IDWriteTextLayout,
+        (width, height): (f32, f32),
+        c: Color,
+        scale: f32,
+    ) -> Result<Vector2> {
         let px_w = (width * scale).ceil().max(1.0);
         let px_h = (height * scale).ceil().max(1.0);
-        let current = text.surface.Size()?;
+        let current = surface.Size()?;
         if current.Width != px_w || current.Height != px_h {
-            text.surface.Resize(windows::Graphics::SizeInt32 {
+            surface.Resize(windows::Graphics::SizeInt32 {
                 Width: px_w as i32,
                 Height: px_h as i32,
             })?;
         }
-
-        let interop: ICompositionDrawingSurfaceInterop = text.surface.cast()?;
+        let interop: ICompositionDrawingSurfaceInterop = surface.cast()?;
         unsafe {
             let mut offset = POINT::default();
             let dc: ID2D1DeviceContext = interop.BeginDraw(None, &mut offset)?;
@@ -925,25 +929,62 @@ impl Comp {
                 b: 0.0,
                 a: 0.0,
             }));
-            let c = text.style.color;
-            let brush = dc.CreateSolidColorBrush(
-                &D2D1_COLOR_F {
-                    r: c.R as f32 / 255.0,
-                    g: c.G as f32 / 255.0,
-                    b: c.B as f32 / 255.0,
-                    a: c.A as f32 / 255.0,
-                },
-                None,
-            )?;
-            dc.DrawTextLayout(v2(0.0, 0.0), &layout, &brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+            // Drawing is ended in any case, otherwise the surface stays busy.
+            let drawn = dc
+                .CreateSolidColorBrush(
+                    &D2D1_COLOR_F {
+                        r: c.R as f32 / 255.0,
+                        g: c.G as f32 / 255.0,
+                        b: c.B as f32 / 255.0,
+                        a: c.A as f32 / 255.0,
+                    },
+                    None,
+                )
+                .map(|brush| {
+                    dc.DrawTextLayout(v2(0.0, 0.0), layout, &brush, D2D1_DRAW_TEXT_OPTIONS_NONE)
+                });
             interop.EndDraw()?;
+            drawn?;
         }
+        Ok(v2(px_w / scale, px_h / scale))
+    }
 
-        text.content = content.to_string();
-        text.width = width;
-        text.height = height;
-        text.visual.SetSize(v2(px_w / scale, px_h / scale))?;
-        Ok(())
+    pub(super) fn text_surface(&self) -> Result<CompositionDrawingSurface> {
+        self.graphics.CreateDrawingSurface(
+            Size {
+                Width: 1.0,
+                Height: 1.0,
+            },
+            DirectXPixelFormat::B8G8R8A8UIntNormalized,
+            DirectXAlphaMode::Premultiplied,
+        )
+    }
+
+    pub(super) fn dwrite(&self) -> &IDWriteFactory {
+        &self.dwrite
+    }
+
+    /// A font's design metrics, of the face as Windows picks it for `weight`.
+    pub(super) fn font_metrics(&self, family: &str, weight: i32) -> Result<DWRITE_FONT_METRICS> {
+        unsafe {
+            let mut collection = None;
+            self.dwrite
+                .GetSystemFontCollection(&mut collection, false)?;
+            let collection = collection.ok_or_else(windows::core::Error::empty)?;
+            let (mut index, mut exists) = (0, BOOL::default());
+            collection.FindFamilyName(&HSTRING::from(family), &mut index, &mut exists)?;
+            if !exists.as_bool() {
+                return Err(windows::core::Error::empty());
+            }
+            let font = collection.GetFontFamily(index)?.GetFirstMatchingFont(
+                DWRITE_FONT_WEIGHT(weight),
+                DWRITE_FONT_STRETCH_NORMAL,
+                DWRITE_FONT_STYLE_NORMAL,
+            )?;
+            let mut metrics = DWRITE_FONT_METRICS::default();
+            font.GetMetrics(&mut metrics);
+            Ok(metrics)
+        }
     }
 }
 

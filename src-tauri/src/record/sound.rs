@@ -91,11 +91,12 @@ impl Lane {
         self.samples.extend(samples.iter().skip(late));
     }
 
-    /// Adds the next `out.len() / CHANNELS` frames into `out`, at `gain`; what is not
-    /// there is silence.
-    fn take_into(&mut self, out: &mut [i32], gain: f32) {
-        for sample in out.iter_mut() {
+    /// Adds the next `out.len() / CHANNELS` frames into `out`, at `gain` of the frame's
+    /// index; what is not there is silence.
+    fn take_into(&mut self, out: &mut [i32], gain: impl Fn(usize) -> f32) {
+        for (i, sample) in out.iter_mut().enumerate() {
             let s = self.samples.pop_front().unwrap_or(0);
+            let gain = gain(i / CHANNELS);
             *sample += if gain < 1.0 {
                 (f32::from(s) * gain) as i32
             } else {
@@ -106,14 +107,54 @@ impl Lane {
     }
 }
 
-/// A short fade on both sides of a pause, so the splice doesn't click.
+/// A short fade on both sides of a pause or a muted stretch, so the splice doesn't click.
 const RAMP: u64 = RATE as u64 / 200;
 
-/// A pause, in frames of the timeline: `to` is unknown while it lasts.
+/// A pause or a muted stretch, in frames of the timeline: `to` is unknown while it lasts.
 #[derive(Clone, Copy, Debug)]
 struct Cut {
     from: u64,
     to: Option<u64>,
+}
+
+fn open(cuts: &mut VecDeque<Cut>, at: u64) {
+    if cuts.back().is_none_or(|c| c.to.is_some()) {
+        cuts.push_back(Cut { from: at, to: None });
+    }
+}
+
+fn close(cuts: &mut VecDeque<Cut>, at: u64) {
+    if let Some(cut) = cuts.back_mut().filter(|c| c.to.is_none()) {
+        cut.to = Some(at.max(cut.from));
+    }
+}
+
+/// `None`: the frame is inside a cut; near one it fades.
+fn fade(cuts: &VecDeque<Cut>, at: u64) -> Option<f32> {
+    let mut gain = 1.0f32;
+    for cut in cuts {
+        if at >= cut.from && cut.to.is_none_or(|to| at < to) {
+            return None;
+        }
+        if at < cut.from {
+            gain = gain.min((cut.from - at) as f32 / RAMP as f32);
+        }
+        if let Some(to) = cut.to.filter(|&to| at >= to) {
+            gain = gain.min((at - to + 1) as f32 / RAMP as f32);
+        }
+    }
+    Some(gain.min(1.0))
+}
+
+/// Cuts whose fade-in is wholly before `cursor` no longer change anything.
+fn forget(cuts: &mut VecDeque<Cut>, cursor: u64) {
+    while cuts
+        .front()
+        .and_then(|c| c.to)
+        .is_some_and(|to| to + RAMP <= cursor)
+    {
+        cuts.pop_front();
+    }
 }
 
 pub struct Track {
@@ -123,7 +164,10 @@ pub struct Track {
     gains: [f32; 2],
     /// Frames of the timeline before this are already handed out.
     cursor: u64,
+    /// Pauses: cut out of the track.
     cuts: VecDeque<Cut>,
+    /// The microphone muted: silence in its place, the track's time runs on.
+    muted: VecDeque<Cut>,
 }
 
 impl Track {
@@ -136,6 +180,7 @@ impl Track {
             gains: [system, microphone],
             cursor: 0,
             cuts: VecDeque::new(),
+            muted: VecDeque::new(),
         }
     }
 
@@ -144,28 +189,37 @@ impl Track {
     }
 
     pub fn pause(&mut self, at: u64) {
-        if self.cuts.back().is_none_or(|c| c.to.is_some()) {
-            self.cuts.push_back(Cut { from: at, to: None });
-        }
+        open(&mut self.cuts, at);
     }
 
     pub fn resume(&mut self, at: u64) {
-        if let Some(cut) = self.cuts.back_mut().filter(|c| c.to.is_none()) {
-            cut.to = Some(at.max(cut.from));
-        }
+        close(&mut self.cuts, at);
+    }
+
+    pub fn mute(&mut self, at: u64) {
+        open(&mut self.muted, at);
+    }
+
+    pub fn unmute(&mut self, at: u64) {
+        close(&mut self.muted, at);
     }
 
     /// The track from where it stopped up to frame `until` of the timeline, pauses left out.
     pub fn take(&mut self, until: u64) -> Vec<i16> {
         let frames = until.saturating_sub(self.cursor) as usize;
         let mut mixed = vec![0i32; frames * CHANNELS];
-        for (lane, gain) in self.lanes.iter_mut().zip(self.gains) {
-            lane.take_into(&mut mixed, gain);
-        }
+        let cursor = self.cursor;
+        let [system, microphone] = &mut self.lanes;
+        let [system_gain, microphone_gain] = self.gains;
+        system.take_into(&mut mixed, |_| system_gain);
+        let muted = &self.muted;
+        microphone.take_into(&mut mixed, |i| {
+            fade(muted, cursor + i as u64).map_or(0.0, |f| f * microphone_gain)
+        });
         let mut out = Vec::with_capacity(mixed.len());
         for (i, frame) in mixed.as_chunks::<CHANNELS>().0.iter().enumerate() {
             let at = self.cursor + i as u64;
-            let Some(gain) = self.gain(at) else {
+            let Some(gain) = fade(&self.cuts, at) else {
                 continue;
             };
             for &sample in frame {
@@ -182,32 +236,9 @@ impl Track {
             }
         }
         self.cursor = self.cursor.max(until);
-        while self
-            .cuts
-            .front()
-            .and_then(|c| c.to)
-            .is_some_and(|to| to + RAMP <= self.cursor)
-        {
-            self.cuts.pop_front();
-        }
+        forget(&mut self.cuts, self.cursor);
+        forget(&mut self.muted, self.cursor);
         out
-    }
-
-    /// `None`: the frame is in a pause.
-    fn gain(&self, at: u64) -> Option<f32> {
-        let mut gain = 1.0f32;
-        for cut in &self.cuts {
-            if at >= cut.from && cut.to.is_none_or(|to| at < to) {
-                return None;
-            }
-            if at < cut.from {
-                gain = gain.min((cut.from - at) as f32 / RAMP as f32);
-            }
-            if let Some(to) = cut.to.filter(|&to| at >= to) {
-                gain = gain.min((at - to + 1) as f32 / RAMP as f32);
-            }
-        }
-        Some(gain.min(1.0))
     }
 }
 
@@ -353,6 +384,33 @@ mod tests {
         let mut alone = Track::new(Sound::System, voice);
         alone.push(Input::System, 0, &tone(10, 1000));
         assert_eq!(alone.take(10), tone(10, 1000));
+    }
+
+    #[test]
+    fn a_muted_microphone_is_silence_and_the_computer_plays_on() {
+        let mut track = Track::new(Sound::Both, Balance::default());
+        let total = 8 * RAMP as usize;
+        track.push(Input::System, 0, &tone(total, 1000));
+        track.push(Input::Microphone, 0, &tone(total, 2000));
+        let (from, to) = (2 * RAMP, 5 * RAMP);
+        track.mute(from);
+        track.unmute(to);
+        let out = track.take(total as u64);
+        assert_eq!(out.len(), total * CHANNELS, "muting cuts nothing out");
+        assert_eq!(out[0], 3000);
+        let inside = ((from + to) / 2) as usize * CHANNELS;
+        assert_eq!(out[inside], 1000, "only the computer while muted");
+        let before = (from - 1) as usize * CHANNELS;
+        assert!(out[before] < 1100, "fades out to the mute: {}", out[before]);
+        assert_eq!(*out.last().expect("samples"), 3000);
+    }
+
+    #[test]
+    fn muted_to_the_end_stays_silent() {
+        let mut track = Track::new(Sound::Microphone, Balance::default());
+        track.push(Input::Microphone, 0, &tone(1000, 5000));
+        track.mute(0);
+        assert_eq!(track.take(1000), tone(1000, 0));
     }
 
     #[test]

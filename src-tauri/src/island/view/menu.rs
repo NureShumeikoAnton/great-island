@@ -51,8 +51,10 @@ const IDLE_FILL: &str = "#1C1C1E";
 const IDLE_HOVER: &str = "#2C2C2E";
 const ON_HOVER: &str = "#E5E5EA";
 /// Muted sound and microphone: the fill and icon are slightly red.
-const MUTE_RED: &str = "#FF453A";
+pub(super) const MUTE_RED: &str = "#FF453A";
 pub(super) const MUTE_ICON: &str = "#FF6961";
+pub(super) const MUTE_FILL: f32 = 0.24;
+pub(super) const MUTE_HOVER: f32 = 0.32;
 const REC: &str = "#FF375F";
 const REC_HOVER: &str = "#FF5C7A";
 
@@ -100,8 +102,8 @@ fn look(id: ControlId, active: bool) -> Look {
         label_color: color(TEXT, 1.0),
     };
     let muted = |glyph, label| Look {
-        fill: color(MUTE_RED, 0.24),
-        hover: color(MUTE_RED, 0.32),
+        fill: color(MUTE_RED, MUTE_FILL),
+        hover: color(MUTE_RED, MUTE_HOVER),
         glyph,
         icon: color(MUTE_ICON, 1.0),
         label: Some(label),

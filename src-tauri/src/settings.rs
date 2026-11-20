@@ -60,6 +60,7 @@ pub struct Settings {
     /// A screenshot of an area picked first.
     pub area_key: Option<Hotkey>,
     pub viewer_bar: ViewerBar,
+    pub shot_clipboard: bool,
     /// Empty = the default folder under Videos.
     pub recordings_dir: String,
     pub record_key: Option<Hotkey>,
@@ -176,6 +177,7 @@ impl Settings {
             screenshot_key: Some(Hotkey::print_screen()),
             area_key: None,
             viewer_bar: ViewerBar::default(),
+            shot_clipboard: false,
             recordings_dir: String::new(),
             record_key: None,
             record: Choice::default(),
@@ -430,6 +432,7 @@ mod tests {
         assert!(old.notify_downloads);
         assert!(old.notify_devices && old.notify_device_battery && old.notify_audio_switch);
         assert!(!old.battery_percent && old.clock_seconds);
+        assert!(!old.shot_clipboard);
     }
 
     /// The recording choices were flat switches before the panel; they keep their keys.

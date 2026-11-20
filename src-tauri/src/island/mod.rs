@@ -11,11 +11,11 @@
 //!   `downloads` — a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
-//!   global key;
+//!   global key; `dialogs` — the dialog windows every feature opens through;
 //! - `input` — pointer and gestures; `render` — which view is on and its model; `layout` —
 //!   where the window sits; `visibility` — when it is on screen; `config` — the settings file;
-//! - `view`, `viewer`, `flight`, `selector`, `marks`, `overlay`, `tray`, `window`, `comp`,
-//!   `glyph` — drawing and Win32. They don't decide anything: they return a request and the
+//! - `view`, `viewer`, `dialog`, `flight`, `selector`, `marks`, `overlay`, `tray`, `window`,
+//!   `comp`, `paragraph`, `glyph` — drawing and Win32. They don't decide anything: they return a request and the
 //!   feature carries it out.
 
 mod capture;
@@ -23,6 +23,8 @@ mod comp;
 mod config;
 mod controls;
 mod devices;
+mod dialog;
+mod dialogs;
 mod downloads;
 mod flight;
 mod glyph;
@@ -34,6 +36,7 @@ mod levels_debug;
 mod marks;
 mod notify;
 mod overlay;
+mod paragraph;
 mod player;
 mod problem;
 mod record;
@@ -65,6 +68,7 @@ use crate::{
     stage::Stage,
 };
 use devices::Devices;
+use dialogs::Dialogs;
 use downloads::Downloads;
 use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
@@ -117,6 +121,7 @@ const WM_MOUSELEAVE: u32 = 0x02A3;
 /// WM_DEMO's wparam for a system notice; 0 and 1 are a warning and a failure.
 const DEMO_SYSTEM: usize = 2;
 const DEMO_DEVICES: usize = 3;
+const DEMO_UPDATE: usize = 4;
 
 const TICK_MS: u32 = 1000;
 const SAVE_EVERY_TICKS: u32 = 15;
@@ -171,6 +176,8 @@ mod timers {
     pub const DEVICE_WAIT: usize = 34;
     /// A press ended past the island: it stays open until the cursor comes back, or this long.
     pub const OUTSIDE: usize = 35;
+    /// A closed dialog has faded out.
+    pub const DIALOG_GONE: usize = 36;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -194,6 +201,8 @@ pub enum Demo {
     System,
     /// The next device notice of the list, the same way.
     Devices,
+    /// The update window with a sample release.
+    Update,
 }
 
 /// `restart` — this island replaces a running one (tray, after a crash, a start retry).
@@ -212,6 +221,7 @@ pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
             Some(Demo::Problem(level)) => (WM_DEMO, usize::from(level == Level::Critical)),
             Some(Demo::System) => (WM_DEMO, DEMO_SYSTEM),
             Some(Demo::Devices) => (WM_DEMO, DEMO_DEVICES),
+            Some(Demo::Update) => (WM_DEMO, DEMO_UPDATE),
             None => (WM_OPEN_SETTINGS, 0),
         };
         unsafe {
@@ -317,6 +327,19 @@ unsafe extern "system" fn viewer_proc(
     result
 }
 
+/// A dialog window: it takes focus on a click, unlike the island, so that Esc reaches it.
+unsafe extern "system" fn dialog_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match with_app(|app| app.on_dialog_message(hwnd, msg, wparam, lparam)) {
+        Some(Some(result)) => result,
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
 /// The area selection window: it takes focus and keys, unlike the island.
 unsafe extern "system" fn select_proc(
     hwnd: HWND,
@@ -386,6 +409,7 @@ struct App {
     hotkeys: Hotkeys,
     problems: Problems,
     updates: Updates,
+    dialogs: Dialogs,
     notify: Notify,
     downloads: Downloads,
     devices: Devices,
@@ -418,7 +442,7 @@ impl App {
         // Before the first text is built, window titles included.
         let language = lang::select(settings.language);
 
-        let (island, service) = window::create(wndproc, viewer_proc, select_proc)?;
+        let (island, service) = window::create(wndproc, viewer_proc, select_proc, dialog_proc)?;
         let scene = Scene::new(comp::Comp::new(island)?)?;
 
         let mut problems = Problems::new();
@@ -497,6 +521,7 @@ impl App {
             hotkeys: Hotkeys::default(),
             problems,
             updates: Updates::new(),
+            dialogs: Dialogs::default(),
             notify: Notify::default(),
             downloads: Downloads::default(),
             devices: Devices::default(),
@@ -548,6 +573,7 @@ impl App {
         self.stop_downloads();
         self.stop_devices();
         self.close_settings();
+        self.drop_dialogs();
         journal::info(tr!("journal.stopped"));
     }
 
@@ -593,6 +619,7 @@ impl App {
             }
             WM_DEMO if wparam.0 == DEMO_SYSTEM => self.demo_system(),
             WM_DEMO if wparam.0 == DEMO_DEVICES => self.demo_devices(),
+            WM_DEMO if wparam.0 == DEMO_UPDATE => self.demo_update(),
             WM_DEMO => self.demo_problem(wparam.0 != 0),
             WM_OPEN_SETTINGS => self.open_settings(),
             WM_DISPLAYCHANGE => {
@@ -651,6 +678,7 @@ impl App {
             timers::CLOCK => self.on_clock_timer(),
             timers::DEVICE_WAIT => self.on_device_wait(),
             timers::OUTSIDE => self.on_outside_timer(),
+            timers::DIALOG_GONE => self.on_dialog_gone(),
             _ => {}
         }
     }

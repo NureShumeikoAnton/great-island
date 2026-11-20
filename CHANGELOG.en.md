@@ -5,6 +5,17 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.8.3 — 2026-11-20
+
+### Added
+
+- A microphone button on the island during a recording: it mutes the microphone in the recording only.
+- The "Copy the screenshot to the clipboard" setting: every screenshot is in the clipboard at once.
+
+### Changed
+
+- The update window opens at once and no longer depends on WebView2.
+
 ## 0.8.2 — 2026-11-19
 
 ### Added

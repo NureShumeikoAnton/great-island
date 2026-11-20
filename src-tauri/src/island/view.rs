@@ -155,6 +155,7 @@ pub enum Hit {
     Viewer,
     ViewerPlay,
     ToIsland,
+    RecordMic,
     RecordPause,
     RecordStop,
     /// Held: the recording is dropped without a file.

@@ -3,6 +3,7 @@
 //! Fetching, checking the signature and installing are the adapters' job (`adapters/`, later).
 
 pub mod adapters;
+pub mod sheet;
 pub mod signature;
 
 use crate::fault::{Cause, Failed};
@@ -279,8 +280,8 @@ pub fn judge_manual(current: Version, latest: Version, memory: &Memory, now: u64
     }
 }
 
-/// Where an update stands. The island owns it, writes it to `update-status.json` at every change, and shows it;
-/// the update window and the settings only read it and send [`Command`]s: there is one source, not three.
+/// Where an update stands. The island owns it, writes it to `update-status.json` at every change, and shows it
+/// (its notices and the update window); the settings only read it and send [`Command`]s: there is one source.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Phase {

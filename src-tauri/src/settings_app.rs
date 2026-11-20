@@ -10,7 +10,9 @@ use crate::{
     persist, platform, record,
     settings::{Language, Settings},
     shot, sound,
+    update::{self, COMMAND_MESSAGE, Command, adapters::process},
 };
+use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use windows::{
@@ -35,6 +37,40 @@ use windows::{
 
 fn title(lang: Lang) -> String {
     tr_for!(lang, "settings.window_title").into_owned()
+}
+
+/// "About": what the island says about updates, through `update-status.json`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateView {
+    /// An island is there to take commands (and to say more than the file does).
+    running: bool,
+    status: update::Status,
+    /// Unix ms of the last check that got an answer; none before the first.
+    checked_at: Option<u64>,
+}
+
+#[tauri::command]
+fn update_status() -> UpdateView {
+    UpdateView {
+        running: process::island_runs(),
+        status: update::adapters::load_status(),
+        checked_at: update::adapters::load_memory().checked_at,
+    }
+}
+
+/// "check", "openWindow", "install", "postpone" or "skip". False: no island to hear it, or no such command.
+#[tauri::command]
+fn update_command(name: String) -> bool {
+    let command = match name.as_str() {
+        "check" => Command::Check,
+        "openWindow" => Command::OpenWindow,
+        "install" => Command::Install,
+        "postpone" => Command::Postpone,
+        "skip" => Command::Skip,
+        _ => return false,
+    };
+    process::send(command, COMMAND_MESSAGE)
 }
 
 #[tauri::command]
@@ -324,8 +360,8 @@ pub fn run(island_lang: Option<Lang>) {
             release_print_screen,
             list_displays,
             app_info,
-            crate::update_app::update_status,
-            crate::update_app::update_command,
+            update_status,
+            update_command,
             open_project_page,
             open_journal,
             read_journal,

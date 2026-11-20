@@ -112,6 +112,7 @@ enum Msg {
     Lost,
     Pause,
     Resume,
+    Mute(bool),
     Stop,
     Cancel,
 }
@@ -175,6 +176,11 @@ impl Engine {
 
     pub fn resume(&self) {
         let _ = self.tx.send(Msg::Resume);
+    }
+
+    /// Only in this recording: the microphone itself stays on for other programs.
+    pub fn mute(&self, muted: bool) {
+        let _ = self.tx.send(Msg::Mute(muted));
     }
 
     pub fn stop(&self) {
@@ -462,6 +468,8 @@ fn record(
                         out.put(mixer.as_ref(), &mut dissolve, t, clock.elapsed(t))?;
                     }
                 }
+                Some(Msg::Mute(true)) => track.mute(frames_in(now())),
+                Some(Msg::Mute(false)) => track.unmute(frames_in(now())),
                 Some(Msg::Stop) => return Ok(End::Asked),
                 Some(Msg::Lost) => return Ok(End::Stopped(Cause::MonitorGone)),
                 Some(Msg::Cancel) => return Ok(End::Discard),

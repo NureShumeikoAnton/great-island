@@ -11,6 +11,8 @@
 //!    expands in place into the viewer window instead of flying.
 //! 3. As the shot approaches, the shutter becomes a capsule sized for the thumbnail; the shot lands in it
 //!    and fades out, and the island widens into a card.
+//!    With the "copy to the clipboard" setting the shot is in the clipboard as soon as it is taken;
+//!    the card looks the same as without it.
 //! 4. While a shot exists (flash to card close), Ctrl+C and Ctrl+X are global hotkeys: they work in whatever
 //!    window has focus and don't reach it. Ctrl+C or a click on the card text copies to the clipboard;
 //!    Ctrl+X puts it only there, with no file. Either shows a tick and the card closes quickly. Other input
@@ -193,9 +195,15 @@ impl App {
     fn land_shot(&mut self, image: Image, stamp: Stamp, from: Option<Area>) {
         let now = self.now_ms();
         let preview = image.preview(PREVIEW_WIDTH);
+        let shot = Shot::new(image, stamp);
+        if self.settings.shot_clipboard
+            && let Err(failed) = shot.lend(&mut SystemClipboard::new(self.island))
+        {
+            self.report(Fault::new(What::Copy, failed));
+        }
         self.shots.taken = Some(Taken {
             thumb: Arc::new(preview.preview(THUMB_WIDTH)),
-            shot: Shot::new(image, stamp),
+            shot,
             open_at: now,
             phase: None,
         });

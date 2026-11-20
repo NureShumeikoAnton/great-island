@@ -1,6 +1,7 @@
 //! Screen recording on the island.
 //! - **countdown** (a setting): a 30 px circle, a number and a red ring running out;
-//! - **recording**: pulsing dot, REC, time, pause and stop. The island keeps its width:
+//! - **recording**: pulsing dot, REC, time, the microphone (when it is recorded), pause and
+//!   stop. Muted, the microphone looks like the control center's muted one. The island keeps its width:
 //!   the time sits between REC and the buttons, and as it gets longer the gaps around it
 //!   shrink (the island grows only past an hour, when the gaps are at their minimum).
 //!   On hover the island widens by the same amount on each side: file size appears on the
@@ -11,8 +12,9 @@ use super::super::comp::{Motion, Text, color, v2, v3};
 use super::super::glyph::Glyph;
 use super::{
     Button, Content, FADE_IN, FADE_OUT, Hit, IconButton, MUTED, Model, Rect, Scene, TEXT,
-    clock_style, format_clock, format_size, snap, style,
+    clock_style, format_clock, format_size, menu, snap, style,
 };
+use windows::UI::Color;
 use windows::{
     UI::Composition::{
         CompositionColorBrush, CompositionSpriteShape, CompositionStrokeCap, ContainerVisual,
@@ -49,11 +51,15 @@ const CHEVRONS: [f32; 3] = [0.35, 0.65, 1.0];
 
 const COUNTDOWN: f32 = 30.0;
 
+#[derive(Clone, Copy)]
 pub struct RecordModel {
     pub elapsed_ms: u64,
+    /// Paused or closing.
     pub paused: bool,
     pub bytes: u64,
     pub hover: bool,
+    /// `None` — the recording has no microphone.
+    pub muted: Option<bool>,
 }
 
 pub(super) struct Parts {
@@ -64,6 +70,12 @@ pub(super) struct Parts {
     rec: Text,
     time: Text,
     size: Text,
+    mic: Visual,
+    mic_fill: CompositionColorBrush,
+    mic_on: Visual,
+    mic_off: Visual,
+    /// `None` — just built.
+    mic_shown: Option<Option<bool>>,
     pause: Visual,
     pause_icon: Visual,
     play_icon: Visual,
@@ -89,15 +101,34 @@ fn middle(time: f32, shortest: f32) -> (f32, f32) {
 const TRACK: f32 = SIDE - TRACK_GAP;
 const TRAVEL: f32 = TRACK - BUTTON;
 
+fn mic_fills(muted: bool) -> (Color, Color) {
+    if muted {
+        (
+            color(menu::MUTE_RED, menu::MUTE_FILL),
+            color(menu::MUTE_RED, menu::MUTE_HOVER),
+        )
+    } else {
+        (color(BUTTON_FILL, 1.0), color(BUTTON_HOVER, 1.0))
+    }
+}
+
 impl Scene {
-    fn core(&self, time: &str) -> (f32, f32) {
+    fn core(&self, time: &str, mic: bool) -> (f32, f32) {
         let rec = self.comp.measure("REC", rec_style(RED));
         let style = clock_style(13.0, TEXT);
         let (middle, gap) = middle(
             self.comp.measure(time, style),
             self.comp.measure("0:00", style),
         );
-        let width = PAD + DOT + DOT_GAP + rec + middle + BUTTON + BUTTON_GAP + BUTTON + INSET;
+        let buttons = if mic { 3.0 } else { 2.0 };
+        let width = PAD
+            + DOT
+            + DOT_GAP
+            + rec
+            + middle
+            + buttons * BUTTON
+            + (buttons - 1.0) * BUTTON_GAP
+            + INSET;
         (width, gap)
     }
 
@@ -105,7 +136,10 @@ impl Scene {
         let Some(record) = &model.record else {
             return (COUNTDOWN, HEIGHT);
         };
-        let (core, _) = self.core(&format_clock(record.elapsed_ms as i64));
+        let (core, _) = self.core(
+            &format_clock(record.elapsed_ms as i64),
+            record.muted.is_some(),
+        );
         let side = if record.hover { 2.0 * SIDE } else { 0.0 };
         ((core + side).round(), HEIGHT)
     }
@@ -136,6 +170,11 @@ impl Scene {
         size.visual.SetOpacity(0.0)?;
         canvas.Children()?.InsertAtTop(&size.visual)?;
 
+        let (mic, mic_fill) = self.round_button(&canvas)?;
+        mic.SetOpacity(0.0)?;
+        let mic_on = self.icon_in(&mic, Glyph::Microphone, ICON, TEXT)?;
+        let mic_off = self.icon_in(&mic, Glyph::MicrophoneOff, ICON, menu::MUTE_ICON)?;
+        mic_off.SetOpacity(0.0)?;
         let (pause, pause_fill) = self.round_button(&canvas)?;
         let pause_icon = self.icon_in(&pause, Glyph::Pause, ICON, TEXT)?;
         let play_icon = self.icon_in(&pause, Glyph::Play, ICON, TEXT)?;
@@ -177,6 +216,7 @@ impl Scene {
         let base = color(BUTTON_FILL, 1.0);
         let hover = color(BUTTON_HOVER, 1.0);
         for (visual, brush, hit) in [
+            (&mic, mic_fill.clone(), Hit::RecordMic),
             (&pause, pause_fill, Hit::RecordPause),
             (&stop, stop_fill, Hit::RecordStop),
             (&knob, knob_fill, Hit::RecordCancel),
@@ -201,6 +241,11 @@ impl Scene {
             rec,
             time,
             size,
+            mic: mic.cast()?,
+            mic_fill,
+            mic_on,
+            mic_off,
+            mic_shown: None,
             pause: pause.cast()?,
             pause_icon,
             play_icon,
@@ -261,7 +306,8 @@ impl Scene {
 
         // Layout: the core starts SIDE in; the canvas is always the hovered width and
         // slides so that the core stays in the middle of the capsule.
-        let (core, gap) = self.core(&clock);
+        let mic = record.muted.is_some();
+        let (core, gap) = self.core(&clock, mic);
         let full = core + 2.0 * SIDE;
         let mut x = SIDE + PAD;
         parts
@@ -278,9 +324,14 @@ impl Scene {
             .visual
             .SetOffset(v3(snap(x, s), snap((HEIGHT - parts.time.height) / 2.0, s)))?;
         x += parts.time.width + gap;
+        let mic_x = x;
+        if mic {
+            x += BUTTON + BUTTON_GAP;
+        }
         let pause_x = x;
         let stop_x = x + BUTTON + BUTTON_GAP;
         let track_x = stop_x + BUTTON + TRACK_GAP;
+        parts.mic.SetOffset(v3(snap(mic_x, s), snap(INSET, s)))?;
         parts
             .pause
             .SetOffset(v3(snap(pause_x, s), snap(INSET, s)))?;
@@ -300,11 +351,25 @@ impl Scene {
 
         content.hits.clear();
         let half = BUTTON_GAP / 2.0;
+        // The first button also takes the half gap after the time.
+        let lead = gap / 2.0;
+        if mic {
+            content.hits.push((
+                Rect {
+                    x: shift + mic_x - lead,
+                    y: 0.0,
+                    w: BUTTON + lead + half,
+                    h: HEIGHT,
+                },
+                Hit::RecordMic,
+            ));
+        }
+        let pause_lead = if mic { half } else { lead };
         content.hits.push((
             Rect {
-                x: shift + pause_x - gap / 2.0,
+                x: shift + pause_x - pause_lead,
                 y: 0.0,
-                w: BUTTON + gap / 2.0 + half,
+                w: BUTTON + pause_lead + half,
                 h: HEIGHT,
             },
             Hit::RecordPause,
@@ -371,6 +436,21 @@ impl Scene {
             }
         }
         parts.shown = Some(want);
+        if parts.mic_shown != Some(record.muted) {
+            parts.mic_shown = Some(record.muted);
+            parts.mic.SetOpacity(if mic { 1.0 } else { 0.0 })?;
+            let muted = record.muted == Some(true);
+            parts.mic_on.SetOpacity(if muted { 0.0 } else { 1.0 })?;
+            parts.mic_off.SetOpacity(if muted { 1.0 } else { 0.0 })?;
+            let (base, hover) = mic_fills(muted);
+            if let Some(button) = content.buttons.iter_mut().find(|b| b.hit == Hit::RecordMic) {
+                button.base = base;
+                button.hover = hover;
+            }
+            // Pressed, the pointer is still on it: the fill shows the hover of the new state.
+            let under = self.hovered == Some(Hit::RecordMic);
+            parts.mic_fill.SetColor(if under { hover } else { base })?;
+        }
         Ok(())
     }
 

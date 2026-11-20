@@ -2,14 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { api } from "./api";
 import { initI18n } from "./i18n";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SettingsPage } from "./settings/SettingsPage";
-import { UpdatePage } from "./update/UpdatePage";
 import "./base.css";
 
-// The settings window and the update window use the web layer; the island is native.
-const updating = getCurrentWindow().label === "update";
-document.documentElement.dataset.window = updating ? "update" : "settings";
+// Only the settings window uses the web layer; the island and its dialogs are native.
+document.documentElement.dataset.window = "settings";
 
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -22,7 +19,7 @@ void api
   .then(() => {
     ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <React.StrictMode>
-        {updating ? <UpdatePage /> : <SettingsPage />}
+        <SettingsPage />
       </React.StrictMode>,
     );
   });

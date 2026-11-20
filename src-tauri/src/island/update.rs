@@ -1,36 +1,42 @@
 //! Updates on the island. The island owns the whole thing: it checks, it keeps the state
 //! ([`Status`], written to `update-status.json` at every change), it downloads and installs. Everything
-//! else only shows that state and sends commands: the island's own notices (a spinner, a check mark, cards,
-//! problems), the update window (`update_app.rs`) and "About" in the settings (`settings_app.rs`). A check
-//! the user asked for and a check by the clock therefore look the same everywhere.
+//! else only shows that state: the island's own notices (a spinner, a check mark, cards, problems), the
+//! update window (a dialog, `dialogs.rs`, saying what `update::sheet` makes of the state) and "About" in
+//! the settings (`settings_app.rs`), which sends commands ([`Command`]). A check the user asked for and a
+//! check by the clock therefore look the same everywhere.
 //!
 //! A check by the clock is due at start and then once a day. The one at start runs as soon as nothing
 //! important goes on; the daily one also waits for a minute without input (`update::calm`). Every check
 //! shows a spinner and ends with an answer: a release found opens the update window at once (if something
 //! important started meanwhile, in the next calm moment), a skipped or postponed one gets a notice. A press
-//! of "check" during the clock's check makes it the user's. The window sends commands ([`Command`]): install,
-//! postpone, skip. Installing: download on a thread, signature, then the installer is run silently and the
-//! island leaves; the installer puts the new version in place and starts the island again.
+//! of "check" during the clock's check makes it the user's. The window answers install, postpone or skip;
+//! after every change of the state it shows the new state, and goes when there is nothing to show.
+//! Installing: download on a thread, signature, then the installer is run silently and the island leaves;
+//! the installer puts the new version in place and starts the island again.
+//!
+//! `--demo-update` opens the window with a sample release; its Install pretends to download and fails.
 //!
 //! Rules: `crate::update`. The network, the files and the processes: `crate::update::adapters`.
 
-use super::{App, view::UpdateLook, window::WM_UPDATE};
+use super::{App, dialogs::Owner, view::UpdateLook, window::WM_UPDATE};
 use crate::{
-    fault::{Failed, Fault, What},
+    dialog::Action,
+    fault::{Cause, Failed, Fault, What},
     journal,
-    lang::{self, tr},
+    lang::tr,
     persist, platform,
     stage::NoticeKind,
     update::{
-        self, Command, Manifest, Memory, OfferView, Phase, Status, Verdict, Version,
+        self, Command, Manifest, Memory, Notes, OfferView, Phase, Status, Verdict, Version,
         adapters::{self, http, process},
+        sheet::{self, Answer as Reply, newest_notes},
         signature,
     },
 };
 use std::{
     path::PathBuf,
-    process::Child,
     sync::mpsc::{self, Receiver},
+    time::Duration,
 };
 use windows::Win32::{
     Foundation::{HWND, LPARAM, WPARAM},
@@ -42,6 +48,7 @@ const RETRY_MS: u64 = 60 * 60 * 1000;
 /// The spinner turns at least once, even when the answer comes at once: a flash is not a status.
 const MIN_SPIN_MS: u64 = 900;
 const WRITE_EVERY_MS: u64 = 250;
+const DEMO_SIZE: u64 = 24 * 1024 * 1024;
 
 type Answer = Result<Manifest, Failed>;
 
@@ -64,7 +71,8 @@ pub(super) struct Updates {
     /// A check was started in this run: until then the clock's check doesn't wait for its day.
     checked: bool,
     install: Option<Receiver<Step>>,
-    window: Option<Child>,
+    /// `--demo-update`: the offer is a sample and its download pretends.
+    demo: bool,
     /// What the update notice says: its look, what happened, what to do.
     notice: Option<(UpdateLook, String, String)>,
     /// Unix ms: no new check and no new window before it.
@@ -86,7 +94,7 @@ impl Updates {
             answered: None,
             checked: false,
             install: None,
-            window: None,
+            demo: false,
             notice: None,
             retry_at: 0,
             said: false,
@@ -115,11 +123,10 @@ impl App {
 
     /// Once a second.
     pub(super) fn tick_updates(&mut self) {
-        self.take_window();
         self.take_check();
         self.settle_answer();
         self.drain_install();
-        if self.updates.working() || self.updates.window.is_some() {
+        if self.updates.working() || self.has_dialog(Owner::Update) || self.updates.demo {
             return;
         }
         if !self.settings.check_updates || self.update_busy() {
@@ -405,7 +412,7 @@ impl App {
     }
 
     fn open_update_window(&mut self, offer: &Manifest, now: u64) {
-        if self.updates.window.is_some() || self.updates.install.is_some() {
+        if self.has_dialog(Owner::Update) || self.updates.install.is_some() || self.updates.demo {
             return;
         }
         self.updates.memory.shown(offer.version, now);
@@ -413,25 +420,59 @@ impl App {
         let manual = self.updates.status.manual;
         self.set_available(offer, manual);
         self.publish_update();
-        match process::open_window(lang::current().code()) {
-            Ok(child) => self.updates.window = Some(child),
-            Err(failed) => {
-                self.updates.retry_at = now + RETRY_MS;
-                journal::warn(tr!("journal.update_window_failed", error = failed.detail));
-            }
+        self.show_update_dialog();
+    }
+
+    fn show_update_dialog(&mut self) {
+        if let Some(sheet) = sheet::sheet(&self.updates.status)
+            && let Err(failed) = self.show_dialog(Owner::Update, sheet)
+        {
+            self.update_dialog_failed(failed);
         }
     }
 
-    /// The window has closed; what the user chose already came as a command.
-    fn take_window(&mut self) {
-        let Some(child) = self.updates.window.as_mut() else {
+    /// After every change of the status: an open window shows it, or goes when there is nothing to show.
+    fn sync_update_dialog(&mut self) {
+        if !self.has_dialog(Owner::Update) {
+            return;
+        }
+        match sheet::sheet(&self.updates.status) {
+            Some(_) => self.show_update_dialog(),
+            None => self.close_dialog(Owner::Update),
+        }
+    }
+
+    pub(super) fn update_dialog_failed(&mut self, failed: Failed) {
+        self.updates.retry_at = persist::now_ms() + RETRY_MS;
+        journal::warn(tr!("journal.update_window_failed", error = failed.detail));
+    }
+
+    pub(super) fn on_update_answer(&mut self, action: Action) {
+        let Some(reply) = Reply::of(action) else {
             return;
         };
-        let Ok(Some(_)) = child.try_wait() else {
-            return;
-        };
-        self.updates.window = None;
-        // Closed without an answer: the offer stays, the window waits.
+        let now = persist::now_ms();
+        match reply {
+            Reply::Install if self.updates.demo => self.start_demo_download(),
+            Reply::Install => self.start_install(),
+            _ if self.updates.demo => self.end_demo(),
+            Reply::Postpone => {
+                self.close_dialog(Owner::Update);
+                self.postpone_update(now);
+            }
+            Reply::Skip => {
+                self.close_dialog(Owner::Update);
+                self.skip_update();
+            }
+            Reply::Close => self.close_dialog(Owner::Update),
+        }
+    }
+
+    /// Closed by Alt+F4, with no answer: the offer stays, and the window comes back later.
+    pub(super) fn on_update_dialog_closed(&mut self) {
+        if self.updates.demo {
+            return self.end_demo();
+        }
         if self.updates.status.phase == Phase::Available && self.updates.install.is_none() {
             self.updates.retry_at = persist::now_ms() + RETRY_MS;
         }
@@ -514,9 +555,6 @@ impl App {
         journal::info(tr!("journal.update_installing", version = version));
         // The installer closes the island by itself if it is still there, but this way nothing is lost.
         self.save();
-        if let Some(mut window) = self.updates.window.take() {
-            let _ = window.kill();
-        }
         match process::run_installer(&path) {
             Ok(()) => self.quit(),
             Err(failed) => self.install_failed(failed),
@@ -528,7 +566,9 @@ impl App {
         self.updates.status.phase = Phase::InstallFailed;
         self.updates.status.error = Some(failed.detail.clone());
         self.publish_update();
-        self.report(Fault::new(What::UpdateInstall, failed));
+        if !self.updates.demo {
+            self.report(Fault::new(What::UpdateInstall, failed));
+        }
     }
 
     fn say_done(&mut self) -> bool {
@@ -575,9 +615,90 @@ impl App {
 
     fn publish_update(&mut self) {
         self.updates.status.at = persist::now_ms();
-        if let Err(failed) = adapters::save_status(&self.updates.status) {
+        // The demo's sample release is not for the settings to see.
+        if !self.updates.demo
+            && let Err(failed) = adapters::save_status(&self.updates.status)
+        {
             journal::warn(tr!("journal.update_check_failed", error = failed.detail));
         }
+        self.sync_update_dialog();
+    }
+
+    /// `--demo-update`: the window with the newest release of the changelog, past every check.
+    pub(super) fn demo_update(&mut self) {
+        if self.updates.working() || self.has_dialog(Owner::Update) {
+            return;
+        }
+        let next = Version {
+            patch: current().patch + 1,
+            ..current()
+        };
+        self.updates.demo = true;
+        self.updates.status = Status {
+            phase: Phase::Available,
+            manual: true,
+            offer: Some(OfferView {
+                current: current(),
+                latest: next,
+                notes: Notes {
+                    en: newest_notes(include_str!("../../../CHANGELOG.en.md")),
+                    ru: newest_notes(include_str!("../../../CHANGELOG.md")),
+                },
+                can_skip: true,
+                can_postpone: true,
+                skipped: false,
+                size: DEMO_SIZE,
+            }),
+            ..Status::default()
+        };
+        self.publish_update();
+        self.show_update_dialog();
+    }
+
+    /// The demo's download: the bar fills in a few seconds, then the failure page.
+    fn start_demo_download(&mut self) {
+        if self.updates.working() {
+            return;
+        }
+        let (sender, receiver) = mpsc::channel();
+        let target = self.island.0 as isize;
+        let spawned = std::thread::Builder::new()
+            .name("update demo".into())
+            .spawn(move || {
+                const STEPS: u64 = 20;
+                for step in 1..=STEPS {
+                    std::thread::sleep(Duration::from_millis(150));
+                    let _ = sender.send(Step::Bytes {
+                        done: DEMO_SIZE * step / STEPS,
+                        total: DEMO_SIZE,
+                    });
+                    post_to(target);
+                }
+                let _ = sender.send(Step::Failed(Failed::because(
+                    Cause::Unknown,
+                    "a demo download, nothing to install",
+                )));
+                post_to(target);
+            });
+        if spawned.is_err() {
+            return;
+        }
+        self.updates.install = Some(receiver);
+        self.updates.status = Status {
+            phase: Phase::Downloading,
+            offer: self.updates.status.offer.clone(),
+            total: DEMO_SIZE,
+            ..Status::default()
+        };
+        self.publish_update();
+    }
+
+    fn end_demo(&mut self) {
+        self.updates.install = None;
+        self.updates.status = Status::default();
+        self.publish_update();
+        self.close_dialog(Owner::Update);
+        self.updates.demo = false;
     }
 
     fn save_update_memory(&mut self) {
