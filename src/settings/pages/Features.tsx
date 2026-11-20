@@ -55,6 +55,14 @@ export function IslandPage() {
           />
         </div>
       </Group>
+      <Group plain>
+        <ToggleRow
+          label={t("viewer.space")}
+          sub={t("viewer.space_sub")}
+          on={settings.explorerSpace}
+          onChange={(explorerSpace) => update({ explorerSpace })}
+        />
+      </Group>
     </>
   );
 }

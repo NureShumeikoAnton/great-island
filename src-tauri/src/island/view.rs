@@ -10,6 +10,7 @@ mod device;
 mod device_art;
 mod download;
 mod file_icon;
+pub(super) use file_icon::sheet;
 mod menu;
 mod microphones;
 mod panel;

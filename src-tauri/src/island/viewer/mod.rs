@@ -2,8 +2,9 @@
 //! strip: then dark capsules lie right on the shot ([`Metrics`]).
 //!
 //! - the window is about 80% of the work area, in the shot's proportions; it opens by the shot's flight from
-//!   the island card or from the middle of the screen (the flight itself is `flight.rs`); Windows draws the
-//!   shadow and rounding. The window can be dragged by the strip and by the whole shot;
+//!   the island card or from the middle of the screen (the flight itself is `flight.rs`); a photo from the
+//!   disk appears in place ([`Spot`]). Windows draws the shadow and rounding. The window can be dragged by
+//!   the strip and by the whole shot;
 //! - the wheel zooms around the cursor, a double click toggles "fit" and "pixel for pixel"; a touchpad pinch
 //!   zooms too, and a two-finger scroll moves the zoomed shot. With the mouse it is dragged with the left
 //!   button, and in the editor (where the left one draws) with the middle or right one, or the left with
@@ -28,6 +29,9 @@ mod signs;
 mod transport;
 mod video;
 
+mod file_card;
+
+pub use file_card::FileCard;
 pub use montage::Order;
 pub use video::{Opening, Trouble, VideoRequest, VideoViewer};
 
@@ -58,13 +62,13 @@ use windows::{
             WindowsAndMessaging::{
                 DestroyWindow, GetClientRect, GetCursorPos, GetWindowRect, HTCAPTION, HTCLIENT,
                 IDC_CROSS, IDC_HAND, IDC_SIZEALL, IsIconic, KillTimer, LoadCursorW, MINMAXINFO,
-                SIZE_MINIMIZED, SW_HIDE, SW_RESTORE, SW_SHOWNORMAL, SWP_NOACTIVATE, SWP_NOZORDER,
-                SetCursor, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow,
-                WM_CAPTURECHANGED, WM_CLOSE, WM_DPICHANGED, WM_GETMINMAXINFO, WM_KEYDOWN, WM_KEYUP,
-                WM_KILLFOCUS, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
-                WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCHITTEST,
-                WM_NCLBUTTONDBLCLK, WM_NCMOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR,
-                WM_SIZE, WM_TIMER,
+                SIZE_MINIMIZED, SW_HIDE, SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
+                SWP_NOACTIVATE, SWP_NOZORDER, SetCursor, SetForegroundWindow, SetTimer,
+                SetWindowPos, ShowWindow, WM_CAPTURECHANGED, WM_CLOSE, WM_DPICHANGED,
+                WM_GETMINMAXINFO, WM_KEYDOWN, WM_KEYUP, WM_KILLFOCUS, WM_LBUTTONDBLCLK,
+                WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL,
+                WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCHITTEST, WM_NCLBUTTONDBLCLK, WM_NCMOUSEMOVE,
+                WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_TIMER,
             },
         },
     },
@@ -226,17 +230,19 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    /// A hidden window with the shot in the middle of the work area `work` (physical pixels).
-    /// `has_file` = the shot will have a file: "Show in folder" is available.
+    /// A hidden window with the shot at `spot`. `has_file` = the shot will have a file: "Show
+    /// in folder" is available. `title` is for the taskbar and Alt+Tab.
     pub fn new(
         comp: &Comp,
-        work: RECT,
+        spot: Spot,
         k: f32,
         image: &Image,
         has_file: bool,
         bar: ViewerBar,
+        title: &str,
     ) -> Result<Self> {
         let metrics = Metrics::of(bar);
+        let work = spot.work;
         let (iw, ih) = (image.width as f32 / k, image.height as f32 / k);
         let room = (
             (work.right - work.left) as f32 / k * SHARE,
@@ -248,18 +254,7 @@ impl Viewer {
             (ih * fit).round().max(MIN_SIZE.1) + metrics.strip,
         );
         let px = ((size.0 * k).round() as i32, (size.1 * k).round() as i32);
-        let left = work.left + (work.right - work.left - px.0) / 2;
-        let top = work.top + (work.bottom - work.top - px.1) / 2;
-        let title = tr!("window.screenshot");
-        let hwnd = window::create_viewer(
-            RECT {
-                left,
-                top,
-                right: left + px.0,
-                bottom: top + px.1,
-            },
-            &title,
-        )?;
+        let hwnd = window::create_viewer(spot.rect(px), title)?;
         Self::build(comp, hwnd, (k, metrics), size, image, has_file).inspect_err(|_| unsafe {
             let _ = DestroyWindow(hwnd);
         })
@@ -327,6 +322,11 @@ impl Viewer {
     /// without it the window stands under the arriving shot.
     pub fn show(&self, animated: bool) {
         show(self.hwnd, animated);
+    }
+
+    /// Shows the window over the others without taking the focus from the one in front.
+    pub fn show_quietly(&self, animated: bool) {
+        show_quietly(self.hwnd, animated);
     }
 
     /// The window disappears without animation: the shot flies out of it to the island.
@@ -1045,6 +1045,45 @@ impl Viewer {
     }
 }
 
+/// Where a viewer window opens (physical pixels): the middle of the work area, or around the
+/// middle of the window it takes the place of.
+#[derive(Clone, Copy, Debug)]
+pub struct Spot {
+    pub work: RECT,
+    pub center: Option<(i32, i32)>,
+}
+
+impl Spot {
+    pub fn middle(work: RECT) -> Self {
+        Self { work, center: None }
+    }
+
+    /// The place of a window `(w, h)` big, inside the work area.
+    fn rect(self, (w, h): (i32, i32)) -> RECT {
+        let work = self.work;
+        let (cx, cy) = self
+            .center
+            .unwrap_or(((work.left + work.right) / 2, (work.top + work.bottom) / 2));
+        let left = (cx - w / 2).clamp(work.left, (work.right - w).max(work.left));
+        let top = (cy - h / 2).clamp(work.top, (work.bottom - h).max(work.top));
+        RECT {
+            left,
+            top,
+            right: left + w,
+            bottom: top + h,
+        }
+    }
+}
+
+/// The middle of a window on the screen (physical pixels).
+pub fn center_of(hwnd: HWND) -> (i32, i32) {
+    let mut rect = RECT::default();
+    unsafe {
+        let _ = GetWindowRect(hwnd, &mut rect);
+    }
+    ((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2)
+}
+
 fn show(hwnd: HWND, animated: bool) {
     window::set_transitions(hwnd, animated);
     unsafe {
@@ -1052,6 +1091,14 @@ fn show(hwnd: HWND, animated: bool) {
         let _ = SetForegroundWindow(hwnd);
     }
     // Minimizing and closing already have Windows animations.
+    window::set_transitions(hwnd, true);
+}
+
+fn show_quietly(hwnd: HWND, animated: bool) {
+    window::set_transitions(hwnd, animated);
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    }
     window::set_transitions(hwnd, true);
 }
 

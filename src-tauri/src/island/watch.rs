@@ -20,11 +20,12 @@ use super::{
     flight::{GLIDE_LANDING_MS, GLIDE_START_MS, SLOT_RADIUS},
     record::Clip,
     timers,
-    viewer::{CORNER_RADIUS, Opening, Trouble, VideoRequest, VideoViewer},
+    viewer::{CORNER_RADIUS, Opening, Spot, Trouble, VideoRequest, VideoViewer},
 };
 use crate::{
     capture::adapters::{self as system, SystemClipboard},
     fault::{Cause, Fault, What},
+    lang::tr,
     platform,
     record::adapters as files,
     stage::NoticeKind,
@@ -69,6 +70,7 @@ impl App {
         let opening = Opening {
             path: clip.take.path(),
             name,
+            title: tr!("window.video").into_owned(),
             still: &clip.still,
             size: clip.take.size(),
             duration_ms: clip.take.duration_ms(),
@@ -81,7 +83,7 @@ impl App {
         let work = platform::work_rect(self.monitor);
         let window = match VideoViewer::new(
             &self.scene.comp,
-            work,
+            Spot::middle(work),
             self.scale,
             opening,
             self.settings.viewer_bar,
@@ -209,7 +211,12 @@ impl App {
                 self.report(Fault::new(What::ShotTake, failed));
             }
             Some(VideoRequest::Trouble(trouble)) => self.on_trouble(trouble),
-            Some(VideoRequest::Save(order)) => self.start_video_save(order),
+            Some(VideoRequest::Save(order)) => {
+                if let Some(watching) = &self.watch.watching {
+                    let source = watching.clip.take.path().to_path_buf();
+                    self.start_video_save(order, source);
+                }
+            }
             None => {}
         }
     }
@@ -259,7 +266,7 @@ impl App {
         Some(watching.clip)
     }
 
-    fn keep_choices(&mut self, window: &VideoViewer) {
+    pub(super) fn keep_choices(&mut self, window: &VideoViewer) {
         let (volume, muted) = window.volume();
         let (volume, remaining) = (volume as f32, window.remaining());
         let s = &self.settings;

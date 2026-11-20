@@ -58,6 +58,17 @@ shot/adapters/folder.rs — deleting and overwriting a shot (the file is open in
 island/screenshot.rs — the shot's flight window and the viewer window (Composition failure)
 island/viewer/mod.rs — building a shot with edits, opening the editor, showing the saved shot (Direct2D failure)
 
+== Files opened from outside (Open with, Space in Explorer) ==
+files/adapters/photo.rs — reading a photo through WIC (no codec: HEIC or AVIF without the Store extension; larger than 16384 px; a damaged file; now: PHOTO-OPEN; following Explorer, its card instead, journal)
+files/adapters/photo.rs — writing an edited photo in its format next to it and swapping it in (no rights, the disk is full, the file is open in another program: SHOT-EDIT, the edits stay; the camera's metadata a codec refuses: written without it; the creation date can't be set back: the new one stays)
+files/adapters/bin.rs — sending the file to the Recycle Bin (held by another program: FILE-DELETE; a file too large for the bin: Windows asks, and a "No" keeps it; a video's player lets it go a moment late: retried for 0.3 s)
+montage/adapters/reader.rs — reading a video's size and length before its window opens (no reader or decoder for it: REC-OPEN)
+files/adapters/association.rs — writing the island into "Open with" and Default apps at start, `--register` from the installer, `--unregister` from the uninstaller (an organization policy forbids the keys; now: journal only)
+files/adapters/explorer.rs — the news of the window in front and of Explorer's focus and selection (WinEvent hooks refused: Space or following does nothing)
+files/adapters/explorer.rs — the copies of the keys while Explorer is in front (raw input refused; now: Space does nothing, journal)
+files/adapters/explorer.rs — reading the selection of the active tab or the desktop on its own thread (Explorer busy or restarting, an item that isn't a file on disk: nothing opens; the thread doesn't start: journal)
+platform.rs — handing the file of a second start to the running island (WM_COPYDATA; the island hangs: given up after 5 s)
+
 == Screen capture: shared by the screenshot and the recording ==
 capture/adapters/clipboard.rs — a picture, a file or text to the clipboard (the clipboard is held by another program)
 files/adapters/shell.rs — finding Windows' Pictures, Videos and Downloads folders (now: the current folder; Downloads: not watched, journal)

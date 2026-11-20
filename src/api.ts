@@ -69,6 +69,8 @@ export interface Settings {
   /** The control center's bottom line: the charge in numbers. */
   batteryPercent: boolean;
   clockSeconds: boolean;
+  /** Space on a photo or a video in Explorer opens it in the viewer. */
+  explorerSpace: boolean;
 }
 
 /** "auto" follows Windows. The island reads it at start: a change applies after a restart. */

@@ -2,7 +2,7 @@
 //! with a folded corner and a band in its kind's color (`crate::files::Kind`) carrying the
 //! extension. Any view that shows a file takes both from here.
 
-use super::super::comp::{color, v2};
+use super::super::comp::{Comp, color, v2, v3};
 use super::super::glyph::Glyph;
 use super::{Scene, style};
 use crate::{
@@ -35,37 +35,46 @@ fn tint(kind: Kind) -> &'static str {
     }
 }
 
+/// The placeholder of the file `name` in a square `side` wide; the sheet is narrower and
+/// stands in its middle. Also outside the island (the viewer's card of a file).
+pub(in crate::island) fn sheet(
+    comp: &Comp,
+    scale: f32,
+    name: &str,
+    side: f32,
+) -> Result<ContainerVisual> {
+    let holder = comp.container()?;
+    holder.SetSize(v2(side, side))?;
+    let band = tint(Kind::of(name));
+    for (glyph, hex) in [
+        (Glyph::Sheet, SHEET),
+        (Glyph::SheetBand, band),
+        (Glyph::SheetFold, FOLD),
+    ] {
+        let part = comp.glyph(glyph, side, color(hex, 1.0), scale)?;
+        holder.Children()?.InsertAtTop(&part)?;
+    }
+    if side >= LETTERS_FROM
+        && let Some(ext) = extension(name)
+    {
+        let k = side / 24.0;
+        let letters = ext.chars().take(LETTERS).collect::<String>().to_uppercase();
+        let label = comp.text(&letters, style(5.4 * k, true, "#FFFFFF"), scale)?;
+        // The band's middle in the glyph's viewBox.
+        let (x, y) = (
+            12.25 * k - label.width / 2.0,
+            16.75 * k - label.height / 2.0,
+        );
+        let snap = |v: f32| (v * scale).round() / scale;
+        label.visual.SetOffset(v3(snap(x), snap(y)))?;
+        holder.Children()?.InsertAtTop(&label.visual)?;
+    }
+    Ok(holder)
+}
+
 impl Scene {
-    /// The placeholder of the file `name` in a square `side` wide; the sheet is narrower and
-    /// stands in its middle.
     pub(super) fn file_icon(&self, name: &str, side: f32) -> Result<ContainerVisual> {
-        let holder = self.comp.container()?;
-        holder.SetSize(v2(side, side))?;
-        let band = tint(Kind::of(name));
-        for (glyph, hex) in [
-            (Glyph::Sheet, SHEET),
-            (Glyph::SheetBand, band),
-            (Glyph::SheetFold, FOLD),
-        ] {
-            let part = self.comp.glyph(glyph, side, color(hex, 1.0), self.scale)?;
-            holder.Children()?.InsertAtTop(&part)?;
-        }
-        if side >= LETTERS_FROM
-            && let Some(ext) = extension(name)
-        {
-            let k = side / 24.0;
-            let letters = ext.chars().take(LETTERS).collect::<String>().to_uppercase();
-            let label = self
-                .comp
-                .text(&letters, style(5.4 * k, true, "#FFFFFF"), self.scale)?;
-            // The band's middle in the glyph's viewBox.
-            let (x, y) = (
-                12.25 * k - label.width / 2.0,
-                16.75 * k - label.height / 2.0,
-            );
-            self.place(&holder, &label.visual, x, y)?;
-        }
-        Ok(holder)
+        sheet(&self.comp, self.scale, name, side)
     }
 
     /// The file's own picture filling `size`: cut to it, not stretched.

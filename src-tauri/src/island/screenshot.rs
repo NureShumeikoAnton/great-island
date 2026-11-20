@@ -39,7 +39,7 @@ use super::{
     select::Purpose,
     timers,
     view::{CardPhase, SHUTTER_MS},
-    viewer::{CORNER_RADIUS, Request, Viewer},
+    viewer::{CORNER_RADIUS, Request, Spot, Viewer},
 };
 use crate::{
     capture::{
@@ -453,11 +453,12 @@ impl App {
         let bar = self.settings.viewer_bar;
         let window = match Viewer::new(
             &self.scene.comp,
-            work,
+            Spot::middle(work),
             self.scale,
             shot.image(),
             has_file,
             bar,
+            &tr!("window.screenshot"),
         ) {
             Ok(window) => window,
             Err(e) => {

@@ -4,7 +4,8 @@
 //!   program holds is reported once ([`Slot`]);
 //! - Ctrl+C and Ctrl+X belong to the island while a capture card exists;
 //! - Esc is the island's while there is something to cancel: the area selection, the
-//!   recording panel waiting after it, the countdown before a recording.
+//!   recording panel waiting after it, the countdown before a recording;
+//! - while Explorer is in front, copies of the keys for Space (raw input: nothing is taken).
 //!
 //! A new key is an id here, a line in `on_hotkey` and a method that takes and releases it.
 //! What the key does is its feature's business.
@@ -12,6 +13,7 @@
 use super::{App, screenshot::Trigger};
 use crate::{
     fault::{Cause, Fault, What},
+    files::adapters::explorer,
     hotkey::{Hotkey, Slot},
     journal,
     lang::tr,
@@ -37,6 +39,7 @@ pub(super) struct Hotkeys {
     record: Slot,
     card_keys_taken: bool,
     escape_taken: bool,
+    explorer_keys: bool,
 }
 
 fn sync_slot(slot: &mut Slot, island: HWND, id: i32, wanted: Option<Hotkey>) -> Option<Hotkey> {
@@ -120,6 +123,19 @@ impl App {
                     error = e
                 ));
             }
+        }
+    }
+
+    /// Copies of the keys while Explorer is in front, for Space (`explorer.rs`). They are not
+    /// taken: Explorer gets every key as usual.
+    pub(super) fn sync_explorer_keys(&mut self) {
+        let wanted = self.settings.explorer_space && self.explorer.front.is_some();
+        if wanted == self.hotkeys.explorer_keys {
+            return;
+        }
+        self.hotkeys.explorer_keys = wanted;
+        if let Err(failed) = explorer::listen_keys(wanted.then_some(self.service)) {
+            journal::warn(tr!("journal.explorer_keys_failed", error = failed.detail));
         }
     }
 

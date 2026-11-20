@@ -6,7 +6,10 @@ use crate::{
     hotkey::{Hotkey, Key},
 };
 use std::{
+    ffi::OsString,
     mem::size_of,
+    os::windows::ffi::{OsStrExt, OsStringExt},
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 use windows::{
@@ -15,13 +18,17 @@ use windows::{
             CloseHandle, ERROR_ALREADY_EXISTS, ERROR_SUCCESS, FILETIME, GetLastError, HINSTANCE,
             HWND, LPARAM, POINT, RECT, SYSTEMTIME, WPARAM,
         },
-        Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME},
+        Globalization::{
+            DATE_SHORTDATE, GetDateFormatEx, GetTimeFormatEx, GetUserPreferredUILanguages,
+            MUI_LANGUAGE_NAME, TIME_NOSECONDS,
+        },
         Graphics::Gdi::{
             CreateRectRgn, EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR,
             MONITOR_DEFAULTTONEAREST, MONITOR_DEFAULTTOPRIMARY, MONITORINFO, MONITORINFOEXW,
             MonitorFromPoint, MonitorFromWindow, SetWindowRgn,
         },
         System::{
+            DataExchange::COPYDATASTRUCT,
             Registry::{
                 HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_DWORD, REG_SZ, RRF_RT_REG_DWORD,
                 RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
@@ -42,10 +49,11 @@ use windows::{
                 SHQueryUserNotificationState,
             },
             WindowsAndMessaging::{
-                FindWindowW, GetCursorPos, HWND_BROADCAST, HWND_TOPMOST, MB_ICONERROR, MB_OK,
-                MB_SETFOREGROUND, MessageBoxW, PostMessageW, SMTO_ABORTIFHUNG, SW_HIDE,
-                SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW,
-                SetWindowPos, ShowWindow, WM_CLOSE, WM_SETTINGCHANGE, WindowFromPoint,
+                AllowSetForegroundWindow, FindWindowW, GetCursorPos, GetWindowThreadProcessId,
+                HWND_BROADCAST, HWND_TOPMOST, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MessageBoxW,
+                PostMessageW, SMTO_ABORTIFHUNG, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
+                SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW, SetWindowPos, ShowWindow, WM_CLOSE,
+                WM_COPYDATA, WM_SETTINGCHANGE, WindowFromPoint,
             },
         },
     },
@@ -54,8 +62,7 @@ use windows::{
 
 pub type MonitorId = isize;
 
-/// A Unix moment (ms) on this computer's clock and in its time zone.
-pub fn local_time(unix_ms: u64) -> crate::update::LocalTime {
+fn local_system_time(unix_ms: u64) -> SYSTEMTIME {
     // FILETIME counts 100 ns from 1601, Unix time ms from 1970.
     let ticks = unix_ms * 10_000 + 116_444_736_000_000_000;
     let file = FILETIME {
@@ -70,6 +77,44 @@ pub fn local_time(unix_ms: u64) -> crate::update::LocalTime {
             local = utc;
         }
     }
+    local
+}
+
+/// A moment as Explorer writes it: the user's short date and time, in Windows' own format.
+pub fn date_time_text(moment: std::time::SystemTime) -> String {
+    let unix_ms = moment
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64);
+    let local = local_system_time(unix_ms);
+    let mut date = [0u16; 80];
+    let mut time = [0u16; 80];
+    let (d, t) = unsafe {
+        (
+            GetDateFormatEx(
+                // The user's own locale (LOCALE_NAME_USER_DEFAULT is null).
+                PCWSTR::null(),
+                DATE_SHORTDATE,
+                Some(&local),
+                PCWSTR::null(),
+                Some(&mut date),
+                PCWSTR::null(),
+            ),
+            GetTimeFormatEx(
+                PCWSTR::null(),
+                TIME_NOSECONDS,
+                Some(&local),
+                PCWSTR::null(),
+                Some(&mut time),
+            ),
+        )
+    };
+    let text = |buf: &[u16], n: i32| String::from_utf16_lossy(&buf[..(n.max(1) - 1) as usize]);
+    format!("{} {}", text(&date, d), text(&time, t))
+}
+
+/// A Unix moment (ms) on this computer's clock and in its time zone.
+pub fn local_time(unix_ms: u64) -> crate::update::LocalTime {
+    let local = local_system_time(unix_ms);
     crate::update::LocalTime {
         month: local.wMonth,
         day: local.wDay,
@@ -364,6 +409,44 @@ pub fn wait_single_instance(name: &str, patience: Duration) -> bool {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// A second start hands `path` to the running island's window `to` (`WM_COPYDATA`, tagged
+/// `tag`). The island's process may then bring its window to the front: Explorer gave that
+/// right to this process, which passes it on.
+pub fn hand_over_path(to: HWND, tag: usize, path: &Path) {
+    let text: Vec<u16> = path.as_os_str().encode_wide().collect();
+    let data = COPYDATASTRUCT {
+        dwData: tag,
+        cbData: (text.len() * 2) as u32,
+        lpData: text.as_ptr() as *mut _,
+    };
+    unsafe {
+        let mut pid = 0;
+        GetWindowThreadProcessId(to, Some(&mut pid));
+        let _ = AllowSetForegroundWindow(pid);
+        SendMessageTimeoutW(
+            to,
+            WM_COPYDATA,
+            WPARAM(0),
+            LPARAM(&raw const data as isize),
+            SMTO_ABORTIFHUNG,
+            5000,
+            None,
+        );
+    }
+}
+
+/// The path of a `WM_COPYDATA` tagged `tag`; it lives only while the message is handled.
+pub fn handed_path(lparam: LPARAM, tag: usize) -> Option<PathBuf> {
+    // SAFETY: WM_COPYDATA's lparam points at the sender's struct for the length of the call.
+    let data = unsafe { (lparam.0 as *const COPYDATASTRUCT).as_ref()? };
+    if data.dwData != tag || data.lpData.is_null() {
+        return None;
+    }
+    let text =
+        unsafe { std::slice::from_raw_parts(data.lpData as *const u16, data.cbData as usize / 2) };
+    Some(PathBuf::from(OsString::from_wide(text)))
 }
 
 /// Asks a top-level window to close as if its X was pressed; nothing when there is none.

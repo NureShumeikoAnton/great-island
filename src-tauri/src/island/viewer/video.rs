@@ -36,8 +36,8 @@ use super::montage::{self, EDIT_MOTION, Effect, MontageEditor, Pictures, Setup};
 use super::signs::Signs;
 use super::transport::{Button, Show, Spot, Transport};
 use super::{
-    FEEDBACK_MS, Metrics, SCROLL_PX, SHARE, STRIP, TIMER_COPIED, TIMER_PATH, TOUCHPAD_STREAM,
-    WHEEL_STEP, WM_MOUSELEAVE, ZOOM, raise, show,
+    FEEDBACK_MS, Metrics, SCROLL_PX, SHARE, STRIP, Spot as WindowSpot, TIMER_COPIED, TIMER_PATH,
+    TOUCHPAD_STREAM, WHEEL_STEP, WM_MOUSELEAVE, ZOOM, raise, show, show_quietly,
 };
 use crate::capture::Image;
 use crate::fault::{Cause, Failed};
@@ -210,6 +210,8 @@ pub struct VideoViewer {
 pub struct Opening<'a> {
     pub path: &'a Path,
     pub name: String,
+    /// For the taskbar and Alt+Tab.
+    pub title: String,
     pub still: &'a Image,
     /// The video's own size.
     pub size: (u32, u32),
@@ -220,15 +222,16 @@ pub struct Opening<'a> {
 }
 
 impl VideoViewer {
-    /// A hidden window in the middle of the work area `work` (physical pixels); the video starts
-    /// loading at once and plays from [`VideoViewer::start`].
+    /// A hidden window at `spot`; the video starts loading at once and plays from
+    /// [`VideoViewer::start`].
     pub fn new(
         comp: &Comp,
-        work: RECT,
+        spot: WindowSpot,
         k: f32,
         opening: Opening,
         bar: ViewerBar,
     ) -> std::result::Result<Self, Failed> {
+        let work = spot.work;
         let metrics = Metrics::of(bar);
         let full = if opening.size.0 > 0 && opening.size.1 > 0 {
             opening.size
@@ -251,15 +254,7 @@ impl VideoViewer {
             ((ih * fit).round() + strips).max(MIN_HEIGHT),
         );
         let px = ((size.0 * k).round() as i32, (size.1 * k).round() as i32);
-        let left = work.left + (work.right - work.left - px.0) / 2;
-        let top = work.top + (work.bottom - work.top - px.1) / 2;
-        let rect = RECT {
-            left,
-            top,
-            right: left + px.0,
-            bottom: top + px.1,
-        };
-        let hwnd = window::create_viewer(rect, &tr!("window.video"))?;
+        let hwnd = window::create_viewer(spot.rect(px), &opening.title)?;
         Self::build(comp, hwnd, (k, metrics), size, full, duration, opening).inspect_err(
             |_| unsafe {
                 let _ = DestroyWindow(hwnd);
@@ -378,6 +373,11 @@ impl VideoViewer {
         show(self.hwnd, animated);
     }
 
+    /// Shows the window over the others without taking the focus from the one in front.
+    pub fn show_quietly(&self, animated: bool) {
+        show_quietly(self.hwnd, animated);
+    }
+
     /// The window disappears without animation: the frame flies out of it to the island.
     pub fn vanish(&self) {
         window::set_transitions(self.hwnd, false);
@@ -416,6 +416,10 @@ impl VideoViewer {
 
     fn flash(&self, comp: &Comp) {
         self.signs.flash(comp, self.player.running());
+    }
+
+    pub fn is_editing(&self) -> bool {
+        self.editor.is_some()
     }
 
     pub fn running(&self) -> bool {

@@ -1,11 +1,18 @@
-//! Files as the island shows them, whoever brought them (a download, later others): what
-//! kind a file is by its name, for the placeholder drawn in place of a picture it doesn't
-//! have. Pure rules.
+//! Files as the island shows them, whoever brought them (a download, a file opened from
+//! Explorer): what kind a file is by its name, for the placeholder drawn in place of a picture
+//! it doesn't have. Pure rules.
 //!
-//! The shell side every feature shares (open a file, show files in Explorer, Windows' known
-//! folders) is in `adapters/`.
+//! - `open.rs`: a file opened from outside: which viewer window takes it, the photo formats,
+//!   where an edit goes; `picture.rs`: such a photo in the viewer (save, delete);
+//!   `follow.rs`: Space in Explorer and the window following the selection there;
+//! - `adapters/`: the shell side every feature shares (open a file, show files in Explorer,
+//!   Windows' known folders), photos through WIC, the Recycle Bin, the "Open with"
+//!   registration, Explorer's selection.
 
 pub mod adapters;
+pub mod follow;
+pub mod open;
+pub mod picture;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {

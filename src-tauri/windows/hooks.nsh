@@ -36,4 +36,29 @@
   ; Tell the windows the keyboard settings changed (HWND_BROADCAST, WM_SETTINGCHANGE).
   SendMessage 0xFFFF 0x001A 0 "STR:Control Panel\Keyboard" /TIMEOUT=1000
   bi_prtsc_done:
+
+  ; The island in "Open with" for photos and videos, written by the exe itself (it knows the
+  ; types); every update writes it again for the new exe.
+  ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --register'
+  ; Windows lets only the user make an app the default: asked once, on the first install, and
+  ; "Yes" opens the island's page among Windows' Default apps.
+  IfSilent bi_viewer_done
+  ReadRegDWORD $0 HKCU "Software\Great Island" "ViewerAsked"
+  StrCmp $0 "1" bi_viewer_done
+  WriteRegDWORD HKCU "Software\Great Island" "ViewerAsked" 1
+  StrCpy $1 "Open photos and videos in Great Island?$\n$\nThe island is now in the $\"Open with$\" menu for photos and videos. $\"Yes$\" opens Windows settings, where it can be made the default app for each file type."
+  StrCmp $LANGUAGE 1049 0 bi_viewer_text_done
+  StrCpy $1 "Открывать фото и видео в Great Island?$\n$\nОстров добавлен в меню «Открыть с помощью» для фото и видео. «Да» откроет параметры Windows, где его можно назначить приложением по умолчанию для каждого типа файлов."
+  bi_viewer_text_done:
+  MessageBox MB_YESNO|MB_ICONQUESTION "$1" /SD IDNO IDNO bi_viewer_done
+  ExecShell "open" "ms-settings:defaultapps?registeredAppUser=Great%20Island"
+  bi_viewer_done:
+!macroend
+
+; Out of "Open with" and Default apps, while the exe is still there to say what it wrote. Not
+; on an update: the new version registers right after, and the user's default stays.
+!macro NSIS_HOOK_PREUNINSTALL
+  StrCmp $UpdateMode 1 bi_unregister_done
+  ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --unregister'
+  bi_unregister_done:
 !macroend

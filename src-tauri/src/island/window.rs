@@ -15,13 +15,14 @@ use windows::{
         UI::{
             Controls::MARGINS,
             WindowsAndMessaging::{
-                CS_DBLCLKS, CreateWindowExW, DefWindowProcW, HTTRANSPARENT, IDC_ARROW, IDC_CROSS,
-                IDC_HAND, LWA_ALPHA, LoadCursorW, LoadIconW, RegisterClassW, SWP_FRAMECHANGED,
-                SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetLayeredWindowAttributes,
-                SetPropW, SetWindowPos, WM_APP, WM_NCHITTEST, WNDCLASS_STYLES, WNDCLASSW,
-                WS_CAPTION, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-                WS_EX_NOREDIRECTIONBITMAP, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
-                WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+                CS_DBLCLKS, CreateWindowExW, DefWindowProcW, HTTRANSPARENT, HWND_NOTOPMOST,
+                HWND_TOPMOST, IDC_ARROW, IDC_CROSS, IDC_HAND, LWA_ALPHA, LoadCursorW, LoadIconW,
+                RegisterClassW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                SWP_NOZORDER, SetLayeredWindowAttributes, SetPropW, SetWindowPos, WM_APP,
+                WM_NCHITTEST, WNDCLASS_STYLES, WNDCLASSW, WS_CAPTION, WS_EX_APPWINDOW,
+                WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_NOREDIRECTIONBITMAP, WS_EX_TOOLWINDOW,
+                WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
+                WS_THICKFRAME,
             },
         },
     },
@@ -59,6 +60,10 @@ pub const WM_UPDATE: u32 = WM_APP + 14;
 pub const WM_DOWNLOAD: u32 = WM_APP + 15;
 /// The devices' watch has news (its thread, to the island).
 pub const WM_DEVICES: u32 = WM_APP + 16;
+/// A file opened from outside has been read (its thread, to the island).
+pub const WM_OPENED: u32 = WM_APP + 17;
+/// Explorer's news for Space (`files::adapters::explorer::News` in the wparam).
+pub const WM_EXPLORER: u32 = WM_APP + 18;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 
@@ -328,6 +333,23 @@ pub fn create_viewer(rect: RECT, title: &str) -> Result<HWND> {
             SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
         );
         Ok(hwnd)
+    }
+}
+
+/// Above every ordinary window without taking the focus, or back among them right under
+/// `under` (which stays in front).
+pub fn set_floating(hwnd: HWND, on: bool, under: Option<HWND>) {
+    let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+    unsafe {
+        if on {
+            let _ = SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, flags);
+            return;
+        }
+        // Off the topmost band a window lands on top of the others: it is put back under.
+        let _ = SetWindowPos(hwnd, Some(HWND_NOTOPMOST), 0, 0, 0, 0, flags);
+        if let Some(under) = under {
+            let _ = SetWindowPos(hwnd, Some(under), 0, 0, 0, 0, flags);
+        }
     }
 }
 

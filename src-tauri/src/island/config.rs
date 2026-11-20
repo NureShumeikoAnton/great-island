@@ -48,6 +48,7 @@ impl App {
         self.sync_marks();
         self.sync_downloads();
         self.sync_devices();
+        self.sync_explorer();
         self.relayout();
         self.on_reminder_events(&events);
         self.sync_visibility();

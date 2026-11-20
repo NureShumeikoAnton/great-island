@@ -1,18 +1,21 @@
-//! Saving the edit made in the video window (`viewer/montage/`).
+//! Saving the edit made in a video window (`viewer/montage/`): a recording's (`watch.rs`) or a
+//! video opened from the disk (`open.rs`).
 //!
 //! 1. Save or Save copy in the editor: the island starts the save on a thread of its own, into a
-//!    file beside the recording; the window shows it on Save and its edits wait.
+//!    file beside the video; the window shows it on Save and its edits wait.
 //! 2. The window may close meanwhile: the save goes on, the island finishes it.
-//! 3. Done: Save replaces the recording with it (the window's engines let the file go first),
-//!    Save copy keeps it beside the recording; the window, if open, plays the new file and its
-//!    recording is the new file from now on.
+//! 3. Done: Save replaces an MP4 with it (the window's engines let the file go first); Save
+//!    copy, and Save of any other format (the editor writes MP4 only), keep it beside the video
+//!    under a free name. The window, if open, plays the new file and its video is the new file
+//!    from now on.
 //! 4. Failed: the reason; the half-written file goes, the edits stay in the editor.
 
-use super::viewer::Order;
-use super::{App, window::WM_SAVE};
+use super::viewer::{Order, VideoRequest, VideoViewer};
+use super::{App, open::Opened, watch::Watch, window::WM_SAVE};
 use crate::{
     capture::adapters::free_name,
     fault::{Failed, Fault, What},
+    files::open::{folder, stem, video_replaced},
     montage::adapters::{Session, video_device, writer},
     record::Take,
 };
@@ -25,7 +28,7 @@ use windows::Win32::{
 
 /// The save tells its progress in steps this fine.
 const STEPS: f64 = 200.0;
-/// Replacing the recording waits this long for the last handle on it to go.
+/// Replacing the video waits this long for the last handle on it to go.
 const REPLACE_TRIES: u32 = 10;
 const REPLACE_WAIT_MS: u64 = 50;
 
@@ -45,17 +48,15 @@ pub(super) struct Saving {
 }
 
 impl App {
-    pub(super) fn start_video_save(&mut self, order: Order) {
+    pub(super) fn start_video_save(&mut self, order: Order, source: PathBuf) {
         if self.watch.saving.is_some() {
             return;
         }
-        let Some(watching) = &self.watch.watching else {
-            return;
-        };
-        let source = watching.clip.take.path().to_path_buf();
-        let dir = source.parent().map_or_else(PathBuf::new, Path::to_path_buf);
-        let stem = stem(&source);
-        let temp = free_name(&dir, &format!("{stem}.saving"), "mp4");
+        let temp = free_name(
+            &folder(&source),
+            &format!("{}.saving", stem(&source)),
+            "mp4",
+        );
         let (tx, news) = mpsc::channel();
         let address = self.island.0 as isize;
         let post = move || unsafe {
@@ -83,15 +84,16 @@ impl App {
                 let _ = tx.send(News::Done(done));
                 post();
             });
+        let comp = &self.scene.comp;
         if let Err(e) = spawned {
-            self.report(Fault::new(What::VideoSave, e.into()));
-            if let Some(watching) = &mut self.watch.watching {
-                watching.window.save_failed(&self.scene.comp);
+            if let Some(window) = video_window(&mut self.watch, &mut self.opened, &source) {
+                window.save_failed(comp);
             }
+            self.report(Fault::new(What::VideoSave, e.into()));
             return;
         }
-        if let Some(watching) = &mut self.watch.watching {
-            watching.window.set_saving(&self.scene.comp, Some(0.0));
+        if let Some(window) = video_window(&mut self.watch, &mut self.opened, &source) {
+            window.set_saving(comp, Some(0.0));
         }
         self.watch.saving = Some(Saving {
             news,
@@ -116,8 +118,12 @@ impl App {
                 News::Done(result) => done = Some(result),
             }
         }
-        if let (Some(share), Some(watching)) = (share, &mut self.watch.watching) {
-            watching.window.set_saving(&self.scene.comp, Some(share));
+        let source = saving.source.clone();
+        let comp = &self.scene.comp;
+        if let Some(share) = share
+            && let Some(window) = video_window(&mut self.watch, &mut self.opened, &source)
+        {
+            window.set_saving(comp, Some(share));
         }
         let Some(result) = done else {
             return;
@@ -129,66 +135,83 @@ impl App {
             Ok(()) => self.finish_video_save(saving),
             Err(failed) => {
                 let _ = std::fs::remove_file(&saving.temp);
-                self.report(Fault::new(What::VideoSave, failed));
-                if let Some(watching) = &mut self.watch.watching {
-                    watching.window.save_failed(&self.scene.comp);
+                if let Some(window) = video_window(&mut self.watch, &mut self.opened, &source) {
+                    window.save_failed(&self.scene.comp);
                 }
+                self.report(Fault::new(What::VideoSave, failed));
             }
         }
     }
 
     fn finish_video_save(&mut self, saving: Saving) {
-        let target = if saving.copy {
-            let dir = saving
-                .source
-                .parent()
-                .map_or_else(PathBuf::new, Path::to_path_buf);
-            free_name(&dir, &stem(&saving.source), "mp4")
-        } else {
+        let replaced = video_replaced(&saving.source, saving.copy);
+        let target = if replaced {
             saving.source.clone()
+        } else {
+            free_name(&folder(&saving.source), &stem(&saving.source), "mp4")
         };
+        if replaced
+            && let Some(window) = video_window(&mut self.watch, &mut self.opened, &saving.source)
+        {
+            window.let_go();
+        }
+        if let Err(failed) = replace(&saving.temp, &target) {
+            self.report(Fault::new(What::VideoSave, failed));
+            // The video stays as it was; the edit keeps its file beside it.
+            self.video_saved(&saving.source, &saving.source);
+            return;
+        }
+        let bytes = std::fs::metadata(&target).map_or(0, |m| m.len());
+        let take = Take::new(target.clone(), saving.duration_ms, bytes, saving.size);
         let watched = self
             .watch
             .watching
             .as_ref()
             .is_some_and(|w| w.clip.take.path() == saving.source);
-        if !saving.copy
-            && watched
-            && let Some(watching) = &self.watch.watching
-        {
-            watching.window.let_go();
-        }
-        if let Err(failed) = replace(&saving.temp, &target) {
-            self.report(Fault::new(What::VideoSave, failed));
-            // The recording stays as it was; the edit keeps its file beside it.
-            if let Some(watching) = &mut self.watch.watching {
-                let source = saving.source.clone();
-                let name = file_name(&source);
-                let request = watching.window.saved(&self.scene.comp, &source, name);
-                self.after_save_request(request);
-            }
-            return;
-        }
-        let bytes = std::fs::metadata(&target).map_or(0, |m| m.len());
-        let take = Take::new(target.clone(), saving.duration_ms, bytes, saving.size);
         if watched && let Some(watching) = &mut self.watch.watching {
             watching.clip.take = take;
-            let name = file_name(&target);
-            let request = watching.window.saved(&self.scene.comp, &target, name);
-            self.after_save_request(request);
-        } else if !saving.copy
+        } else if replaced
             && let Some(clip) = &mut self.recording.clip
             && clip.take.path() == saving.source
         {
             clip.take = take;
         }
+        self.video_saved(&saving.source, &target);
     }
 
-    fn after_save_request(&mut self, request: Option<super::viewer::VideoRequest>) {
+    /// The window of `source`, if open, plays `target` from now on.
+    fn video_saved(&mut self, source: &Path, target: &Path) {
+        let comp = &self.scene.comp;
+        if let Some(watching) = &mut self.watch.watching
+            && (watching.clip.take.path() == source || watching.clip.take.path() == target)
+        {
+            let name = file_name(target);
+            let request = watching.window.saved(comp, target, name);
+            self.after_save_request(request);
+            return;
+        }
+        self.opened_video_saved(source, target);
+    }
+
+    fn after_save_request(&mut self, request: Option<VideoRequest>) {
         if request.is_some() {
             self.on_video_request(request);
         }
     }
+}
+
+/// The video window showing `path`, whichever feature opened it.
+fn video_window<'a>(
+    watch: &'a mut Watch,
+    opened: &'a mut Opened,
+    path: &Path,
+) -> Option<&'a mut VideoViewer> {
+    if let Some(watching) = &mut watch.watching
+        && watching.clip.take.path() == path
+    {
+        return Some(&mut watching.window);
+    }
+    opened.video(path)
 }
 
 /// The saved file takes `to`'s place. A handle closing a moment late (the engines shut down on
@@ -205,12 +228,6 @@ fn replace(from: &Path, to: &Path) -> Result<(), Failed> {
             Err(e) => return Err(e.into()),
         }
     }
-}
-
-fn stem(path: &Path) -> String {
-    path.file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default()
 }
 
 fn file_name(path: &Path) -> String {

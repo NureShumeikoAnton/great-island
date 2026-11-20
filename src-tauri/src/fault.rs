@@ -40,6 +40,8 @@ pub enum What {
     ShotDelete,
     ShotEdit,
     ShotOpen,
+    PhotoOpen,
+    FileDelete,
     AreaOpen,
     AreaKey,
     FolderOpen,
@@ -61,7 +63,7 @@ pub enum What {
 }
 
 impl What {
-    pub const ALL: [What; 41] = [
+    pub const ALL: [What; 43] = [
         What::RecordStart,
         What::RecordBroken,
         What::RecordLost,
@@ -85,6 +87,8 @@ impl What {
         What::ShotDelete,
         What::ShotEdit,
         What::ShotOpen,
+        What::PhotoOpen,
+        What::FileDelete,
         What::AreaOpen,
         What::AreaKey,
         What::FolderOpen,
@@ -113,6 +117,7 @@ impl What {
             | Self::ShotTake
             | Self::ShotSave
             | Self::AreaOpen
+            | Self::PhotoOpen
             | Self::VideoOpen
             | Self::VideoStopped
             | Self::VideoSave
@@ -151,6 +156,8 @@ impl What {
             Self::ShotDelete => "SHOT-DELETE",
             Self::ShotEdit => "SHOT-EDIT",
             Self::ShotOpen => "SHOT-OPEN",
+            Self::PhotoOpen => "PHOTO-OPEN",
+            Self::FileDelete => "FILE-DELETE",
             Self::AreaOpen => "AREA-OPEN",
             Self::AreaKey => "AREA-KEY",
             Self::FolderOpen => "FOLDER-OPEN",
@@ -202,6 +209,8 @@ impl What {
             Self::ShotDelete => tr_for!(lang, "fault.title.shot_delete"),
             Self::ShotEdit => tr_for!(lang, "fault.title.shot_edit"),
             Self::ShotOpen => tr_for!(lang, "fault.title.shot_open"),
+            Self::PhotoOpen => tr_for!(lang, "fault.title.photo_open"),
+            Self::FileDelete => tr_for!(lang, "fault.title.file_delete"),
             Self::AreaOpen => tr_for!(lang, "fault.title.area_open"),
             Self::AreaKey => tr_for!(lang, "fault.title.area_key"),
             Self::FolderOpen => tr_for!(lang, "fault.title.folder_open"),
@@ -325,10 +334,10 @@ impl Cause {
             }
             // E_NOTIMPL, E_NOINTERFACE, REGDB_E_CLASSNOTREG, MF_E_PLATFORM_NOT_INITIALIZED,
             // MF_E_UNSUPPORTED_BYTESTREAM_TYPE (no reader for the file), MF_E_TOPO_CODEC_NOT_FOUND
-            // (no decoder, e.g. HEVC without its Store extension).
-            0x8000_4001 | 0x8000_4002 | 0x8004_0154 | 0xC00D_36B0 | 0xC00D_36C4 | 0xC00D_5212 => {
-                Self::Unsupported
-            }
+            // (no decoder, e.g. HEVC without its Store extension), WINCODEC_ERR_UNKNOWNIMAGEFORMAT,
+            // WINCODEC_ERR_COMPONENTNOTFOUND (no codec for a photo, e.g. HEIC without its extension).
+            0x8000_4001 | 0x8000_4002 | 0x8004_0154 | 0xC00D_36B0 | 0xC00D_36C4 | 0xC00D_5212
+            | 0x8898_2F07 | 0x8898_2F50 => Self::Unsupported,
             _ => Self::Unknown,
         }
     }
@@ -439,6 +448,7 @@ impl Fault {
             }
             (Sound | Microphone, _) => tr!("fault.reason.device"),
             (VideoOpen, Unsupported) => tr!("fault.reason.video_open"),
+            (PhotoOpen | FileOpen, Unsupported) => tr!("fault.reason.photo_open"),
             (VideoSound, _) => tr!("fault.reason.video_sound"),
             (SettingsRestored, _) => tr!("fault.reason.settings_restored"),
             (SettingsReset, _) => tr!("fault.reason.settings_reset"),

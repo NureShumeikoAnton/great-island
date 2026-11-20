@@ -5,6 +5,14 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.8.4 — 2026-11-20
+
+### Added
+
+- The island opens photos and videos from the disk: through "Open with" and with Space in Explorer.
+- A window opened with Space follows the selected file in Explorer.
+- The "Open photos and videos with Space in Explorer" setting.
+
 ## 0.8.3 — 2026-11-20
 
 ### Added

@@ -89,6 +89,8 @@ pub struct Settings {
     pub notify_audio_switch: bool,
     pub battery_percent: bool,
     pub clock_seconds: bool,
+    /// Space on a photo or a video in Explorer opens it in the viewer.
+    pub explorer_space: bool,
 }
 
 /// The island reads it once at start: a change applies after a restart.
@@ -196,6 +198,7 @@ impl Settings {
             notify_audio_switch: true,
             battery_percent: false,
             clock_seconds: true,
+            explorer_space: true,
         }
     }
 }
@@ -433,6 +436,7 @@ mod tests {
         assert!(old.notify_devices && old.notify_device_battery && old.notify_audio_switch);
         assert!(!old.battery_percent && old.clock_seconds);
         assert!(!old.shot_clipboard);
+        assert!(old.explorer_space);
     }
 
     /// The recording choices were flat switches before the panel; they keep their keys.

@@ -12,7 +12,8 @@ pub mod devices;
 mod dialog;
 pub mod download;
 mod fault;
-mod files;
+/// Public for `examples/explorer_probe.rs`: Explorer's selection and a photo read and saved.
+pub mod files;
 pub mod gesture;
 mod gpu;
 mod hotkey;
@@ -47,6 +48,15 @@ rust_i18n::i18n!("locales", fallback = "en");
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let has = |flag: &str| args.iter().any(|arg| arg == flag);
+    // The installer's: the island in Windows' "Open with" and Default apps, or out of them.
+    if has("--register") {
+        let _ = files::adapters::association::register();
+        return;
+    }
+    if has("--unregister") {
+        files::adapters::association::unregister();
+        return;
+    }
     if has("--settings") {
         crash::install(crash::Role::Settings);
         let island_lang = args
@@ -73,6 +83,11 @@ pub fn run() {
         } else {
             None
         };
-        island::run(has("--restart"), attempt, demo);
+        let open = args
+            .iter()
+            .position(|arg| arg == "--open")
+            .and_then(|i| args.get(i + 1))
+            .map(std::path::PathBuf::from);
+        island::run(has("--restart"), attempt, demo, open);
     }
 }

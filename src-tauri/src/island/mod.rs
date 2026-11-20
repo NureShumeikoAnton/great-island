@@ -8,7 +8,7 @@
 //! a window message or a timer. What a handler does lives with its feature:
 //!
 //! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify`,
-//!   `downloads` — a feature each: its state and what it does on the island;
+//!   `downloads`, `devices`, `open`, `explorer` — a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
 //!   global key; `dialogs` — the dialog windows every feature opens through;
@@ -26,6 +26,7 @@ mod devices;
 mod dialog;
 mod dialogs;
 mod downloads;
+mod explorer;
 mod flight;
 mod glyph;
 mod hotkeys;
@@ -35,6 +36,7 @@ mod layout;
 mod levels_debug;
 mod marks;
 mod notify;
+mod open;
 mod overlay;
 mod paragraph;
 mod player;
@@ -70,9 +72,11 @@ use crate::{
 use devices::Devices;
 use dialogs::Dialogs;
 use downloads::Downloads;
+use explorer::Explorer;
 use hotkeys::Hotkeys;
 use input::{Pointer, point, wheel_delta};
 use notify::Notify;
+use open::{Arrival, Opened};
 use player::Player;
 use problem::Problems;
 use record::Recording;
@@ -92,8 +96,8 @@ use update::Updates;
 use view::Scene;
 use watch::Watch;
 use window::{
-    WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_FAULT, WM_MEDIA, WM_OPEN_SETTINGS, WM_RECORD,
-    WM_SAVE, WM_UPDATE,
+    WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_EXPLORER, WM_FAULT, WM_MEDIA,
+    WM_OPEN_SETTINGS, WM_OPENED, WM_RECORD, WM_SAVE, WM_UPDATE,
 };
 use windows::{
     Win32::{
@@ -104,11 +108,11 @@ use windows::{
             WindowsAndMessaging::{
                 DefWindowProcW, DispatchMessageW, FindWindowW, GetMessageW, KillTimer,
                 MA_NOACTIVATE, MSG, PostMessageW, PostQuitMessage, RegisterWindowMessageW,
-                SetTimer, TranslateMessage, WM_CAPTURECHANGED, WM_DISPLAYCHANGE, WM_DPICHANGED,
-                WM_ENDSESSION, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
-                WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCACTIVATE, WM_NCCALCSIZE,
-                WM_NCLBUTTONDOWN, WM_POWERBROADCAST, WM_QUERYENDSESSION, WM_RBUTTONUP,
-                WM_SETTINGCHANGE, WM_TIMER,
+                SetTimer, TranslateMessage, WM_CAPTURECHANGED, WM_COPYDATA, WM_DISPLAYCHANGE,
+                WM_DPICHANGED, WM_ENDSESSION, WM_HOTKEY, WM_INPUT, WM_LBUTTONDOWN, WM_LBUTTONUP,
+                WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCACTIVATE,
+                WM_NCCALCSIZE, WM_NCLBUTTONDOWN, WM_POWERBROADCAST, WM_QUERYENDSESSION,
+                WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
             },
         },
     },
@@ -117,6 +121,9 @@ use windows::{
 
 /// Not in the windows crate: the cursor left the window (after TrackMouseEvent).
 const WM_MOUSELEAVE: u32 = 0x02A3;
+
+/// WM_COPYDATA's tag for a file a second start hands over ("Open with").
+const OPEN_FILE: usize = 0x4F50_454E;
 
 /// WM_DEMO's wparam for a system notice; 0 and 1 are a warning and a failure.
 const DEMO_SYSTEM: usize = 2;
@@ -178,6 +185,8 @@ mod timers {
     pub const OUTSIDE: usize = 35;
     /// A closed dialog has faded out.
     pub const DIALOG_GONE: usize = 36;
+    /// The news of Explorer's selection has settled: it is read again.
+    pub const FOLLOW: usize = 37;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -206,8 +215,8 @@ pub enum Demo {
 }
 
 /// `restart` — this island replaces a running one (tray, after a crash, a start retry).
-/// `attempt` — which try to start this is.
-pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
+/// `attempt` — which try to start this is. `open` — a file from "Open with".
+pub fn run(restart: bool, attempt: u32, demo: Option<Demo>, open: Option<PathBuf>) {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
@@ -217,6 +226,12 @@ pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
             return;
         }
     } else if !platform::claim_single_instance(INSTANCE) {
+        if let Some(path) = &open {
+            if let Ok(hwnd) = unsafe { FindWindowW(window::SERVICE_CLASS, None) } {
+                platform::hand_over_path(hwnd, OPEN_FILE, path);
+            }
+            return;
+        }
         let (msg, wparam) = match demo {
             Some(Demo::Problem(level)) => (WM_DEMO, usize::from(level == Level::Critical)),
             Some(Demo::System) => (WM_DEMO, DEMO_SYSTEM),
@@ -255,6 +270,9 @@ pub fn run(restart: bool, attempt: u32, demo: Option<Demo>) {
         }
     }
     with_app(App::start);
+    if let Some(path) = open {
+        with_app(|app| app.open_path(path, Arrival::Asked));
+    }
 
     unsafe {
         let mut msg = MSG::default();
@@ -311,6 +329,8 @@ unsafe extern "system" fn viewer_proc(
     let handled = with_app(|app| {
         if app.is_video_window(hwnd) {
             app.on_video_message(msg, wparam, lparam)
+        } else if app.is_opened_window(hwnd) {
+            app.on_opened_message(msg, wparam, lparam)
         } else {
             app.on_viewer_message(hwnd, msg, wparam, lparam)
         }
@@ -322,7 +342,10 @@ unsafe extern "system" fn viewer_proc(
     // A press on the video's picture runs Windows' move loop inside the default handler; it returns
     // when the button is let go, with the state free again.
     if msg == WM_NCLBUTTONDOWN {
-        with_app(|app| app.on_video_pressed(hwnd));
+        with_app(|app| {
+            app.on_video_pressed(hwnd);
+            app.on_opened_pressed(hwnd);
+        });
     }
     result
 }
@@ -413,6 +436,8 @@ struct App {
     notify: Notify,
     downloads: Downloads,
     devices: Devices,
+    opened: Opened,
+    explorer: Explorer,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -525,6 +550,8 @@ impl App {
             notify: Notify::default(),
             downloads: Downloads::default(),
             devices: Devices::default(),
+            opened: Opened::default(),
+            explorer: Explorer::default(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -555,6 +582,8 @@ impl App {
         self.start_notify();
         self.sync_downloads();
         self.sync_devices();
+        self.register_viewer();
+        self.sync_explorer();
         self.problems.booting = false;
         journal::info(tr!(
             "journal.started",
@@ -566,6 +595,8 @@ impl App {
 
     fn shut_down(&mut self) {
         self.close_watch();
+        self.close_opened();
+        self.stop_explorer();
         self.save();
         self.flush_shots();
         self.finish_recording();
@@ -611,6 +642,19 @@ impl App {
             WM_UPDATE => self.on_update_message(),
             WM_DOWNLOAD => self.on_downloads(),
             WM_DEVICES => self.on_devices(),
+            WM_OPENED => self.on_opened(),
+            WM_EXPLORER => self.on_explorer(wparam),
+            // The default handler frees the copy of the key after us.
+            WM_INPUT => {
+                self.on_explorer_key(lparam);
+                return None;
+            }
+            WM_COPYDATA => {
+                if let Some(path) = platform::handed_path(lparam, OPEN_FILE) {
+                    self.open_path(path, Arrival::Asked);
+                }
+                return Some(LRESULT(1));
+            }
             crate::update::COMMAND_MESSAGE => self.on_update_command(wparam.0),
             WM_FAULT => self.on_faults(),
             WM_POWERBROADCAST => {
@@ -679,6 +723,7 @@ impl App {
             timers::DEVICE_WAIT => self.on_device_wait(),
             timers::OUTSIDE => self.on_outside_timer(),
             timers::DIALOG_GONE => self.on_dialog_gone(),
+            timers::FOLLOW => self.on_follow_timer(),
             _ => {}
         }
     }

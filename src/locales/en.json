@@ -70,6 +70,8 @@
   "viewer.title": "Buttons in the viewer window",
   "viewer.strip": "On a strip at the top",
   "viewer.floating": "On the screenshot",
+  "viewer.space": "Open photos and videos with Space in Explorer",
+  "viewer.space_sub": "The window shows the selected file while Explorer is in front",
   "monitor.follow": "The screen with the cursor",
   "monitor.item": "Display {{n}} · {{size}}",
   "monitor.main": "Display {{n}} (main) · {{size}}",

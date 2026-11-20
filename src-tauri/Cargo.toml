@@ -1,6 +1,6 @@
 [package]
 name = "great-island"
-version = "0.8.3"
+version = "0.8.4"
 description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
 authors = []
 license = "GPL-3.0-or-later"
@@ -106,6 +106,9 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell_Common",
     # Devices: paired Bluetooth devices and the battery Windows reads from them
     "Devices_Enumeration",
+    # Space in Explorer: the foreground and the selection's news, copies of the keys
+    "Win32_UI_Accessibility",
+    "Win32_UI_Input",
 ] }
 # WinRT collections built from our own lists (the device properties a watcher asks for).
 windows-collections = "0.3"
