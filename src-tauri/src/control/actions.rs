@@ -1,4 +1,4 @@
-//! Action buttons: screenshot, screen recording, settings.
+//! Action buttons: screenshot, text scanner, screen recording, settings.
 
 use super::{Control, ControlId, ControlState, Outcome};
 use std::{cell::Cell, rc::Rc};
@@ -17,6 +17,23 @@ impl Control for Screenshot {
 
     fn press(&mut self, _now: u64) -> Outcome {
         Outcome::Screenshot
+    }
+}
+
+/// The island opens the scanner itself; the button only asks.
+pub struct Scanner;
+
+impl Control for Scanner {
+    fn id(&self) -> ControlId {
+        ControlId::Scan
+    }
+
+    fn state(&self) -> ControlState {
+        ControlState::Off
+    }
+
+    fn press(&mut self, _now: u64) -> Outcome {
+        Outcome::Scan
     }
 }
 

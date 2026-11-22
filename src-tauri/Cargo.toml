@@ -1,6 +1,6 @@
 [package]
 name = "great-island"
-version = "0.8.4"
+version = "0.9.0"
 description = "Остров вверху экрана: напоминания о перерывах, плеер, скриншоты и запись экрана"
 authors = []
 license = "GPL-3.0-or-later"
@@ -109,6 +109,9 @@ windows = { version = "0.62", features = [
     # Space in Explorer: the foreground and the selection's news, copies of the keys
     "Win32_UI_Accessibility",
     "Win32_UI_Input",
+    # Text scanner: Windows OCR and its languages
+    "Globalization",
+    "Media_Ocr",
 ] }
 # WinRT collections built from our own lists (the device properties a watcher asks for).
 windows-collections = "0.3"
@@ -116,6 +119,8 @@ windows-collections = "0.3"
 rust-i18n = "4.2.4"
 minisign-verify = "0.3.0"
 base64 = "0.23.1"
+# Text scanner: QR codes on the frozen screen, pure Rust.
+rqrr = { version = "0.11", default-features = false }
 
 # Only for examples/device_probe.rs (TASK_06); the island's exe doesn't link them.
 [dev-dependencies]
@@ -128,6 +133,8 @@ windows = { version = "0.62", features = [
     "Gaming_Input",
     "System_Power",
 ] }
+# Draws QR codes for the scanner's tests; the exe doesn't link it.
+qrcode = { version = "0.14", default-features = false }
 
 # Build for minimal size: https://tauri.app/concept/size/
 [profile.release]

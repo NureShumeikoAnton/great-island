@@ -45,6 +45,7 @@ impl App {
         self.sync_shot_key();
         self.sync_area_key();
         self.sync_record_key();
+        self.sync_scan_key();
         self.sync_marks();
         self.sync_downloads();
         self.sync_devices();

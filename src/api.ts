@@ -48,6 +48,8 @@ export interface Settings {
   recordingsDir: string;
   /** Sound, countdown, quality and the rest are the island's pre-start panel: not edited here. */
   recordKey: Hotkey | null;
+  /** The text scanner; its language and line breaks are the island's, not edited here. */
+  scanKey: Hotkey | null;
   autostart: boolean;
   /** Look for a new version by itself; the manual check stays. */
   checkUpdates: boolean;
@@ -82,7 +84,7 @@ export interface Display {
   height: number;
 }
 
-export type Language = "auto" | "en" | "ru";
+export type Language = "auto" | "en" | "ru" | "uk";
 
 export type Fullscreen = "show" | "alerts" | "hide";
 
@@ -145,7 +147,7 @@ export type UpdatePhase =
 export interface OfferView {
   current: string;
   latest: string;
-  notes: { en: string; ru: string };
+  notes: { en: string; ru: string; uk: string };
   canSkip: boolean;
   canPostpone: boolean;
   /** The user passed this version over once: it is offered because they asked. */

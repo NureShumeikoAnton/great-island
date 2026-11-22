@@ -460,6 +460,7 @@ impl App {
             Hit::Panel(press) => self.panel_click(press),
             Hit::DownloadOpen => self.open_download(),
             Hit::DownloadFolder => self.show_downloads(),
+            Hit::Scan(hit) => self.scan_click(hit),
         }
     }
 }

@@ -44,6 +44,10 @@ pub enum What {
     FileDelete,
     AreaOpen,
     AreaKey,
+    ScanOpen,
+    ScanRead,
+    ScanKey,
+    LinkOpen,
     FolderOpen,
     FileOpen,
     Copy,
@@ -63,7 +67,7 @@ pub enum What {
 }
 
 impl What {
-    pub const ALL: [What; 43] = [
+    pub const ALL: [What; 47] = [
         What::RecordStart,
         What::RecordBroken,
         What::RecordLost,
@@ -91,6 +95,10 @@ impl What {
         What::FileDelete,
         What::AreaOpen,
         What::AreaKey,
+        What::ScanOpen,
+        What::ScanRead,
+        What::ScanKey,
+        What::LinkOpen,
         What::FolderOpen,
         What::FileOpen,
         What::Copy,
@@ -117,6 +125,8 @@ impl What {
             | Self::ShotTake
             | Self::ShotSave
             | Self::AreaOpen
+            | Self::ScanOpen
+            | Self::ScanRead
             | Self::PhotoOpen
             | Self::VideoOpen
             | Self::VideoStopped
@@ -160,6 +170,10 @@ impl What {
             Self::FileDelete => "FILE-DELETE",
             Self::AreaOpen => "AREA-OPEN",
             Self::AreaKey => "AREA-KEY",
+            Self::ScanOpen => "SCAN-OPEN",
+            Self::ScanRead => "SCAN-READ",
+            Self::ScanKey => "SCAN-KEY",
+            Self::LinkOpen => "LINK-OPEN",
             Self::FolderOpen => "FOLDER-OPEN",
             Self::FileOpen => "FILE-OPEN",
             Self::Copy => "COPY",
@@ -213,6 +227,10 @@ impl What {
             Self::FileDelete => tr_for!(lang, "fault.title.file_delete"),
             Self::AreaOpen => tr_for!(lang, "fault.title.area_open"),
             Self::AreaKey => tr_for!(lang, "fault.title.area_key"),
+            Self::ScanOpen => tr_for!(lang, "fault.title.scan_open"),
+            Self::ScanRead => tr_for!(lang, "fault.title.scan_read"),
+            Self::ScanKey => tr_for!(lang, "fault.title.scan_key"),
+            Self::LinkOpen => tr_for!(lang, "fault.title.link_open"),
             Self::FolderOpen => tr_for!(lang, "fault.title.folder_open"),
             Self::FileOpen => tr_for!(lang, "fault.title.file_open"),
             Self::Copy => tr_for!(lang, "fault.title.copy"),
@@ -440,7 +458,9 @@ impl Fault {
             (RecordStart, Missing) => tr!("fault.reason.record_start_missing"),
             (ShotTake, _) => tr!("fault.reason.shot_take"),
             (Copy, Busy) => tr!("fault.reason.copy_busy"),
-            (RecordKey | ShotKey | AreaKey, Taken) => {
+            (ScanOpen, Graphics | Unknown) => tr!("fault.reason.shot_take"),
+            (ScanRead, Missing) => tr!("fault.reason.scan_language"),
+            (RecordKey | ShotKey | AreaKey | ScanKey, Taken) => {
                 return match &self.subject {
                     Some(key) => tr!("fault.reason.key_taken", key = key).into_owned(),
                     None => Taken.reason(),

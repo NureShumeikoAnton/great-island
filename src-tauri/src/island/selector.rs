@@ -110,18 +110,8 @@ impl Selector {
         let screen = window.screen;
         let children = window.root.Children()?;
         if let Some(image) = frozen {
-            let picture = comp.image_rounded(
-                &image.pixels,
-                (image.width, image.height),
-                (image.width as f32, image.height as f32),
-                0.0,
-                1.0,
-            )?;
-            picture.SetSize(v2(screen.0, screen.1))?;
-            children.InsertAtTop(&picture)?;
+            window.freeze(comp, image)?;
         }
-        // Everything over the picture fades in; the picture itself is there at once, or the
-        // live screen would show through between the press and the freeze.
         let layer = comp.container()?;
         layer.SetSize(v2(screen.0, screen.1))?;
         children.InsertAtTop(&layer)?;

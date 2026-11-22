@@ -195,6 +195,7 @@ const RELEASE_FILES = [
   'src-tauri/Cargo.lock',
   'CHANGELOG.md',
   'CHANGELOG.en.md',
+  'CHANGELOG.uk.md',
 ];
 
 function treeState() {
@@ -343,6 +344,7 @@ if (!options.dryRun) {
   if (version !== inFiles) bump(inFiles, version);
   releaseChangelog('CHANGELOG.md', 'Не выпущено', version, date);
   releaseChangelog('CHANGELOG.en.md', 'Unreleased', version, date);
+  releaseChangelog('CHANGELOG.uk.md', 'Не випущено', version, date);
 
   step('Проверки: cargo test, clippy, tsc');
   run('cargo', ['test', '--manifest-path', 'src-tauri/Cargo.toml', '--quiet']);
@@ -363,8 +365,9 @@ if (!fs.existsSync(installer)) fail(`нет установщика: ${installer}
 const notes = {
   en: sectionOf('CHANGELOG.en.md', version),
   ru: sectionOf('CHANGELOG.md', version),
+  uk: sectionOf('CHANGELOG.uk.md', version),
 };
-if (!notes.en || !notes.ru) fail(`в списках изменений нет текста для ${version}`);
+if (!notes.en || !notes.ru || !notes.uk) fail(`в списках изменений нет текста для ${version}`);
 
 step('Подпись, манифест и проверка подписи');
 const out = path.resolve(options.out ?? path.join(root, 'release'));
@@ -391,7 +394,7 @@ const manifest = {
 const manifestFile = path.join(out, 'latest.json');
 const notesFile = path.join(out, 'notes.md');
 fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-fs.writeFileSync(notesFile, `## English\n\n${notes.en}\n\n## Русский\n\n${notes.ru}\n`);
+fs.writeFileSync(notesFile, `## English\n\n${notes.en}\n\n## Русский\n\n${notes.ru}\n\n## Українська\n\n${notes.uk}\n`);
 
 // The island's own check: a wrong key or a damaged file stops the release here, not on the users' machines.
 run('cargo', [

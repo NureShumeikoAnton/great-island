@@ -8,6 +8,7 @@ use super::{
     capture::Card,
     log,
     record_panel::PanelInput,
+    scan::ScanInput,
     timers,
     view::{
         AppModel, CardModel, DeviceModel, DownloadModel, FileModel, Mode, Model, Modes, PlayerForm,
@@ -61,6 +62,7 @@ pub(super) struct ViewInput {
     strip: Option<StripModel>,
     download: Option<DownloadInput>,
     device: Option<(devices::Notice, bool)>,
+    scan: Option<ScanInput>,
 }
 
 struct DownloadInput {
@@ -161,6 +163,7 @@ impl ViewInput {
                 notice,
                 decor: *decor,
             }),
+            scan: self.scan.as_ref().map(ScanInput::model),
         }
     }
 }
@@ -188,6 +191,9 @@ impl App {
                     open: self.expanded,
                 }
             }
+            _ if notice == Some(NoticeKind::Scan) && self.scan_shown() => Mode::Scan {
+                list: self.scan_list_open(),
+            },
             _ if notice == Some(NoticeKind::Sound) => indicator(ControlId::Sound),
             _ if notice == Some(NoticeKind::Microphone) => indicator(ControlId::Microphone),
             _ if notice == Some(NoticeKind::Shutter) => Mode::Shutter,
@@ -319,6 +325,10 @@ impl App {
                 Mode::Device => self
                     .device_notice()
                     .map(|n| (n.clone(), self.settings.animations)),
+                _ => None,
+            },
+            scan: match mode {
+                Mode::Scan { .. } => self.scan_input(),
                 _ => None,
             },
         }

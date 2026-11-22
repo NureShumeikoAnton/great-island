@@ -1,8 +1,9 @@
 //! A window of ours over a whole monitor, on the island's compositor: the shot's flight, the
-//! area selection, the recording's corner marks. Each draws into its root, in the monitor's
-//! logical pixels.
+//! area selection, the text scanner, the recording's corner marks. Each draws into its root, in
+//! the monitor's logical pixels.
 
-use super::comp::{Comp, scale};
+use super::comp::{Comp, scale, v2};
+use crate::capture::Image;
 use windows::{
     UI::Composition::{ContainerVisual, Desktop::DesktopWindowTarget},
     Win32::{
@@ -54,6 +55,19 @@ impl Overlay {
 
     pub fn hwnd(&self) -> HWND {
         self.hwnd
+    }
+
+    /// No fade: the picture is there at once, or the live screen would show through between the press and the freeze.
+    pub fn freeze(&self, comp: &Comp, image: &Image) -> Result<()> {
+        let picture = comp.image_rounded(
+            &image.pixels,
+            (image.width, image.height),
+            (image.width as f32, image.height as f32),
+            0.0,
+            1.0,
+        )?;
+        picture.SetSize(v2(self.screen.0, self.screen.1))?;
+        self.root.Children()?.InsertAtTop(&picture)
     }
 }
 

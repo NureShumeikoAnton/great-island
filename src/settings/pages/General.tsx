@@ -37,7 +37,7 @@ export function EnergyPage() {
 export function LanguagePage() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
-  const options: Language[] = ["auto", "ru", "en"];
+  const options: Language[] = ["auto", "ru", "en", "uk"];
   return (
     <Group footer={t("language.hint")} plain>
       {options.map((language) => (

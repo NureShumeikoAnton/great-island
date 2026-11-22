@@ -1,11 +1,9 @@
-//! Screenshot ports on Windows: screen capture and the folder. The clipboard is the shared one
-//! from `capture`. Only they know the system; the island assembles them.
+//! Screenshot ports on Windows: the folder. The screen grab and the clipboard are the shared
+//! ones from `capture`. Only they know the system; the island assembles them.
 
 mod folder;
-mod screen;
 
 pub use folder::{Folder, default_dir};
-pub use screen::capture;
 
 use super::Clipboard;
 use crate::{

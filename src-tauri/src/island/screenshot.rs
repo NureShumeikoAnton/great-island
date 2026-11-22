@@ -50,10 +50,7 @@ use crate::{
     journal,
     lang::tr,
     platform,
-    shot::{
-        Saved, Shot, Target,
-        adapters::{self, Folder},
-    },
+    shot::{Saved, Shot, Target, adapters::Folder},
     stage::NoticeKind,
 };
 use std::{path::Path, sync::Arc, thread::JoinHandle};
@@ -172,7 +169,7 @@ impl App {
     }
 
     fn capture_screen(&mut self) -> Option<(Image, Stamp)> {
-        let captured = adapters::capture(self.capture_source());
+        let captured = system::capture(self.capture_source());
         if captured.is_none() {
             self.drop_shutter();
             self.report(Fault::of(What::ShotTake, Cause::Unknown));

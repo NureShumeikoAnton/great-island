@@ -90,6 +90,7 @@ impl App {
                 _ => journal::warn(tr!("journal.button_failed", id = format!("{id:?}"))),
             },
             Outcome::Screenshot => self.start_shutter(Trigger::Click),
+            Outcome::Scan => self.start_scan(),
             Outcome::Record if self.recording_on() => self.toggle_recording(),
             Outcome::Record => self.open_record_panel(),
             Outcome::OpenSettings => {

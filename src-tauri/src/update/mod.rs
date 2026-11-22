@@ -107,17 +107,23 @@ pub struct Notes {
     pub en: String,
     #[serde(default)]
     pub ru: String,
+    /// Releases made before Ukrainian was added have none: their Ukrainian readers get the English text.
+    #[serde(default)]
+    pub uk: String,
 }
 
 impl Notes {
-    /// The text in the language, else in the other one: a release without one language still tells what changed.
+    /// The text in the language, else in the others (English first): a release without one language still tells what changed.
     pub fn pick(&self, code: &str) -> &str {
-        let (first, second) = if code == "ru" {
-            (&self.ru, &self.en)
-        } else {
-            (&self.en, &self.ru)
+        let order = match code {
+            "ru" => [&self.ru, &self.en, &self.uk],
+            "uk" => [&self.uk, &self.en, &self.ru],
+            _ => [&self.en, &self.ru, &self.uk],
         };
-        if first.is_empty() { second } else { first }
+        order
+            .into_iter()
+            .find(|text| !text.is_empty())
+            .map_or("", String::as_str)
     }
 }
 
@@ -595,6 +601,7 @@ mod tests {
                 notes: Notes {
                     en: "Fixes".into(),
                     ru: "Исправления".into(),
+                    uk: "Виправлення".into(),
                 },
                 can_skip: true,
                 can_postpone: true,
@@ -658,13 +665,14 @@ mod tests {
     fn a_manifest_carries_the_notes_in_both_languages() {
         let manifest = Manifest::parse(
             r#"{"version":"0.7.0",
-                "notes":{"en":"Updates","ru":"Обновления"},
+                "notes":{"en":"Updates","ru":"Обновления","uk":"Оновлення"},
                 "installer":{"url":"https://example.org/setup.exe","signature":"sig","size":42}}"#,
         )
         .expect("loads");
         assert_eq!(manifest.version, v("0.7.0"));
         assert_eq!(manifest.notes.pick("ru"), "Обновления");
         assert_eq!(manifest.notes.pick("en"), "Updates");
+        assert_eq!(manifest.notes.pick("uk"), "Оновлення");
         assert_eq!(manifest.installer.size, 42);
     }
 
@@ -673,8 +681,20 @@ mod tests {
         let notes = Notes {
             en: String::new(),
             ru: "Только русский".into(),
+            uk: String::new(),
         };
         assert_eq!(notes.pick("en"), "Только русский");
+        assert_eq!(notes.pick("uk"), "Только русский");
+    }
+
+    #[test]
+    fn a_release_without_ukrainian_notes_reads_in_english() {
+        let manifest = Manifest::parse(
+            r#"{"version":"0.8.4","notes":{"en":"Updates","ru":"Обновления"},
+                "installer":{"url":"https://example.org/setup.exe","signature":"sig"}}"#,
+        )
+        .expect("loads");
+        assert_eq!(manifest.notes.pick("uk"), "Updates");
     }
 
     #[test]

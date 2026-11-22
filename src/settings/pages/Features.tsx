@@ -205,6 +205,7 @@ export function ShotsPage() {
           others={[
             { key: settings.areaKey, is: "area" },
             { key: settings.recordKey, is: "record" },
+            { key: settings.scanKey, is: "scan" },
           ]}
         />
         <HotkeyField
@@ -214,6 +215,18 @@ export function ShotsPage() {
           printScreen
           others={[
             { key: settings.screenshotKey, is: "shot" },
+            { key: settings.recordKey, is: "record" },
+            { key: settings.scanKey, is: "scan" },
+          ]}
+        />
+        <HotkeyField
+          label={t("shots.scan_key")}
+          value={settings.scanKey}
+          onChange={(scanKey) => update({ scanKey })}
+          printScreen
+          others={[
+            { key: settings.screenshotKey, is: "shot" },
+            { key: settings.areaKey, is: "area" },
             { key: settings.recordKey, is: "record" },
           ]}
         />
@@ -248,6 +261,7 @@ export function RecordPage() {
           others={[
             { key: settings.screenshotKey, is: "shot" },
             { key: settings.areaKey, is: "area" },
+            { key: settings.scanKey, is: "scan" },
           ]}
         />
       </Group>

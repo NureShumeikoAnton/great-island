@@ -51,8 +51,6 @@ island/watch.rs — replacing the recording with the saved edit while something 
 montage/adapters/reader.rs — the recording's frame rate for the frame step and the size estimates (now: 30 fps)
 
 == Screenshot ==
-shot/adapters/screen.rs — screen capture via GDI (protected content, a locked screen)
-shot/adapters/screen.rs — screen capture of a monitor in HDR mode via Windows.Graphics.Capture (no frame within a second, the resolution changed after the area was chosen, Windows older than 1803): falls back to GDI, with a line in the journal, the colors are then washed out
 shot/adapters/folder.rs — creating the "Screenshots" folder, writing the PNG (no rights, the disk is full)
 shot/adapters/folder.rs — deleting and overwriting a shot (the file is open in another program)
 island/screenshot.rs — the shot's flight window and the viewer window (Composition failure)
@@ -69,14 +67,16 @@ files/adapters/explorer.rs — the copies of the keys while Explorer is in front
 files/adapters/explorer.rs — reading the selection of the active tab or the desktop on its own thread (Explorer busy or restarting, an item that isn't a file on disk: nothing opens; the thread doesn't start: journal)
 platform.rs — handing the file of a second start to the running island (WM_COPYDATA; the island hangs: given up after 5 s)
 
-== Screen capture: shared by the screenshot and the recording ==
+== Screen capture: shared by the screenshot, the recording and the text scanner ==
+capture/adapters/grab.rs — screen capture via GDI (protected content, a locked screen; the screenshot: SHOT-TAKE, the scanner: SCAN-OPEN)
+capture/adapters/grab.rs — screen capture of a monitor in HDR mode via Windows.Graphics.Capture (no frame within a second, the resolution changed after the area was chosen, Windows older than 1803): falls back to GDI, with a line in the journal, the colors are then washed out
 capture/adapters/clipboard.rs — a picture, a file or text to the clipboard (the clipboard is held by another program)
 files/adapters/shell.rs — finding Windows' Pictures, Videos and Downloads folders (now: the current folder; Downloads: not watched, journal)
 files/adapters/shell.rs — showing a file in Explorer (the file is gone: its folder opens; the folder is gone too: a notice), opening a file in its program (no program for the type; a download: FILE-OPEN)
 files/adapters/shell.rs — showing several downloaded files selected in one Explorer window (some are gone: the rest are selected; all gone: the folder opens; FOLDER-OPEN)
 capture/adapters/screen.rs — hiding the island from shots and recording (Windows older than 2004)
 capture/adapters/screen.rs — the monitor's rectangle for the capture (the monitor was unplugged between calls)
-island/hotkeys.rs — taking the screenshot, area screenshot and record keys (held by another program, PrtSc belongs to Snipping Tool; SHOT-KEY, AREA-KEY, REC-KEY)
+island/hotkeys.rs — taking the screenshot, area screenshot, record and scanner keys (held by another program, PrtSc belongs to Snipping Tool; SHOT-KEY, AREA-KEY, REC-KEY, SCAN-KEY)
 island/hotkeys.rs — taking Ctrl+C and Ctrl+X for the duration of the card (held globally by another program)
 island/hotkeys.rs — taking Esc for the duration of the countdown, the area selection and the recording panel waiting after it (Esc is held globally by another program; the selection still takes Esc while it has the focus)
 
@@ -85,6 +85,15 @@ select/adapters/desktop.rs — listing the windows on the monitor and their visi
 island/selector.rs — the selection window over the monitor (Composition failure: AREA-OPEN; the screenshot is dropped, the panel comes back)
 island/selector.rs — taking the focus for Esc and Alt (Windows refuses to bring the window forward: Esc still works as a global key, Alt is read with each mouse move)
 island/marks.rs — the corner marks around the area being recorded (Composition failure; now: the recording goes without them, journal)
+
+== Text scanner ==
+text/adapters/ocr.rs — Windows OCR's languages (no language with a recognition pack in Windows: SCAN-READ, the scanner doesn't open)
+text/adapters/ocr.rs — creating the engine for the chosen language (its pack was removed since: the first installed language is used, journal; removed while the scanner is open: SCAN-READ/MISSING)
+text/adapters/ocr.rs — reading the frozen picture (the engine fails, a picture over 10000 px on a side: SCAN-READ, the scanner closes)
+island/scan.rs — the threads that read the text and the QR codes (no thread: SCAN-READ; codes: journal, no codes)
+island/scanner.rs — the scanner window over the monitor (Composition failure: SCAN-OPEN; drawing the highlight or the glint fails: journal)
+island/scanner.rs — taking the focus for Esc, Ctrl+C and Ctrl+A (Windows refuses to bring the window forward: the keys don't reach it, a right click still closes it)
+island/scan.rs — opening a link or a code's address (no browser, a broken address: LINK-OPEN)
 
 == The island and windows ==
 island/comp.rs — creating Composition and the Direct3D/Direct2D device for text (driver failure, remote desktop)
@@ -144,7 +153,7 @@ update/adapters/process.rs — starting the installer (an antivirus blocks it); 
 island/dialog/mod.rs — making a dialog window and its picture (Composition or the video card unavailable): the update window does not open, a journal line, tried again in an hour; a part that fails to draw later is a journal line and the window stays
 island/update.rs — installing (on its own thread): the signature does not match or the file is not the announced size (the file is deleted, nothing runs), no room in the temp folder, the installer cannot start; a manual check that fails or an install that fails is a notice on the island (UPD-CHECK, UPD-INSTALL), a check by the clock only a journal line
 platform.rs — the local time of a postponed update (no time zone: UTC is shown)
-windows/hooks.nsh — the PrtSc question uses $LANGUAGE (1049 = Russian, otherwise English), and the chosen language goes to the registry (HKCU\Software\Great Island\Language, read by platform.rs at the first start); tauri.conf.json — installer languages and the language picker (not checked by a live installer run)
+windows/hooks.nsh — the PrtSc and "Open with" questions use $LANGUAGE (1049 = Russian, 1058 = Ukrainian, otherwise English), and the chosen language goes to the registry (HKCU\Software\Great Island\Language, read by platform.rs at the first start); tauri.conf.json — installer languages and the language picker (not checked by a live installer run)
 
 == The settings window ==
 settings_app.rs — launching the window on WebView2 (WebView2 isn't installed or is broken)

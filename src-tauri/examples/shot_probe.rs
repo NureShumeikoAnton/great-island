@@ -6,7 +6,10 @@
 //! Doesn't touch the clipboard.
 
 use great_island_lib::{
-    capture::{Area, Source, adapters::hide_from_capture},
+    capture::{
+        Area, Source,
+        adapters::{capture, hide_from_capture},
+    },
     shot::{Gallery, adapters},
 };
 use std::time::{Duration, Instant};
@@ -38,7 +41,7 @@ fn main() {
     );
 
     let t = Instant::now();
-    let (image, stamp) = adapters::capture(screen).expect("снимок");
+    let (image, stamp) = capture(screen).expect("снимок");
     println!(
         "снимок {}×{} за {:?}",
         image.width,
@@ -97,7 +100,7 @@ fn red_share(area: RECT) -> f32 {
             height: (area.bottom - area.top) as u32,
         },
     };
-    let (image, _) = adapters::capture(source).expect("снимок квадрата");
+    let (image, _) = capture(source).expect("снимок квадрата");
     let red = image
         .pixels
         .as_chunks::<4>()

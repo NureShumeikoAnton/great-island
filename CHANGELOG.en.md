@@ -5,6 +5,13 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.9.0 — 2026-11-22
+
+### Added
+
+- Ukrainian language: the island, the settings window, the installer and the changelog.
+- Text scanner: text and QR codes on the screen are selected and copied; a button in the control center and its own key.
+
 ## 0.8.4 — 2026-11-20
 
 ### Added

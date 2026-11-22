@@ -36,6 +36,8 @@ const OVERLAY_CLASS: PCWSTR = w!("GreatIslandOverlay");
 const VIEWER_CLASS: PCWSTR = w!("GreatIslandViewer");
 const CATCHER_CLASS: PCWSTR = w!("GreatIslandCatcher");
 const SELECT_CLASS: PCWSTR = w!("GreatIslandSelect");
+/// The text scanner: the same procedure as the area selection, its own cursors.
+const SCAN_CLASS: PCWSTR = w!("GreatIslandScan");
 const DIALOG_CLASS: PCWSTR = w!("GreatIslandDialog");
 /// App icon in the exe resources (embedded by the Tauri build).
 const APP_ICON: PCWSTR = PCWSTR(32512 as *const u16);
@@ -64,6 +66,8 @@ pub const WM_DEVICES: u32 = WM_APP + 16;
 pub const WM_OPENED: u32 = WM_APP + 17;
 /// Explorer's news for Space (`files::adapters::explorer::News` in the wparam).
 pub const WM_EXPLORER: u32 = WM_APP + 18;
+/// The scanner's text or QR codes have been read (their threads, to the island).
+pub const WM_SCAN: u32 = WM_APP + 19;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 
@@ -90,6 +94,7 @@ pub fn create(
             (CATCHER_CLASS, wndproc, none, hand),
             (VIEWER_CLASS, viewer_proc, CS_DBLCLKS, arrow),
             (SELECT_CLASS, select_proc, none, cross),
+            (SCAN_CLASS, select_proc, none, arrow),
             (DIALOG_CLASS, dialog_proc, none, arrow),
         ];
         for (class, proc, style, cursor) in classes {
@@ -205,6 +210,30 @@ pub fn create_selector(rect: RECT) -> Result<HWND> {
         let hwnd = CreateWindowExW(
             WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             SELECT_CLASS,
+            w!("Great Island"),
+            WS_POPUP,
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            None,
+            None,
+            Some(instance.into()),
+            None,
+        )?;
+        not_fullscreen(hwnd);
+        Ok(hwnd)
+    }
+}
+
+/// The text scanner over `rect` (physical pixels), hidden: it takes focus and keys, like the
+/// area selection.
+pub fn create_scanner(rect: RECT) -> Result<HWND> {
+    unsafe {
+        let instance = GetModuleHandleW(None)?;
+        let hwnd = CreateWindowExW(
+            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            SCAN_CLASS,
             w!("Great Island"),
             WS_POPUP,
             rect.left,

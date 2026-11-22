@@ -8,13 +8,13 @@
 //! a window message or a timer. What a handler does lives with its feature:
 //!
 //! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify`,
-//!   `downloads`, `devices`, `open`, `explorer` — a feature each: its state and what it does on the island;
+//!   `downloads`, `devices`, `open`, `explorer`, `scan` — a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
 //!   global key; `dialogs` — the dialog windows every feature opens through;
 //! - `input` — pointer and gestures; `render` — which view is on and its model; `layout` —
 //!   where the window sits; `visibility` — when it is on screen; `config` — the settings file;
-//! - `view`, `viewer`, `dialog`, `flight`, `selector`, `marks`, `overlay`, `tray`, `window`,
+//! - `view`, `viewer`, `dialog`, `flight`, `selector`, `scanner`, `marks`, `overlay`, `tray`, `window`,
 //!   `comp`, `paragraph`, `glyph` — drawing and Win32. They don't decide anything: they return a request and the
 //!   feature carries it out.
 
@@ -45,6 +45,8 @@ mod record;
 mod record_panel;
 mod reminders;
 mod render;
+mod scan;
+mod scanner;
 mod screenshot;
 mod select;
 mod selector;
@@ -82,6 +84,7 @@ use problem::Problems;
 use record::Recording;
 use record_panel::RecordPanel;
 use reminders::Reminders;
+use scan::Scan;
 use screenshot::Shots;
 use select::Select;
 use std::{
@@ -97,7 +100,7 @@ use view::Scene;
 use watch::Watch;
 use window::{
     WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_EXPLORER, WM_FAULT, WM_MEDIA,
-    WM_OPEN_SETTINGS, WM_OPENED, WM_RECORD, WM_SAVE, WM_UPDATE,
+    WM_OPEN_SETTINGS, WM_OPENED, WM_RECORD, WM_SAVE, WM_SCAN, WM_UPDATE,
 };
 use windows::{
     Win32::{
@@ -187,6 +190,8 @@ mod timers {
     pub const DIALOG_GONE: usize = 36;
     /// The news of Explorer's selection has settled: it is read again.
     pub const FOLLOW: usize = 37;
+    /// "Copied" on the scanner's status has been shown long enough.
+    pub const SCAN_COPIED: usize = 38;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -363,14 +368,21 @@ unsafe extern "system" fn dialog_proc(
     }
 }
 
-/// The area selection window: it takes focus and keys, unlike the island.
+/// The area selection and the text scanner: they take focus and keys, unlike the island.
 unsafe extern "system" fn select_proc(
     hwnd: HWND,
     msg: u32,
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    match with_app(|app| app.on_select_message(hwnd, msg, wparam, lparam)) {
+    let handled = with_app(|app| {
+        if app.is_scanner(hwnd) {
+            app.on_scan_message(hwnd, msg, wparam, lparam)
+        } else {
+            app.on_select_message(hwnd, msg, wparam, lparam)
+        }
+    });
+    match handled {
         Some(Some(result)) => result,
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
     }
@@ -429,6 +441,7 @@ struct App {
     recording: Recording,
     record_panel: RecordPanel,
     select: Select,
+    scan: Scan,
     hotkeys: Hotkeys,
     problems: Problems,
     updates: Updates,
@@ -543,6 +556,7 @@ impl App {
             recording: Recording::new(record_since),
             record_panel: RecordPanel::default(),
             select: Select::default(),
+            scan: Scan::default(),
             hotkeys: Hotkeys::default(),
             problems,
             updates: Updates::new(),
@@ -578,6 +592,7 @@ impl App {
         self.sync_shot_key();
         self.sync_record_key();
         self.sync_area_key();
+        self.sync_scan_key();
         self.sweep_recordings();
         self.start_notify();
         self.sync_downloads();
@@ -644,6 +659,7 @@ impl App {
             WM_DEVICES => self.on_devices(),
             WM_OPENED => self.on_opened(),
             WM_EXPLORER => self.on_explorer(wparam),
+            WM_SCAN => self.on_scan_found(),
             // The default handler frees the copy of the key after us.
             WM_INPUT => {
                 self.on_explorer_key(lparam);
@@ -724,6 +740,7 @@ impl App {
             timers::OUTSIDE => self.on_outside_timer(),
             timers::DIALOG_GONE => self.on_dialog_gone(),
             timers::FOLLOW => self.on_follow_timer(),
+            timers::SCAN_COPIED => self.on_scan_copied_timer(),
             _ => {}
         }
     }

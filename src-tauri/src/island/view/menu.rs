@@ -119,6 +119,7 @@ fn look(id: ControlId, active: bool) -> Look {
         (ControlId::KeepAwake, false) => idle(Glyph::Coffee, tr!("menu.keep_awake")),
         (ControlId::KeepAwake, true) => on(Glyph::Coffee, tr!("menu.keep_awake")),
         (ControlId::Screenshot, _) => idle(Glyph::Screenshot, tr!("menu.screenshot")),
+        (ControlId::Scan, _) => idle(Glyph::ScanText, tr!("menu.scan")),
         (ControlId::Record, false) => Look {
             icon: color(REC, 1.0),
             ..idle(Glyph::RecordDot, tr!("menu.record"))
@@ -136,7 +137,10 @@ fn look(id: ControlId, active: bool) -> Look {
 }
 
 fn switchable(id: ControlId) -> bool {
-    !matches!(id, ControlId::Screenshot | ControlId::Settings)
+    !matches!(
+        id,
+        ControlId::Screenshot | ControlId::Scan | ControlId::Settings
+    )
 }
 
 struct Layer {

@@ -18,6 +18,7 @@ mod player;
 mod problem;
 mod pull;
 mod record;
+mod scan;
 mod shot;
 mod status;
 mod strip;
@@ -36,6 +37,7 @@ pub use panel::PanelModel;
 pub use player::SAMPLE_MS;
 pub use problem::ProblemModel;
 pub use record::RecordModel;
+pub use scan::{CopyLook, ScanHit, ScanLine, ScanModel};
 pub use shot::SHUTTER_MS;
 pub use status::Modes;
 pub use strip::StripModel;
@@ -112,6 +114,10 @@ pub enum Mode {
     },
     /// A device notice (`crate::devices`).
     Device,
+    /// The text scanner is open; `list` = its languages are listed.
+    Scan {
+        list: bool,
+    },
 }
 
 impl Mode {
@@ -169,6 +175,7 @@ pub enum Hit {
     DownloadOpen,
     /// The text of the downloads card, or its pile: show the files in Explorer.
     DownloadFolder,
+    Scan(ScanHit),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -230,6 +237,7 @@ pub struct Model<'a> {
     pub strip: Option<StripModel>,
     pub download: Option<DownloadModel<'a>>,
     pub device: Option<DeviceModel<'a>>,
+    pub scan: Option<ScanModel<'a>>,
 }
 
 pub struct PlayerModel<'a> {
@@ -302,6 +310,7 @@ struct Content {
     viewing: Option<viewing::Parts>,
     record: Option<record::Parts>,
     download: Option<download::Parts>,
+    scan: Option<scan::Parts>,
     /// Kept alive because an expression holds it only weakly; dropped, the gradient falls back to a one-DIP silver stripe.
     _light: Option<CompositionPropertySet>,
 }
@@ -476,6 +485,7 @@ impl Scene {
             Mode::Downloading => self.downloading_size(model),
             Mode::Download { open } => self.download_size(model, open),
             Mode::Device => self.device_size(model),
+            Mode::Scan { .. } => self.scan_size(model),
         }
     }
 
@@ -674,6 +684,7 @@ impl Scene {
             viewing: None,
             record: None,
             download: None,
+            scan: None,
             _light: None,
         };
         match model.mode {
@@ -696,6 +707,7 @@ impl Scene {
             Mode::Downloading => self.build_downloading(model, &mut content)?,
             Mode::Download { open } => self.build_download(model, open, &mut content)?,
             Mode::Device => self.build_device(model, &mut content)?,
+            Mode::Scan { .. } => self.build_scan(model, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -737,6 +749,7 @@ impl Scene {
             Mode::Countdown => self.update_countdown(model, content)?,
             Mode::Viewing => self.update_viewing(model, content)?,
             Mode::Downloading => self.update_downloading(model, content)?,
+            Mode::Scan { .. } => self.update_scan(model, content)?,
             Mode::Indicator(..)
             | Mode::Shutter
             | Mode::Discarded
@@ -937,6 +950,17 @@ fn content_key(model: &Model) -> String {
                 (format!("{:?}", d.notice), d.decor)
             });
             return format!("Device|{notice}|{decor}");
+        }
+        // The text and the circles change in place; another language or the list is a new view.
+        (Mode::Scan { list }, _) => {
+            let language = model.scan.as_ref().map_or("", |s| s.language);
+            let rows: Vec<String> = model.scan.as_ref().map_or(Vec::new(), |s| {
+                s.list
+                    .iter()
+                    .map(|(name, on)| format!("{name}{on}"))
+                    .collect()
+            });
+            return format!("Scan|{list}|{language}|{}", rows.join(","));
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model

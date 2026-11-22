@@ -4,6 +4,7 @@ use crate::{
     hotkey::Hotkey,
     lang::{self, Lang, tr, tr_for},
     record::choice::Choice,
+    text::compose::Breaks,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -64,6 +65,12 @@ pub struct Settings {
     /// Empty = the default folder under Videos.
     pub recordings_dir: String,
     pub record_key: Option<Hotkey>,
+    pub scan_key: Option<Hotkey>,
+    /// A recognition language's tag ("ru", "en-US"), chosen on the scanner's status; empty =
+    /// the first of Windows' languages that has one. Changed only by the island.
+    pub scan_language: String,
+    /// Changed only by the island.
+    pub scan_breaks: Breaks,
     /// Changed only by the island's pre-start panel.
     #[serde(flatten)]
     pub record: Choice,
@@ -99,6 +106,7 @@ pub struct Settings {
 pub enum Language {
     En,
     Ru,
+    Uk,
     /// Also what an unknown value becomes: one unknown word must not reset all the settings.
     #[default]
     #[serde(other)]
@@ -182,6 +190,9 @@ impl Settings {
             shot_clipboard: false,
             recordings_dir: String::new(),
             record_key: None,
+            scan_key: None,
+            scan_language: String::new(),
+            scan_breaks: Breaks::default(),
             record: Choice::default(),
             video_volume: 1.0,
             video_muted: false,
@@ -303,11 +314,13 @@ impl Settings {
     }
 
     /// The settings window saves its whole copy, which may be older than the island's last
-    /// change: what the island owns (the panel's choice, the video window's sound and length) is taken
-    /// from the file.
+    /// change: what the island owns (the panel's choice, the video window's sound and length,
+    /// the scanner's language and line breaks) is taken from the file.
     pub fn keeping_panel(mut self, path: &Path) -> Self {
         let file = Self::load(path);
         self.record = file.record;
+        self.scan_language = file.scan_language;
+        self.scan_breaks = file.scan_breaks;
         self.video_volume = file.video_volume;
         self.video_muted = file.video_muted;
         self.video_remaining = file.video_remaining;
@@ -350,6 +363,14 @@ impl Settings {
                 || Some(k) == self.area_key.as_ref()
         }) {
             self.record_key = None;
+        }
+        if self.scan_key.as_ref().is_some_and(|k| {
+            k.check().is_some()
+                || Some(k) == self.screenshot_key.as_ref()
+                || Some(k) == self.area_key.as_ref()
+                || Some(k) == self.record_key.as_ref()
+        }) {
+            self.scan_key = None;
         }
         let mut seen = std::collections::HashSet::new();
         self.reminders
@@ -437,6 +458,9 @@ mod tests {
         assert!(!old.battery_percent && old.clock_seconds);
         assert!(!old.shot_clipboard);
         assert!(old.explorer_space);
+        assert_eq!(old.scan_key, None);
+        assert_eq!(old.scan_language, "");
+        assert_eq!(old.scan_breaks, Breaks::Keep);
     }
 
     /// The recording choices were flat switches before the panel; they keep their keys.
@@ -480,6 +504,7 @@ mod tests {
         for (text, expected) in [
             ("ru", Language::Ru),
             ("en", Language::En),
+            ("uk", Language::Uk),
             ("auto", Language::Auto),
             ("de", Language::Auto),
             ("", Language::Auto),
@@ -506,6 +531,7 @@ mod tests {
         };
         assert_eq!(names(crate::lang::Lang::Ru), ["Разминка", "Глаза", "Вода"]);
         assert_eq!(names(crate::lang::Lang::En), ["Stretch", "Eyes", "Water"]);
+        assert_eq!(names(crate::lang::Lang::Uk), ["Розминка", "Очі", "Вода"]);
     }
 
     fn scratch(name: &str) -> PathBuf {
@@ -599,7 +625,31 @@ mod tests {
             ..Settings::default()
         }
         .sanitized();
-        assert_eq!(settings.area_key, Some(key));
+        assert_eq!(settings.area_key, Some(key.clone()));
         assert_eq!(settings.record_key, None);
+        let scan = Settings {
+            record_key: Some(key.clone()),
+            scan_key: Some(key.clone()),
+            ..Settings::default()
+        }
+        .sanitized();
+        assert_eq!(scan.scan_key, None, "the scanner gives way last");
+    }
+
+    #[test]
+    fn the_scanner_choices_stay_the_islands() {
+        let dir = std::env::temp_dir().join(format!("gi-scan-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let island = Settings {
+            scan_language: "en-US".into(),
+            scan_breaks: Breaks::Join,
+            ..Settings::default()
+        };
+        island.save(&path).unwrap();
+        let window = Settings::default().keeping_panel(&path);
+        assert_eq!(window.scan_language, "en-US");
+        assert_eq!(window.scan_breaks, Breaks::Join);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

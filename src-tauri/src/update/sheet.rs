@@ -179,6 +179,7 @@ mod tests {
             notes: Notes {
                 en: "### Added\n- One".into(),
                 ru: "### Добавлено\n\n- Кнопка `микрофона`\nПросто строка".into(),
+                uk: String::new(),
             },
             can_skip,
             can_postpone,

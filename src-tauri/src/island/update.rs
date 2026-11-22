@@ -643,6 +643,7 @@ impl App {
                 notes: Notes {
                     en: newest_notes(include_str!("../../../CHANGELOG.en.md")),
                     ru: newest_notes(include_str!("../../../CHANGELOG.md")),
+                    uk: newest_notes(include_str!("../../../CHANGELOG.uk.md")),
                 },
                 can_skip: true,
                 can_postpone: true,

@@ -13,7 +13,7 @@ mod toggle;
 
 use crate::fault::Failed;
 
-pub use actions::{Recorder, Screenshot, SettingsLink};
+pub use actions::{Recorder, Scanner, Screenshot, SettingsLink};
 pub use toggle::{Flag, Switch, Toggle, Unavailable};
 
 use std::{cell::Cell, rc::Rc};
@@ -25,6 +25,7 @@ pub enum ControlId {
     DoNotDisturb,
     KeepAwake,
     Screenshot,
+    Scan,
     Record,
     Settings,
 }
@@ -59,6 +60,7 @@ pub enum Outcome {
     /// The system did not let the switch flip: the button stays as it was.
     Refused,
     Screenshot,
+    Scan,
     OpenSettings,
     Record,
 }
@@ -120,6 +122,7 @@ impl ControlCenter {
             Box::new(Toggle::new(ControlId::DoNotDisturb, ports.quiet)),
             Box::new(Toggle::new(ControlId::KeepAwake, ports.awake)),
             Box::new(Screenshot),
+            Box::new(Scanner),
             Box::new(Recorder::new(ports.recording)),
             Box::new(SettingsLink),
         ])
@@ -187,6 +190,7 @@ mod tests {
                 ControlId::DoNotDisturb,
                 ControlId::KeepAwake,
                 ControlId::Screenshot,
+                ControlId::Scan,
                 ControlId::Record,
                 ControlId::Settings,
             ]
@@ -215,6 +219,7 @@ mod tests {
         let mut center = ControlCenter::standard(Ports::in_memory());
         assert_eq!(center.press(ControlId::Screenshot, 0), Outcome::Screenshot);
         assert_eq!(center.state(ControlId::Screenshot), Some(ControlState::Off));
+        assert_eq!(center.press(ControlId::Scan, 0), Outcome::Scan);
     }
 
     #[test]

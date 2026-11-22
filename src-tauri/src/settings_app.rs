@@ -143,9 +143,14 @@ fn check_hotkey(key: Hotkey) -> KeyCheck {
 
 fn island_holds(key: &Hotkey) -> bool {
     let saved = Settings::load(&persist::settings_path());
-    [&saved.screenshot_key, &saved.area_key, &saved.record_key]
-        .into_iter()
-        .any(|held| held.as_ref() == Some(key))
+    [
+        &saved.screenshot_key,
+        &saved.area_key,
+        &saved.record_key,
+        &saved.scan_key,
+    ]
+    .into_iter()
+    .any(|held| held.as_ref() == Some(key))
 }
 
 #[derive(serde::Serialize)]
@@ -308,8 +313,11 @@ fn open_project_page(page: String) -> bool {
     let url = match page.as_str() {
         "home" => HOME.to_string(),
         "license" => format!("{HOME}/blob/main/LICENSE"),
-        "changes" if lang::current() == Lang::Ru => format!("{HOME}/blob/main/CHANGELOG.md"),
-        "changes" => format!("{HOME}/blob/main/CHANGELOG.en.md"),
+        "changes" => match lang::current() {
+            Lang::Ru => format!("{HOME}/blob/main/CHANGELOG.md"),
+            Lang::Uk => format!("{HOME}/blob/main/CHANGELOG.uk.md"),
+            Lang::En => format!("{HOME}/blob/main/CHANGELOG.en.md"),
+        },
         _ => return false,
     };
     crate::capture::adapters::open(std::path::Path::new(&url)).is_ok()

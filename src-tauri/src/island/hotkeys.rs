@@ -1,6 +1,6 @@
 //! Global keys: they reach the island whichever window has focus.
 //!
-//! - the screenshot, area screenshot and record keys come from the settings; a key another
+//! - the screenshot, area screenshot, record and text scanner keys come from the settings; a key another
 //!   program holds is reported once ([`Slot`]);
 //! - Ctrl+C and Ctrl+X belong to the island while a capture card exists;
 //! - Esc is the island's while there is something to cancel: the area selection, the
@@ -27,6 +27,7 @@ const SHOT: i32 = 3;
 const RECORD: i32 = 4;
 const ESCAPE: i32 = 5;
 const AREA: i32 = 6;
+const SCAN: i32 = 7;
 
 /// By letter, not by place: Ctrl+C is the key that types C in the current layout.
 const CARD_KEYS: [(i32, u8); 2] = [(COPY, b'C'), (CUT, b'X')];
@@ -37,6 +38,7 @@ pub(super) struct Hotkeys {
     shot: Slot,
     area: Slot,
     record: Slot,
+    scan: Slot,
     card_keys_taken: bool,
     escape_taken: bool,
     explorer_keys: bool,
@@ -53,13 +55,17 @@ fn sync_slot(slot: &mut Slot, island: HWND, id: i32, wanted: Option<Hotkey>) -> 
 impl App {
     pub(super) fn on_hotkey(&mut self, id: i32) {
         // The capture takes the island's monitor, and the island trails the cursor by up to a tick.
-        if matches!(id, SHOT | AREA | RECORD) {
+        if matches!(id, SHOT | AREA | RECORD | SCAN) {
             self.follow_monitor();
         }
         match id {
             SHOT => self.start_shutter(Trigger::Key),
             AREA => self.start_shutter(Trigger::AreaKey),
             RECORD => self.toggle_recording(),
+            SCAN => self.start_scan(),
+            // A card's Ctrl+C is global: while the scanner is open, it copies the selection.
+            COPY if self.scanning() => self.copy_scan(),
+            CUT if self.scanning() => {}
             COPY => self.copy_card(false),
             CUT => self.copy_card(true),
             ESCAPE if self.selecting() => self.cancel_selection(),
@@ -101,6 +107,18 @@ impl App {
         });
         if let Some(key) = sync_slot(&mut self.hotkeys.record, self.island, RECORD, wanted) {
             self.report(Fault::of(What::RecordKey, Cause::Taken).about(key.label()));
+        }
+    }
+
+    /// Not taken when another capture key is the same.
+    pub(super) fn sync_scan_key(&mut self) {
+        let wanted = self.settings.scan_key.clone().filter(|key| {
+            Some(key) != self.settings.screenshot_key.as_ref()
+                && Some(key) != self.settings.area_key.as_ref()
+                && Some(key) != self.settings.record_key.as_ref()
+        });
+        if let Some(key) = sync_slot(&mut self.hotkeys.scan, self.island, SCAN, wanted) {
+            self.report(Fault::of(What::ScanKey, Cause::Taken).about(key.label()));
         }
     }
 

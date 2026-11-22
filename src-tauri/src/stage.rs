@@ -53,6 +53,8 @@ pub enum NoticeKind {
     /// The screenshot viewer is open. Not news but a state: it holds while the window is open.
     /// Any notice shows over it and leaves, and the state is back under it.
     Viewing,
+    /// Held until the scanner closes; only a reminder and a problem show over it, other news waits.
+    Scan,
     Countdown,
     Recording,
     Clip,
@@ -95,6 +97,7 @@ impl NoticeKind {
             | Self::Shutter
             | Self::Shot
             | Self::Viewing
+            | Self::Scan
             | Self::Countdown
             | Self::Recording
             | Self::Clip
@@ -127,6 +130,8 @@ impl NoticeKind {
             // A problem comes before the card it is about: "stopped, disk full", then the file.
             Self::Failure => 86,
             Self::Warning => 85,
+            // The user works with it right now; a problem still comes first.
+            Self::Scan => 84,
             // A screenshot answers the button just pressed: more important than news.
             Self::Shutter | Self::Shot | Self::Countdown | Self::Clip => 80,
             Self::Sound | Self::Microphone | Self::Discarded => 70,
@@ -160,6 +165,7 @@ impl NoticeKind {
             Self::Alert
             | Self::Shutter
             | Self::Viewing
+            | Self::Scan
             | Self::Countdown
             | Self::Recording
             | Self::UpdateChecking
@@ -196,6 +202,7 @@ impl NoticeKind {
             | Self::Shutter
             | Self::Shot
             | Self::Viewing
+            | Self::Scan
             | Self::Countdown
             | Self::Recording
             | Self::Clip
@@ -269,7 +276,7 @@ impl NoticeKind {
     /// A state held by the island: it can't be swiped away or paged through,
     /// but the control center opens over it.
     fn fixed(self) -> bool {
-        matches!(self, Self::Viewing | Self::Recording)
+        matches!(self, Self::Viewing | Self::Scan | Self::Recording)
     }
 
     /// A swipe only takes it away. Reminders and track news page with their activity, so they are excluded.
@@ -733,6 +740,22 @@ mod tests {
         assert_eq!(kind(&s), Some(Viewing));
         s.end(Viewing, 8000);
         assert_eq!((s.shown().activity, kind(&s)), (Player, None));
+    }
+
+    #[test]
+    fn the_scanner_holds_news_back_but_not_a_reminder() {
+        let mut s = Stage::new();
+        playing(&mut s, 0);
+        assert!(s.post(Scan, 0));
+        assert_eq!(s.next_wake(), None, "держится, пока сканер открыт");
+        s.post(Track, 100);
+        assert_eq!(kind(&s), Some(Scan), "новость ждёт");
+        s.post(Alert, 200);
+        assert_eq!(kind(&s), Some(Alert), "напоминание поверх");
+        s.end(Alert, 300);
+        assert_eq!(kind(&s), Some(Scan));
+        s.end(Scan, 400);
+        assert_eq!(kind(&s), Some(Track), "новость после сканера");
     }
 
     #[test]

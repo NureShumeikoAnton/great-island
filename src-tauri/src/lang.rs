@@ -1,4 +1,4 @@
-//! The interface language (Auto / English / Russian) and the `tr!` lookup into `locales/`.
+//! The interface language (Auto / English / Russian / Ukrainian) and the `tr!` lookup into `locales/`.
 //! Pure logic: the one Windows call is `platform::ui_languages`.
 
 use crate::{fault::Failed, platform, settings::Language};
@@ -8,15 +8,17 @@ use std::sync::atomic::{AtomicU8, Ordering};
 pub enum Lang {
     En,
     Ru,
+    Uk,
 }
 
 impl Lang {
-    pub const ALL: [Lang; 2] = [Lang::En, Lang::Ru];
+    pub const ALL: [Lang; 3] = [Lang::En, Lang::Ru, Lang::Uk];
 
     pub fn code(self) -> &'static str {
         match self {
             Self::En => "en",
             Self::Ru => "ru",
+            Self::Uk => "uk",
         }
     }
 
@@ -40,6 +42,7 @@ fn choose(
     match choice {
         Language::En => (Lang::En, None),
         Language::Ru => (Lang::Ru, None),
+        Language::Uk => (Lang::Uk, None),
         Language::Auto => match system() {
             Ok(tags) => (Lang::negotiate(&tags).unwrap_or(Lang::En), None),
             Err(failed) => (Lang::En, Some(failed)),
@@ -51,6 +54,7 @@ pub fn resolve(choice: Language) -> Lang {
     match choice {
         Language::En => Lang::En,
         Language::Ru => Lang::Ru,
+        Language::Uk => Lang::Uk,
         Language::Auto => current(),
     }
 }
@@ -62,6 +66,7 @@ pub fn installer_choice() -> Option<Language> {
 fn choice_of(code: &str) -> Option<Language> {
     match code {
         "ru" => Some(Language::Ru),
+        "uk" => Some(Language::Uk),
         "en" => Some(Language::En),
         _ => None,
     }
@@ -95,6 +100,7 @@ pub fn current() -> Lang {
     match CURRENT.load(Ordering::Acquire) {
         1 => Lang::En,
         2 => Lang::Ru,
+        3 => Lang::Uk,
         // A text is needed before the settings are read (a crash message, the first-run
         // reminder names): follow Windows without reporting anything.
         _ => {
@@ -104,8 +110,8 @@ pub fn current() -> Lang {
     }
 }
 
-/// The form a word takes after a number: Russian has three ("1 файл, 3 файла, 5 файлов"),
-/// English uses the first and the last.
+/// The form a word takes after a number: Russian and Ukrainian have three ("1 файл, 3 файла,
+/// 5 файлов"), English uses the first and the last.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Count {
     One,
@@ -117,7 +123,7 @@ pub fn count(n: u64) -> Count {
     match current() {
         Lang::En if n == 1 => Count::One,
         Lang::En => Count::Many,
-        Lang::Ru => match (n % 10, n % 100) {
+        Lang::Ru | Lang::Uk => match (n % 10, n % 100) {
             (1, h) if h != 11 => Count::One,
             (2..=4, h) if !(12..=14).contains(&h) => Count::Few,
             _ => Count::Many,
@@ -178,6 +184,8 @@ mod tests {
         assert_eq!(Lang::negotiate(&["de-DE", "ru-RU"]), Some(Lang::Ru));
         assert_eq!(Lang::negotiate(&["RU"]), Some(Lang::Ru));
         assert_eq!(Lang::negotiate(&["ru_RU"]), Some(Lang::Ru));
+        assert_eq!(Lang::negotiate(&["uk-UA", "en-US"]), Some(Lang::Uk));
+        assert_eq!(Lang::negotiate(&["de-DE", "uk"]), Some(Lang::Uk));
         assert_eq!(Lang::negotiate(&["de-DE", "fr-FR"]), None);
         assert_eq!(Lang::negotiate::<&str>(&[]), None);
     }
@@ -186,6 +194,7 @@ mod tests {
     fn a_code_names_one_language() {
         assert_eq!(Lang::from_code("ru"), Some(Lang::Ru));
         assert_eq!(Lang::from_code("en"), Some(Lang::En));
+        assert_eq!(Lang::from_code("uk"), Some(Lang::Uk));
         assert_eq!(Lang::from_code("RU"), None);
         assert_eq!(Lang::from_code(""), None);
     }
@@ -194,6 +203,7 @@ mod tests {
     fn the_installers_word_becomes_a_choice() {
         assert_eq!(choice_of("ru"), Some(Language::Ru));
         assert_eq!(choice_of("en"), Some(Language::En));
+        assert_eq!(choice_of("uk"), Some(Language::Uk));
         assert_eq!(choice_of(""), None);
         assert_eq!(choice_of("de"), None);
     }
@@ -203,12 +213,15 @@ mod tests {
         let never = || -> Result<Vec<String>, Failed> { panic!("Windows was asked") };
         assert_eq!(choose(Language::Ru, never), (Lang::Ru, None));
         assert_eq!(choose(Language::En, never), (Lang::En, None));
+        assert_eq!(choose(Language::Uk, never), (Lang::Uk, None));
     }
 
     #[test]
     fn auto_follows_windows_and_falls_back_to_english() {
         let ru = || Ok(vec!["ru-RU".to_string()]);
         assert_eq!(choose(Language::Auto, ru), (Lang::Ru, None));
+        let uk = || Ok(vec!["uk-UA".to_string()]);
+        assert_eq!(choose(Language::Auto, uk), (Lang::Uk, None));
         let other = || Ok(vec!["ja-JP".to_string()]);
         assert_eq!(choose(Language::Auto, other), (Lang::En, None));
         let broken = || Err(Failed::new(Cause::Unknown));
@@ -322,17 +335,19 @@ mod tests {
 
     #[test]
     fn a_count_takes_its_language_s_form() {
-        with(Lang::Ru, || {
-            let forms: Vec<Count> = [1, 2, 5, 11, 12, 21, 22, 25, 101, 112]
-                .into_iter()
-                .map(count)
-                .collect();
-            use Count::*;
-            assert_eq!(
-                forms,
-                [One, Few, Many, Many, Many, One, Few, Many, One, Many]
-            );
-        });
+        for lang in [Lang::Ru, Lang::Uk] {
+            with(lang, || {
+                let forms: Vec<Count> = [1, 2, 5, 11, 12, 21, 22, 25, 101, 112]
+                    .into_iter()
+                    .map(count)
+                    .collect();
+                use Count::*;
+                assert_eq!(
+                    forms,
+                    [One, Few, Many, Many, Many, One, Few, Many, One, Many]
+                );
+            });
+        }
         with(Lang::En, || {
             assert_eq!(count(1), Count::One);
             assert_eq!(count(3), Count::Many);
@@ -344,5 +359,6 @@ mod tests {
     fn a_text_is_looked_up_in_the_current_language() {
         assert_eq!(with(Lang::En, || tr!("tray.pause").to_string()), "Pause");
         assert_eq!(with(Lang::Ru, || tr!("tray.pause").to_string()), "Пауза");
+        assert_eq!(with(Lang::Uk, || tr!("tray.quit").to_string()), "Вихід");
     }
 }

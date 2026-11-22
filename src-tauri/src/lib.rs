@@ -40,6 +40,8 @@ mod settings_app;
 pub mod shot;
 mod sound;
 pub mod stage;
+/// Public for `examples/ocr_probe.rs`: recognition timed on real screens.
+pub mod text;
 /// Public until the island uses it.
 pub mod update;
 

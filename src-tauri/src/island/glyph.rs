@@ -39,6 +39,8 @@ pub enum Glyph {
     /// Keep awake.
     Coffee,
     Screenshot,
+    /// The text scanner: the screenshot's corners around lines of text.
+    ScanText,
     RecordDot,
     RecordStop,
     Gear,
@@ -67,6 +69,8 @@ pub enum Glyph {
     Trash,
     /// Viewer status on the island: tuck the shot back into the island.
     ArrowUp,
+    /// The scanner's line breaks: a line that wraps back under itself.
+    Breaks,
     // Video viewer window, viewBox 20.
     Rewind,
     Forward,
@@ -428,6 +432,52 @@ impl Glyph {
                     To(3.0, 12.5),
                 ],
                 1.7,
+            )],
+            Self::ScanText => &[
+                Line(
+                    &[
+                        Move(3.0, 7.0),
+                        To(3.0, 3.0),
+                        To(7.0, 3.0),
+                        Move(13.0, 3.0),
+                        To(17.0, 3.0),
+                        To(17.0, 7.0),
+                        Move(17.0, 13.0),
+                        To(17.0, 17.0),
+                        To(13.0, 17.0),
+                        Move(7.0, 17.0),
+                        To(3.0, 17.0),
+                        To(3.0, 13.0),
+                    ],
+                    1.7,
+                ),
+                Line(
+                    &[
+                        Move(6.5, 7.6),
+                        To(13.5, 7.6),
+                        Move(6.5, 10.2),
+                        To(13.5, 10.2),
+                        Move(6.5, 12.8),
+                        To(10.6, 12.8),
+                    ],
+                    1.5,
+                ),
+            ],
+            Self::Breaks => &[Line(
+                &[
+                    Move(3.5, 5.0),
+                    To(16.5, 5.0),
+                    Move(3.5, 10.0),
+                    To(13.2, 10.0),
+                    ArcCw(13.2, 15.6, 2.8),
+                    To(9.0, 15.6),
+                    Move(10.8, 13.6),
+                    To(8.8, 15.6),
+                    To(10.8, 17.6),
+                    Move(3.5, 15.6),
+                    To(5.6, 15.6),
+                ],
+                1.5,
             )],
             Self::RecordDot => &[Circle(10.0, 10.0, 5.5)],
             Self::RecordStop => &[Rect(5.5, 5.5, 9.0, 9.0, 2.0)],

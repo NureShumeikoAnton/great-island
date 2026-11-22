@@ -4,12 +4,14 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./locales/en.json";
 import ru from "./locales/ru.json";
+import uk from "./locales/uk.json";
 
-// A key missing in either language is a compile error, not a blank label on screen.
+// A key missing in any language is a compile error, not a blank label on screen.
 type Complete<Other> = Record<keyof Other, string>;
 const resources = {
-  en: { translation: en satisfies Complete<typeof ru> },
+  en: { translation: en satisfies Complete<typeof ru> & Complete<typeof uk> },
   ru: { translation: ru satisfies Complete<typeof en> },
+  uk: { translation: uk satisfies Complete<typeof en> },
 };
 
 declare module "i18next" {

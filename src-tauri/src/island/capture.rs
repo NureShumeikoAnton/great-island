@@ -62,7 +62,8 @@ impl App {
     pub(super) fn sync_capture_hiding(&self) {
         let hidden = self.recording.live.is_some()
             || self.shots.taken.is_some()
-            || self.stage.has(NoticeKind::Shutter);
+            || self.stage.has(NoticeKind::Shutter)
+            || self.stage.has(NoticeKind::Scan);
         system::hide_from_capture(self.island, hidden);
     }
 

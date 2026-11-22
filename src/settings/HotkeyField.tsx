@@ -35,10 +35,15 @@ interface Props {
   onChange: (key: Hotkey | null) => void;
   printScreen: boolean;
   /** The app's other keys: the same combination can't be taken twice. */
-  others: { key: Hotkey | null; is: "record" | "shot" | "area" }[];
+  others: { key: Hotkey | null; is: "record" | "shot" | "area" | "scan" }[];
 }
 
-const TAKEN_BY = { record: "hotkey.same_as_record", shot: "hotkey.same_as_shot", area: "hotkey.same_as_area" } as const;
+const TAKEN_BY = {
+  record: "hotkey.same_as_record",
+  shot: "hotkey.same_as_shot",
+  area: "hotkey.same_as_area",
+  scan: "hotkey.same_as_scan",
+} as const;
 
 /** A row of a settings group: the key, and the buttons to change it. */
 export function HotkeyField({ label, value, onChange, printScreen, others }: Props) {
