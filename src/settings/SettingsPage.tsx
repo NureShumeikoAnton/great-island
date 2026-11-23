@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
-import { api, type AppInfo, type Display, type Reminder, type Settings, type UpdateView } from "../api";
+import { api, type AppInfo, type AppView, type Display, type Reminder, type Settings, type UpdateView } from "../api";
+import { AppPage, AppsPage, LookupPage, TermsPage } from "./pages/Apps";
 import { Glyph } from "./icons";
 import { Navigator, type Route } from "./Navigator";
 import { AboutPage, EnergyPage, LanguagePage } from "./pages/General";
@@ -31,6 +32,7 @@ export function SettingsPage() {
   const [defaultShots, setDefaultShots] = useState("");
   const [defaultRecordings, setDefaultRecordings] = useState("");
   const [displays, setDisplays] = useState<Display[]>([]);
+  const [apps, setApps] = useState<AppView[]>([]);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [updating, setUpdating] = useState<UpdateView | null>(null);
   const [problemsToday, setProblemsToday] = useState(0);
@@ -46,6 +48,7 @@ export function SettingsPage() {
     void api.defaultScreenshotDir().then(setDefaultShots);
     void api.defaultRecordingsDir().then(setDefaultRecordings);
     void api.displays().then(setDisplays);
+    void api.apps().then(setApps);
     void api.appInfo().then(setInfo);
     const today = () => {
       const day = new Date().toLocaleDateString("sv");
@@ -118,13 +121,25 @@ export function SettingsPage() {
       info,
       updating,
       displays,
+      apps,
+      appOn: (app: AppView) => settings.apps[app.id]?.on ?? app.onByDefault,
+      setAppOn: (id: string, on: boolean) => {
+        const all = current.current!.apps;
+        update({ apps: { ...all, [id]: { ...all[id], on } } });
+      },
+      appValue: (app: AppView, key: string) =>
+        settings.apps[app.id]?.values?.[key] ?? app.fields.find((f) => f.key === key)?.default,
+      setAppValue: (id: string, key: string, value: unknown) => {
+        const all = current.current!.apps;
+        update({ apps: { ...all, [id]: { ...all[id], values: { ...all[id]?.values, [key]: value } } } });
+      },
       defaultShots,
       defaultRecordings,
       problemsToday,
       journalCleared: () => setProblemsToday(0),
       toast,
     };
-  }, [settings, info, updating, displays, defaultShots, defaultRecordings, problemsToday, toast, flush, t]);
+  }, [settings, info, updating, displays, apps, defaultShots, defaultRecordings, problemsToday, toast, flush, t]);
 
   if (!state) return null;
 
@@ -151,6 +166,20 @@ export function SettingsPage() {
         return { title: t("page.record"), body: <RecordPage /> };
       case "notifications":
         return { title: t("page.notifications"), body: <NotificationsPage /> };
+      case "apps":
+        return { title: t("page.apps"), body: <AppsPage /> };
+      case "app":
+        return {
+          title: state.apps.find((a) => a.id === route.param)?.title ?? "",
+          body: <AppPage id={route.param ?? ""} />,
+        };
+      case "terms":
+        return { title: t("apps.terms"), body: <TermsPage id={route.param ?? ""} /> };
+      case "lookup": {
+        const [id, key] = (route.param ?? "").split("/");
+        const field = state.apps.find((a) => a.id === id)?.fields.find((f) => f.key === key);
+        return { title: field?.label ?? "", body: <LookupPage param={route.param ?? ""} /> };
+      }
       case "energy":
         return { title: t("page.energy"), body: <EnergyPage /> };
       case "language":

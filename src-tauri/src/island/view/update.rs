@@ -107,7 +107,7 @@ impl Scene {
             .comp
             .text(update.title, style(13.0, true, TEXT), self.scale)?;
         let x = LEFT + ICON + GAP;
-        self.place(&root, &label.visual, x, (30.0 - label.height) / 2.0)
+        self.place(&root, &label.visual, x, self.comp.center_top(&label, 30.0))
     }
 
     fn build_update_card(&self, update: &UpdateModel, content: &mut Content) -> Result<()> {

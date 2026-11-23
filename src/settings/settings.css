@@ -19,6 +19,7 @@
   --c-teal: #30b0c7;
   --c-gray: #8e8e93;
   --c-brown: #a2845e;
+  --c-purple: #af52de;
   color-scheme: light dark;
 }
 
@@ -44,6 +45,7 @@
     --c-teal: #40c8e0;
     --c-gray: #8e8e93;
     --c-brown: #ac8e68;
+    --c-purple: #bf5af2;
   }
 }
 
@@ -825,4 +827,163 @@ button.link {
 .toast.on {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Apps & Connectors: the connector's head, its terms, the dialog that asks for them, the search. */
+.muted {
+  color: var(--muted);
+}
+
+.service-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 4px 0;
+}
+
+.service-head .tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.service-head .tile svg {
+  width: 22px;
+  height: 22px;
+}
+
+.service-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.service-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.service-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.service-link:hover {
+  text-decoration: underline;
+}
+
+.terms {
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  user-select: text;
+}
+
+.terms p {
+  margin: 0 0 8px;
+}
+
+.terms h3 {
+  margin: 10px 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.terms ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.terms li {
+  margin-bottom: 4px;
+}
+
+.terms p:last-child {
+  margin-bottom: 0;
+}
+
+.dim {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 0.32);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  max-height: 100%;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.28);
+  overflow: hidden;
+}
+
+.dialog .service-head {
+  padding: 16px 16px 4px;
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 2px;
+}
+
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--sep);
+}
+
+.btn {
+  height: 30px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--field);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(0.96);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--text);
 }

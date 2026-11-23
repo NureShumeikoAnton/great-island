@@ -35,7 +35,7 @@ use windows::{
             },
             SystemInformation::{GetLocalTime, GetTickCount},
             Threading::CreateMutexW,
-            Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime},
+            Time::{FileTimeToSystemTime, SystemTimeToFileTime, SystemTimeToTzSpecificLocalTime},
         },
         UI::{
             HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI},
@@ -110,6 +110,20 @@ pub fn date_time_text(moment: std::time::SystemTime) -> String {
     };
     let text = |buf: &[u16], n: i32| String::from_utf16_lossy(&buf[..(n.max(1) - 1) as usize]);
     format!("{} {}", text(&date, d), text(&time, t))
+}
+
+/// Local time minus UTC at this moment (the zone and summer time included), ms.
+pub fn utc_offset_ms(unix_ms: u64) -> i64 {
+    let local = local_system_time(unix_ms);
+    let mut file = FILETIME::default();
+    // Read back as if it were UTC: the difference is the offset.
+    if unsafe { SystemTimeToFileTime(&local, &mut file) }.is_err() {
+        return 0;
+    }
+    let ticks = (u64::from(file.dwHighDateTime) << 32) | u64::from(file.dwLowDateTime);
+    let local_ms = (ticks.saturating_sub(116_444_736_000_000_000) / 10_000) as i64;
+    // Whole minutes: the reading above drops the milliseconds' remainder.
+    ((local_ms - unix_ms as i64) as f64 / 60_000.0).round() as i64 * 60_000
 }
 
 /// A Unix moment (ms) on this computer's clock and in its time zone.

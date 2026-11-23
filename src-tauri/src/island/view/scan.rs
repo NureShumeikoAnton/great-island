@@ -151,7 +151,7 @@ impl Scene {
         let st = style(TEXT_SIZE, false, hex);
         let fitted = self.comp.fit(&text, st, text_room());
         let line = self.comp.text(&fitted, st, s)?;
-        let line_y = (HEIGHT - line.height) / 2.0;
+        let line_y = self.comp.center_top(&line, HEIGHT);
         self.place(&root, &line.visual, TEXT_LEFT, line_y)?;
 
         let open = !scan.list.is_empty();
@@ -176,7 +176,7 @@ impl Scene {
             &root,
             &label.visual,
             left,
-            rect.y + (rect.h - label.height) / 2.0,
+            rect.y + self.comp.center_top(&label, rect.h),
         )?;
         let chevron = self
             .comp
@@ -239,7 +239,7 @@ impl Scene {
                 &root,
                 &text.visual,
                 rect.x + 12.0,
-                rect.y + (ROW - text.height) / 2.0,
+                rect.y + self.comp.center_top(&text, ROW),
             )?;
             if *chosen {
                 let check = self

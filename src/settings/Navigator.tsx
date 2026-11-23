@@ -24,6 +24,10 @@ export type PageId =
   | "shots"
   | "record"
   | "notifications"
+  | "apps"
+  | "app"
+  | "terms"
+  | "lookup"
   | "energy"
   | "language"
   | "about"
@@ -31,7 +35,7 @@ export type PageId =
 
 export interface Route {
   id: PageId;
-  /** A reminder's id for its pages. */
+  /** A reminder's id for its pages, an app's for its page and terms, "app/key" for a lookup. */
   param?: string;
 }
 

@@ -175,7 +175,7 @@ impl App {
             || self.selecting()
             || self.has_card()
             || self.expanded
-            || self.stage.shown().menu
+            || self.stage.shown().sheet.is_some()
             || self.scheduler.has_alert()
             || self.shots.viewing.is_some()
             || self.watch.watching.is_some()

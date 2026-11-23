@@ -1,14 +1,16 @@
 //! A GET over WinHTTP: the system's proxy and certificates, redirects followed (a GitHub release file is
-//! served from another host). Blocking: callers run it on a thread of their own.
+//! served from another host). Blocking: callers run it on a thread of their own. The island's one
+//! way out: the update and the connectors (`island/apps.rs`) both use it.
 
 use crate::fault::{Cause, Failed};
 use std::{ffi::c_void, io::Write, path::Path};
 use windows::{
     Win32::Networking::WinHttp::{
-        WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_FLAG_SECURE, WINHTTP_QUERY_FLAG_NUMBER,
-        WINHTTP_QUERY_STATUS_CODE, WinHttpCloseHandle, WinHttpConnect, WinHttpOpen,
-        WinHttpOpenRequest, WinHttpQueryHeaders, WinHttpReadData, WinHttpReceiveResponse,
-        WinHttpSendRequest, WinHttpSetTimeouts,
+        WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_DECOMPRESSION_FLAG_DEFLATE,
+        WINHTTP_DECOMPRESSION_FLAG_GZIP, WINHTTP_FLAG_SECURE, WINHTTP_OPTION_DECOMPRESSION,
+        WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_QUERY_STATUS_CODE, WinHttpCloseHandle, WinHttpConnect,
+        WinHttpOpen, WinHttpOpenRequest, WinHttpQueryHeaders, WinHttpReadData,
+        WinHttpReceiveResponse, WinHttpSendRequest, WinHttpSetOption, WinHttpSetTimeouts,
     },
     core::{Error, HSTRING, PCWSTR, w},
 };
@@ -84,7 +86,7 @@ fn request(url: &str) -> Result<Response, Failed> {
     let url = parse(url)?;
     unsafe {
         let session = Handle::new(WinHttpOpen(
-            w!("GreatIsland"),
+            &HSTRING::from(concat!("GreatIsland/", env!("CARGO_PKG_VERSION"))),
             WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
             PCWSTR::null(),
             PCWSTR::null(),
@@ -92,6 +94,11 @@ fn request(url: &str) -> Result<Response, Failed> {
         ))?;
         // resolve, connect, send, receive (ms): a silent server must not hold the thread for ever.
         WinHttpSetTimeouts(session.0, 10_000, 10_000, 20_000, 30_000)?;
+        // A gzip answer is unpacked by WinHTTP itself (Windows 8.1 and later); an older Windows
+        // refuses the option and gets the answer as it is.
+        let all =
+            (WINHTTP_DECOMPRESSION_FLAG_GZIP | WINHTTP_DECOMPRESSION_FLAG_DEFLATE).to_ne_bytes();
+        let _ = WinHttpSetOption(Some(session.0), WINHTTP_OPTION_DECOMPRESSION, Some(&all));
         let connection = Handle::new(WinHttpConnect(
             session.0,
             &HSTRING::from(url.host),

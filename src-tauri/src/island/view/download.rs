@@ -241,14 +241,19 @@ impl Scene {
             style(13.0, true, TEXT),
             self.scale,
         )?;
-        self.place(&root, &label.visual, x, (30.0 - label.height) / 2.0)?;
+        self.place(&root, &label.visual, x, self.comp.center_top(&label, 30.0))?;
         let size_x = x + label.width;
         let size = self.comp.text(
             &dim(&format_size(coming.bytes)),
             digits(13.0, false, MUTED),
             self.scale,
         )?;
-        self.place(&root, &size.visual, size_x, (30.0 - size.height) / 2.0)?;
+        self.place(
+            &root,
+            &size.visual,
+            size_x,
+            self.comp.center_top(&size, 30.0),
+        )?;
         content.download = Some(Parts { size, size_x });
         Ok(())
     }
@@ -308,7 +313,7 @@ impl Scene {
         let label = self
             .comp
             .text(&label, style(13.0, true, TEXT), self.scale)?;
-        self.place(&root, &label.visual, x, (30.0 - label.height) / 2.0)?;
+        self.place(&root, &label.visual, x, self.comp.center_top(&label, 30.0))?;
         let size = self.comp.text(
             &dim(&format_size(bytes)),
             digits(13.0, false, MUTED),
@@ -318,7 +323,7 @@ impl Scene {
             &root,
             &size.visual,
             x + label.width,
-            (30.0 - size.height) / 2.0,
+            self.comp.center_top(&size, 30.0),
         )
     }
 

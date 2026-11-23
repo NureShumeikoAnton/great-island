@@ -22,6 +22,14 @@ impl Lang {
         }
     }
 
+    /// The decimal separator and the one between groups of three digits.
+    pub fn number_separators(self) -> (&'static str, &'static str) {
+        match self {
+            Self::En => (".", ","),
+            Self::Ru | Self::Uk => (",", "\u{a0}"),
+        }
+    }
+
     pub fn from_code(code: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|lang| lang.code() == code)
     }

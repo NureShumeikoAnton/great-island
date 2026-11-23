@@ -5,15 +5,16 @@
 
 use super::{
     App,
+    apps::AppsInput,
     capture::Card,
     log,
     record_panel::PanelInput,
     scan::ScanInput,
     timers,
     view::{
-        AppModel, CardModel, DeviceModel, DownloadModel, FileModel, Mode, Model, Modes, PlayerForm,
-        PlayerModel, ProblemModel, RecordModel, StripModel, SystemModel, UpdateLook, UpdateModel,
-        has_list,
+        AppModel, AppsModel, CardModel, DeviceModel, DownloadModel, FileModel, LiveModel, Mode,
+        Model, Modes, PageModel, PlayerForm, PlayerModel, ProblemModel, RecordModel, StripModel,
+        SystemModel, UpdateLook, UpdateModel, has_list,
     },
 };
 use crate::{
@@ -27,7 +28,7 @@ use crate::{
     notify::Notice,
     persist,
     scheduler::Snapshot,
-    stage::{Activity, NoticeKind},
+    stage::{Activity, NoticeKind, Sheet},
 };
 use std::sync::Arc;
 
@@ -63,6 +64,17 @@ pub(super) struct ViewInput {
     download: Option<DownloadInput>,
     device: Option<(devices::Notice, bool)>,
     scan: Option<ScanInput>,
+    apps: Option<AppsInput>,
+    live: Option<LiveInput>,
+}
+
+/// An app's notice or its ribbon page: see `view::LiveModel`.
+struct LiveInput {
+    symbol: crate::apps::ui::Symbol,
+    tint: crate::apps::ui::Tint,
+    title: String,
+    text: String,
+    value: String,
 }
 
 struct DownloadInput {
@@ -164,19 +176,34 @@ impl ViewInput {
                 decor: *decor,
             }),
             scan: self.scan.as_ref().map(ScanInput::model),
+            apps: self.apps.as_ref().map(|a| AppsModel {
+                tiles: &a.tiles,
+                page: a
+                    .page
+                    .as_ref()
+                    .map(|(id, title, node)| PageModel { id, title, node }),
+            }),
+            live: self.live.as_ref().map(|l| LiveModel {
+                symbol: l.symbol,
+                tint: l.tint,
+                title: &l.title,
+                text: &l.text,
+                value: &l.value,
+            }),
         }
     }
 }
 
 impl App {
     fn mode(&self) -> Mode {
-        if self.stage.shown().menu {
-            match self.record_panel.page() {
+        match self.stage.shown().sheet {
+            Some(Sheet::Controls) => match self.record_panel.page() {
                 Some(page) => Mode::RecordPanel(page),
                 None => Mode::Menu,
-            }
-        } else {
-            self.activity_mode()
+            },
+            Some(Sheet::Apps) if self.app_open() => Mode::App,
+            Some(Sheet::Apps) => Mode::Apps,
+            None => self.activity_mode(),
         }
     }
 
@@ -227,6 +254,7 @@ impl App {
                 open: self.expanded && self.system_notice().is_some_and(has_list),
             },
             _ if self.device_notice().is_some() => Mode::Device,
+            _ if self.app_notice().is_some() => Mode::AppNotice,
             _ if notice == Some(NoticeKind::Viewing) => Mode::Viewing,
             Activity::Timers if self.expanded || self.reminders.skip.is_some() => Mode::Expanded,
             Activity::Timers => Mode::Collapsed,
@@ -235,14 +263,13 @@ impl App {
                 Mode::Player(PlayerForm::Announce)
             }
             Activity::Player => Mode::Player(PlayerForm::Collapsed),
+            Activity::App => Mode::Ribbon {
+                open: self.expanded,
+            },
         }
     }
 
     pub(super) fn view_input(&self, mode: Mode) -> ViewInput {
-        let expanded = matches!(
-            mode,
-            Mode::Expanded | Mode::Player(PlayerForm::Expanded { .. })
-        );
         ViewInput {
             snapshot: self.scheduler.snapshot(),
             mode,
@@ -255,7 +282,7 @@ impl App {
             headphones: self.player.headphones,
             decorative: self.player.meter.source() == LevelSource::None,
             copied: self.player.copied,
-            dots: expanded.then(|| self.stage.ribbon_position()),
+            dots: mode.ribbon_open().then(|| self.stage.ribbon_position()),
             controls: match mode {
                 Mode::Menu => self.controls.items(),
                 _ => Vec::new(),
@@ -266,6 +293,7 @@ impl App {
                 awake: self.controls.is_on(ControlId::KeepAwake),
                 problem: !self.problems.missed.is_empty(),
                 battery: self.battery_badge(),
+                app: self.app_badge(),
             },
             card: match mode {
                 Mode::Card => self.card(),
@@ -331,6 +359,27 @@ impl App {
                 Mode::Scan { .. } => self.scan_input(),
                 _ => None,
             },
+            apps: match mode {
+                Mode::Apps | Mode::App => Some(self.apps_input()),
+                _ => None,
+            },
+            live: match mode {
+                Mode::AppNotice => self.app_notice().map(|n| LiveInput {
+                    symbol: n.symbol,
+                    tint: n.tint,
+                    title: n.title.clone(),
+                    text: n.text.clone(),
+                    value: String::new(),
+                }),
+                Mode::Ribbon { .. } => self.ribbon().map(|(_, r)| LiveInput {
+                    symbol: r.symbol,
+                    tint: r.tint,
+                    title: r.title.clone(),
+                    text: r.text.clone(),
+                    value: r.value.clone(),
+                }),
+                _ => None,
+            },
         }
     }
 
@@ -379,6 +428,7 @@ impl App {
             (Activity::Timers, true) => Mode::Expanded,
             (Activity::Player, false) => Mode::Player(PlayerForm::Collapsed),
             (Activity::Player, true) => self.player_card(),
+            (Activity::App, open) => Mode::Ribbon { open },
         };
         let mut input = self.view_input(mode);
         if let Some((count, current)) = input.dots {

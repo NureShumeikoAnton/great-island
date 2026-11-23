@@ -68,6 +68,8 @@ pub const WM_OPENED: u32 = WM_APP + 17;
 pub const WM_EXPLORER: u32 = WM_APP + 18;
 /// The scanner's text or QR codes have been read (their threads, to the island).
 pub const WM_SCAN: u32 = WM_APP + 19;
+/// A connector's request on its thread has an answer.
+pub const WM_APPS: u32 = WM_APP + 20;
 
 pub type WndProc = unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
 

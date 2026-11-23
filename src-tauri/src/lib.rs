@@ -3,6 +3,8 @@
 //! One exe, two modes: without arguments the island (native window, Composition);
 //! with `--settings` the Tauri settings window as a separate process.
 
+/// Public until the island uses it.
+pub mod apps;
 /// Public for `examples/shot_probe.rs`.
 pub mod capture;
 mod control;

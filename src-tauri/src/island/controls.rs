@@ -1,5 +1,5 @@
 //! The control center on the island (the menu pulled down from it): its system parts, what
-//! a press or a hold leads to, and when the menu closes.
+//! a press or a hold leads to, and when the menu (or any sheet: the apps' row too) closes.
 //!
 //! The buttons and their states are `crate::control`.
 
@@ -19,7 +19,7 @@ use crate::{
     journal,
     lang::tr,
     platform,
-    stage::NoticeKind,
+    stage::{NoticeKind, Sheet},
 };
 use std::{cell::Cell, rc::Rc, sync::Arc};
 use windows::Win32::{
@@ -152,7 +152,7 @@ impl App {
         let Some(id) = self.pointer.held.take() else {
             return;
         };
-        if !self.stage.shown().menu {
+        if self.stage.shown().sheet != Some(Sheet::Controls) {
             return;
         }
         // The press became a hold: letting go now must not also click.
@@ -165,7 +165,7 @@ impl App {
 
     pub(super) fn close_menu(&mut self) {
         self.kill_timer(timers::MENU);
-        let changed = self.stage.close_menu(self.now_ms());
+        let changed = self.stage.close_sheet(self.now_ms());
         self.after_stage(changed);
     }
 
@@ -174,9 +174,15 @@ impl App {
         self.kill_timer(timers::MENU);
     }
 
-    /// The cursor left: an open menu closes after a moment.
+    /// The cursor left: an open menu, or the apps' row, closes after a moment. An app's page
+    /// stays.
     pub(super) fn close_menu_soon(&self) {
-        if self.stage.shown().menu {
+        let closes = match self.stage.shown().sheet {
+            Some(Sheet::Controls) => true,
+            Some(Sheet::Apps) => !self.app_open(),
+            None => false,
+        };
+        if closes {
             self.set_timer(timers::MENU, MENU_CLOSE_MS);
         }
     }
@@ -196,7 +202,7 @@ impl App {
     /// While the menu is open its clock is redrawn as the second (or the minute) turns; the
     /// island's own tick isn't tied to the clock's second.
     pub(super) fn sync_clock(&self) {
-        if self.stage.shown().menu && self.record_panel.page().is_none() {
+        if self.stage.shown().sheet == Some(Sheet::Controls) && self.record_panel.page().is_none() {
             let now = platform::wall_clock();
             let mut wait = 1000 - u32::from(now.millis);
             if !self.settings.clock_seconds {
@@ -211,7 +217,7 @@ impl App {
 
     pub(super) fn on_clock_timer(&mut self) {
         self.kill_timer(timers::CLOCK);
-        if self.visible && self.stage.shown().menu {
+        if self.visible && self.stage.shown().sheet == Some(Sheet::Controls) {
             self.render();
         }
         self.sync_clock();

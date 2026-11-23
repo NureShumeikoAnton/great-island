@@ -18,8 +18,8 @@ const ARRIVE_FROM: f32 = 12.0;
 
 fn sign(pull: Pull) -> f32 {
     match pull {
-        Pull::Open => 1.0,
-        Pull::Close => -1.0,
+        Pull::Down => 1.0,
+        Pull::Up => -1.0,
     }
 }
 

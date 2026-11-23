@@ -448,7 +448,12 @@ impl Scene {
             self.scale,
         )?;
         let text_x = RING + 6.0;
-        self.place(&group, &text.visual, text_x, (LEVEL - text.height) / 2.0)?;
+        self.place(
+            &group,
+            &text.visual,
+            text_x,
+            self.comp.center_top(&text, LEVEL),
+        )?;
         let width = text_x + text.width;
         group.SetSize(v2(width, LEVEL))?;
         self.place(root, &group, middle - width / 2.0, top)?;
@@ -501,13 +506,13 @@ impl Scene {
         let label = self
             .comp
             .text(&small.title, style(13.0, true, TEXT), self.scale)?;
-        self.place(root, &label.visual, x, (30.0 - label.height) / 2.0)?;
+        self.place(root, &label.visual, x, self.comp.center_top(&label, 30.0))?;
         x += label.width;
         if let Some(dim) = small.dim {
             let dim = self
                 .comp
                 .text(&format!(" {dim}"), style(13.0, false, MUTED), self.scale)?;
-            self.place(root, &dim.visual, x, (30.0 - dim.height) / 2.0)?;
+            self.place(root, &dim.visual, x, self.comp.center_top(&dim, 30.0))?;
             x += dim.width;
         }
         if let Some((value, hex)) = small.value {
@@ -516,7 +521,7 @@ impl Scene {
                 root,
                 &value.visual,
                 x + VALUE_GAP,
-                (30.0 - value.height) / 2.0,
+                self.comp.center_top(&value, 30.0),
             )?;
         }
         Ok(())

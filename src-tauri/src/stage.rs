@@ -8,17 +8,19 @@
 //!
 //! Pure logic: time comes in as milliseconds.
 
-use crate::gesture::{Dir, Edges, Pull};
+use crate::gesture::{Dir, Edges};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Activity {
     Timers,
     Player,
+    /// An app's page while something goes on in it (an air raid alert).
+    App,
 }
 
 /// The ribbon order is fixed: priorities decide what is on screen but never reorder it, so swiping
 /// is predictable. Timers come first: they are the island's "home".
-pub const RIBBON: [Activity; 2] = [Activity::Timers, Activity::Player];
+pub const RIBBON: [Activity; 3] = [Activity::Timers, Activity::Player, Activity::App];
 
 impl Activity {
     fn index(self) -> usize {
@@ -84,6 +86,9 @@ pub enum NoticeKind {
     DeviceLow,
     /// Windows moved the sound or the microphone to another device.
     AudioSwitch,
+    /// An app's news (`apps::Notice`) the user must not miss: it passes Do Not Disturb.
+    AppUrgent,
+    AppNews,
 }
 
 impl NoticeKind {
@@ -117,12 +122,16 @@ impl NoticeKind {
             | Self::DeviceConnected
             | Self::DeviceDisconnected
             | Self::DeviceLow
-            | Self::AudioSwitch => None,
+            | Self::AudioSwitch
+            | Self::AppUrgent
+            | Self::AppNews => None,
         }
     }
 
     fn priority(self) -> u8 {
         match self {
+            // An air raid alert goes before a reminder: the reminder waits a few seconds.
+            Self::AppUrgent => 101,
             Self::Alert => 100,
             // Right after a reminder: the computer is about to go off.
             Self::CriticalCharge => 95,
@@ -148,7 +157,8 @@ impl NoticeKind {
             | Self::Usage
             | Self::Download
             | Self::DeviceConnected
-            | Self::DeviceDisconnected => 60,
+            | Self::DeviceDisconnected
+            | Self::AppNews => 60,
             Self::Paused => 40,
             // A state ranks lowest: news briefly sits over it.
             Self::Viewing => 10,
@@ -190,6 +200,8 @@ impl NoticeKind {
             Self::DeviceConnected => Some(5000),
             Self::DeviceDisconnected | Self::AudioSwitch => Some(2500),
             Self::DeviceLow => Some(3000),
+            Self::AppUrgent => Some(10_000),
+            Self::AppNews => Some(5000),
         }
     }
 
@@ -213,7 +225,10 @@ impl NoticeKind {
             // The charge is still that low when the way is clear.
             | Self::CriticalCharge
             // Still coming when the way is clear.
-            | Self::Downloading => None,
+            | Self::Downloading
+            // Still true when the way is clear: an alert lasts long.
+            | Self::AppUrgent => None,
+            Self::AppNews => Some(60_000),
             // Nobody wants "checking" or "up to date" after the moment has passed.
             Self::UpdateChecking => Some(500),
             Self::UpdateDone => Some(2000),
@@ -230,7 +245,10 @@ impl NoticeKind {
     /// A priority notice breaks through the island being hidden from the tray,
     /// as Windows priority notifications break through Do Not Disturb.
     pub fn is_priority(self) -> bool {
-        matches!(self, Self::Alert | Self::Failure | Self::CriticalCharge)
+        matches!(
+            self,
+            Self::Alert | Self::Failure | Self::CriticalCharge | Self::AppUrgent
+        )
     }
 
     /// Shown over a fullscreen app whatever the fullscreen setting says.
@@ -261,6 +279,7 @@ impl NoticeKind {
                 | Self::DeviceDisconnected
                 | Self::DeviceLow
                 | Self::AudioSwitch
+                | Self::AppNews
         )
     }
 
@@ -292,11 +311,18 @@ pub struct ShownNotice {
     pub kind: NoticeKind,
 }
 
+/// What is pulled out of the island over the ribbon: down the control center, up the apps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sheet {
+    Controls,
+    Apps,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Shown {
     pub activity: Activity,
     pub notice: Option<ShownNotice>,
-    pub menu: bool,
+    pub sheet: Option<Sheet>,
 }
 
 #[derive(Debug)]
@@ -313,7 +339,7 @@ pub struct Stage {
     manual: Option<Activity>,
     notices: Vec<Notice>,
     held: bool,
-    menu: bool,
+    sheet: Option<Sheet>,
     quiet: bool,
     next_id: u64,
     shown: Shown,
@@ -334,13 +360,13 @@ impl Stage {
             manual: None,
             notices: Vec::new(),
             held: false,
-            menu: false,
+            sheet: None,
             quiet: false,
             next_id: 1,
             shown: Shown {
                 activity: Activity::Timers,
                 notice: None,
-                menu: false,
+                sheet: None,
             },
         }
     }
@@ -405,20 +431,20 @@ impl Stage {
         self.settle(now)
     }
 
-    /// The control center opens over everything except a reminder.
+    /// A sheet opens over everything except a reminder; one replaces the other.
     /// While it is open, non-priority notices wait in the queue.
-    pub fn open_menu(&mut self, now: u64) -> bool {
+    pub fn open_sheet(&mut self, sheet: Sheet, now: u64) -> bool {
         if !self.can_swipe() {
             return false;
         }
-        // Whoever reaches for the menu has seen the problem: it must not push the menu away.
+        // Whoever reaches for a sheet has seen the problem: it must not push the sheet away.
         self.notices.retain(|n| !n.kind.is_problem());
-        self.menu = true;
+        self.sheet = Some(sheet);
         self.settle(now)
     }
 
-    pub fn close_menu(&mut self, now: u64) -> bool {
-        self.menu = false;
+    pub fn close_sheet(&mut self, now: u64) -> bool {
+        self.sheet = None;
         self.settle(now)
     }
 
@@ -453,15 +479,18 @@ impl Stage {
         (present.len(), current)
     }
 
-    /// Where one can swipe from here. In the open menu only up, to close it:
-    /// the menu isn't a ribbon activity, so paging from it isn't allowed.
+    /// Where one can swipe from here. From a sheet only back the way it came, to close it: a
+    /// sheet isn't a ribbon activity, so paging from it isn't allowed. Whether there are any apps
+    /// to pull up is the island's to say.
     pub fn edges(&self) -> Edges {
         if !self.can_swipe() {
             return Edges::default();
         }
-        if self.menu {
+        if let Some(sheet) = self.sheet {
             return Edges {
-                pull: Some(Pull::Close),
+                up: sheet == Sheet::Controls,
+                down: sheet == Sheet::Apps,
+                sheet: true,
                 ..Edges::default()
             };
         }
@@ -473,14 +502,17 @@ impl Stage {
         }
         if self.shows_fixed() {
             return Edges {
-                pull: Some(Pull::Open),
+                down: true,
+                up: true,
                 ..Edges::default()
             };
         }
         Edges {
             prev: self.neighbor(Dir::Prev).is_some(),
             next: self.neighbor(Dir::Next).is_some(),
-            pull: Some(Pull::Open),
+            down: true,
+            up: true,
+            sheet: false,
             dismiss: false,
         }
     }
@@ -500,7 +532,7 @@ impl Stage {
         if self.shows_dismissable() {
             return self.dismiss(now);
         }
-        if !self.can_swipe() || self.menu || self.shows_fixed() {
+        if !self.can_swipe() || self.sheet.is_some() || self.shows_fixed() {
             return false;
         }
         let Some(target) = self.neighbor(dir) else {
@@ -526,7 +558,7 @@ impl Stage {
     }
 
     fn shows_dismissable(&self) -> bool {
-        !self.menu && self.shown.notice.is_some_and(|n| n.kind.dismissable())
+        self.sheet.is_none() && self.shown.notice.is_some_and(|n| n.kind.dismissable())
     }
 
     fn shows_fixed(&self) -> bool {
@@ -568,13 +600,13 @@ impl Stage {
 
         let background = self.manual.unwrap_or_else(|| self.auto_rest());
         let presence = self.presence;
-        let menu = self.menu;
-        // While the menu is open only a priority notice can break through.
+        let sheet = self.sheet.is_some();
+        // While a sheet is open only a priority notice can break through.
         let visible = |n: &&mut Notice| {
             n.kind
                 .activity()
                 .is_none_or(|a| presence[a.index()] != Presence::Absent)
-                && (!menu || n.kind.is_priority())
+                && (!sheet || n.kind.is_priority())
         };
         let top = self.notices.iter_mut().filter(visible).max_by(|a, b| {
             a.kind
@@ -586,7 +618,7 @@ impl Stage {
             Some(n) => {
                 n.shown_at.get_or_insert(now);
                 if n.kind.is_priority() {
-                    self.menu = false;
+                    self.sheet = None;
                 }
                 Shown {
                     activity: n.kind.activity().unwrap_or(background),
@@ -594,13 +626,13 @@ impl Stage {
                         id: n.id,
                         kind: n.kind,
                     }),
-                    menu: self.menu,
+                    sheet: self.sheet,
                 }
             }
             None => Shown {
                 activity: background,
                 notice: None,
-                menu: self.menu,
+                sheet: self.sheet,
             },
         };
         let changed = shown != self.shown;
@@ -630,7 +662,8 @@ mod tests {
         assert_eq!(
             s.edges(),
             Edges {
-                pull: Some(Pull::Open),
+                down: true,
+                up: true,
                 ..Edges::default()
             }
         );
@@ -641,28 +674,50 @@ mod tests {
     fn open_menu_only_closes_and_does_not_swipe() {
         let mut s = Stage::new();
         playing(&mut s, 0);
-        assert!(s.open_menu(0));
-        assert!(s.shown().menu);
+        assert!(s.open_sheet(Sheet::Controls, 0));
+        assert!(s.shown().sheet.is_some());
         assert_eq!(
             s.edges(),
             Edges {
-                pull: Some(Pull::Close),
+                up: true,
+                sheet: true,
                 ..Edges::default()
             }
         );
         assert!(!s.step(Dir::Prev, 10));
-        assert!(s.close_menu(20));
-        assert_eq!((s.shown().activity, s.shown().menu), (Player, false));
+        assert!(s.close_sheet(20));
+        assert_eq!(
+            (s.shown().activity, s.shown().sheet.is_some()),
+            (Player, false)
+        );
+    }
+
+    #[test]
+    fn the_apps_close_downward_and_one_sheet_replaces_the_other() {
+        let mut s = Stage::new();
+        assert!(s.open_sheet(Sheet::Apps, 0));
+        assert_eq!(
+            s.edges(),
+            Edges {
+                down: true,
+                sheet: true,
+                ..Edges::default()
+            }
+        );
+        assert!(s.open_sheet(Sheet::Controls, 10));
+        assert_eq!(s.shown().sheet, Some(Sheet::Controls));
+        assert!(s.close_sheet(20));
+        assert_eq!(s.shown().sheet, None);
     }
 
     #[test]
     fn track_waits_while_menu_is_open() {
         let mut s = Stage::new();
         playing(&mut s, 0);
-        s.open_menu(0);
+        s.open_sheet(Sheet::Controls, 0);
         s.post(Track, 100);
         assert_eq!(kind(&s), None);
-        s.close_menu(1000);
+        s.close_sheet(1000);
         assert_eq!(kind(&s), Some(Track));
     }
 
@@ -722,7 +777,8 @@ mod tests {
         assert_eq!(
             s.edges(),
             Edges {
-                pull: Some(Pull::Open),
+                down: true,
+                up: true,
                 ..Edges::default()
             },
             "ленту не листать, меню — можно"
@@ -734,9 +790,9 @@ mod tests {
         s.tick(5100);
         assert_eq!(kind(&s), Some(Viewing), "и снова состояние");
 
-        assert!(s.open_menu(6000));
-        assert!(s.shown().menu);
-        s.close_menu(7000);
+        assert!(s.open_sheet(Sheet::Controls, 6000));
+        assert!(s.shown().sheet.is_some());
+        s.close_sheet(7000);
         assert_eq!(kind(&s), Some(Viewing));
         s.end(Viewing, 8000);
         assert_eq!((s.shown().activity, kind(&s)), (Player, None));
@@ -761,11 +817,11 @@ mod tests {
     #[test]
     fn alert_closes_menu_and_menu_does_not_open_over_it() {
         let mut s = Stage::new();
-        s.open_menu(0);
+        s.open_sheet(Sheet::Controls, 0);
         assert!(s.post(Alert, 100));
-        assert!(!s.shown().menu);
+        assert!(!s.shown().sheet.is_some());
         assert_eq!(kind(&s), Some(Alert));
-        assert!(!s.open_menu(200));
+        assert!(!s.open_sheet(Sheet::Controls, 200));
         assert_eq!(s.edges(), Edges::default());
     }
 
@@ -923,8 +979,8 @@ mod tests {
         assert_eq!(kind(&s), Some(Recording));
         assert_eq!(s.next_wake(), None, "запись держится, пока её не остановят");
         assert!(!s.step(Dir::Next, 10));
-        assert!(s.open_menu(20));
-        s.close_menu(30);
+        assert!(s.open_sheet(Sheet::Controls, 20));
+        s.close_sheet(30);
         s.post(Alert, 40);
         assert_eq!(kind(&s), Some(Alert));
         s.end(Alert, 50);
@@ -964,11 +1020,11 @@ mod tests {
     #[test]
     fn failure_closes_the_menu_and_a_warning_waits_for_it() {
         let mut s = Stage::new();
-        s.open_menu(0);
+        s.open_sheet(Sheet::Controls, 0);
         assert!(!s.post(Warning, 100));
-        assert!(s.shown().menu);
+        assert!(s.shown().sheet.is_some());
         assert!(s.post(Failure, 200));
-        assert!(!s.shown().menu);
+        assert!(!s.shown().sheet.is_some());
         assert_eq!(kind(&s), Some(Failure));
         assert!(Failure.is_priority() && !Warning.is_priority());
     }
@@ -977,8 +1033,8 @@ mod tests {
     fn opening_the_menu_dismisses_a_problem() {
         let mut s = Stage::new();
         s.post(Failure, 0);
-        assert!(s.open_menu(100));
-        assert!(s.shown().menu);
+        assert!(s.open_sheet(Sheet::Controls, 100));
+        assert!(s.shown().sheet.is_some());
         assert!(!s.has(Failure));
     }
 
@@ -1035,10 +1091,10 @@ mod tests {
         for k in [LowCharge, Power, SlowCharge, Usage] {
             assert!(!quiet.post(k, 0), "{k:?}");
         }
-        quiet.open_menu(0);
+        quiet.open_sheet(Sheet::Controls, 0);
         quiet.post(CriticalCharge, 0);
         assert_eq!(kind(&quiet), Some(CriticalCharge));
-        assert!(!quiet.shown().menu);
+        assert!(!quiet.shown().sheet.is_some());
     }
 
     #[test]

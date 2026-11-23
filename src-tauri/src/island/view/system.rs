@@ -344,12 +344,12 @@ impl Scene {
                 let label = self
                     .comp
                     .text(&title, style(13.0, true, TEXT), self.scale)?;
-                self.place(&root, &label.visual, x, (30.0 - label.height) / 2.0)?;
+                self.place(&root, &label.visual, x, self.comp.center_top(&label, 30.0))?;
                 x += label.width;
                 if let Some(dim) = dim {
                     let dim_style = style(13.0, false, MUTED);
                     let dim = self.comp.text(&format!(" {dim}"), dim_style, self.scale)?;
-                    self.place(&root, &dim.visual, x, (30.0 - dim.height) / 2.0)?;
+                    self.place(&root, &dim.visual, x, self.comp.center_top(&dim, 30.0))?;
                     x += dim.width;
                 }
                 let value = self
@@ -359,7 +359,7 @@ impl Scene {
                     &root,
                     &value.visual,
                     x + VALUE_GAP,
-                    (30.0 - value.height) / 2.0,
+                    self.comp.center_top(&value, 30.0),
                 )?;
             }
             Look::Medium {
@@ -528,7 +528,12 @@ impl Scene {
             }
             let name = self.comp.fit(app.name, name_style, bar_x - 10.0 - name_x);
             let name = self.comp.text(&name, name_style, self.scale)?;
-            self.place(root, &name.visual, name_x, y + (ROW - name.height) / 2.0)?;
+            self.place(
+                root,
+                &name.visual,
+                name_x,
+                y + self.comp.center_top(&name, ROW),
+            )?;
 
             let bar_y = y + (ROW - BAR.1) / 2.0;
             let track = self.rounded_rect(BAR.0, BAR.1, BAR.1 / 2.0, color("#FFFFFF", 0.12))?;
@@ -550,7 +555,7 @@ impl Scene {
                 root,
                 &pc.visual,
                 right - pc.width,
-                y + (ROW - pc.height) / 2.0,
+                y + self.comp.center_top(&pc, ROW),
             )?;
             y += ROW + ROW_SPACE;
         }

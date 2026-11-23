@@ -2,8 +2,8 @@
 //! - **indicator**: a short 30 px capsule for 2 s when sound or microphone was toggled not from the island
 //!   (key, tray): the icon and what happened;
 //! - **mode badges**: a small moon and cup in the collapsed island while Do Not Disturb and Keep awake are on,
-//!   a circle with "!" while there is a problem not yet seen, and a red battery with its
-//!   percentage below 10% on battery.
+//!   a circle with "!" while there is a problem not yet seen, a red battery with its
+//!   percentage below 10% on battery, and an app's grey sign while something goes on in it.
 
 use super::super::glyph::Glyph;
 use super::system::{BADGE_BATTERY, Battery, Fx, battery_top, battery_width};
@@ -20,17 +20,24 @@ pub struct Modes {
     pub problem: bool,
     /// The critical charge's percentage.
     pub battery: Option<u8>,
+    /// An app's sign while something goes on in it (an air raid alert).
+    pub app: Option<crate::apps::Icon>,
 }
 
 impl Modes {
     fn glyphs(self) -> impl Iterator<Item = Glyph> {
+        let app = self.app.map(|icon| match icon {
+            crate::apps::Icon::Calculator => Glyph::Calculator,
+            crate::apps::Icon::Siren => Glyph::Siren,
+        });
         [
-            (self.problem, Glyph::Problem),
-            (self.quiet, Glyph::Moon),
-            (self.awake, Glyph::Coffee),
+            self.problem.then_some(Glyph::Problem),
+            self.quiet.then_some(Glyph::Moon),
+            self.awake.then_some(Glyph::Coffee),
+            app,
         ]
         .into_iter()
-        .filter_map(|(on, glyph)| on.then_some(glyph))
+        .flatten()
     }
 }
 
@@ -97,7 +104,12 @@ impl Scene {
                 .comp
                 .text(&format!("{percent}%"), percent_style(), self.scale)?;
             let text_x = x + battery_width(BADGE_BATTERY, false) + PERCENT_GAP;
-            self.place(root, &label.visual, text_x, (30.0 - label.height) / 2.0)?;
+            self.place(
+                root,
+                &label.visual,
+                text_x,
+                self.comp.center_top(&label, 30.0),
+            )?;
             x += self.battery_badge_width(percent);
         }
         for (i, glyph) in modes.glyphs().enumerate() {
@@ -143,7 +155,7 @@ impl Scene {
         self.place(&root, &label.visual, x, 0.0)?;
         label.visual.SetOffset(super::v3(
             snap(x, self.scale),
-            snap((30.0 - label.height) / 2.0, self.scale),
+            snap(self.comp.center_top(&label, 30.0), self.scale),
         ))?;
         Ok(())
     }
@@ -174,7 +186,7 @@ impl Scene {
         self.place(&root, &label.visual, x, 0.0)?;
         label.visual.SetOffset(super::v3(
             snap(x, self.scale),
-            snap((30.0 - label.height) / 2.0, self.scale),
+            snap(self.comp.center_top(&label, 30.0), self.scale),
         ))?;
         Ok(())
     }

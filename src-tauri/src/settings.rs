@@ -1,6 +1,7 @@
 //! App settings: the reminder list and general parameters, stored as JSON in the app config folder.
 
 use crate::{
+    apps::prefs::{self, AppPrefs},
     hotkey::Hotkey,
     lang::{self, Lang, tr, tr_for},
     record::choice::Choice,
@@ -98,6 +99,8 @@ pub struct Settings {
     pub clock_seconds: bool,
     /// Space on a photo or a video in Explorer opens it in the viewer.
     pub explorer_space: bool,
+    #[serde(deserialize_with = "prefs::lenient")]
+    pub apps: AppPrefs,
 }
 
 /// The island reads it once at start: a change applies after a restart.
@@ -210,6 +213,7 @@ impl Settings {
             battery_percent: false,
             clock_seconds: true,
             explorer_space: true,
+            apps: AppPrefs::new(),
         }
     }
 }
@@ -433,6 +437,19 @@ mod tests {
         assert_eq!(tones[TONES.len()], "bell");
     }
 
+    /// Whatever an app left in its entry, the rest of the settings stay.
+    #[test]
+    fn a_broken_app_entry_resets_nothing_else() {
+        let text = r#"{"volume":0.3,"apps":{"calculator":{"on":false},"weather":{"on":"yes"}}}"#;
+        let settings: Settings = serde_json::from_str(text).expect("читается");
+        assert_eq!(settings.volume, 0.3);
+        assert_eq!(settings.apps["calculator"].on, Some(false));
+        assert!(!settings.apps.contains_key("weather"));
+        let again: Settings =
+            serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+        assert_eq!(again, settings);
+    }
+
     /// Settings saved before screen recording keep everything and get no record key.
     #[test]
     fn old_settings_load_without_recording() {
@@ -458,6 +475,7 @@ mod tests {
         assert!(!old.battery_percent && old.clock_seconds);
         assert!(!old.shot_clipboard);
         assert!(old.explorer_space);
+        assert!(old.apps.is_empty());
         assert_eq!(old.scan_key, None);
         assert_eq!(old.scan_language, "");
         assert_eq!(old.scan_breaks, Breaks::Keep);

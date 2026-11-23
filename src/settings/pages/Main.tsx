@@ -9,7 +9,7 @@ import { Group, Row, ToggleRow } from "../ui";
 export function MainPage() {
   const { t, i18n } = useTranslation();
   const { go } = useNav();
-  const { settings, update, info, updating, problemsToday } = useSettings();
+  const { settings, update, info, updating, problemsToday, apps, appOn } = useSettings();
   const shotKey = useKeyLabel(settings.screenshotKey);
   const recordKey = useKeyLabel(settings.recordKey);
   const on = settings.reminders.filter((r) => r.enabled).length;
@@ -82,6 +82,13 @@ export function MainPage() {
           value={t(notifying ? "main.on" : "main.off")}
           opens
           onClick={() => go({ id: "notifications" })}
+        />
+        <Row
+          icon={{ glyph: "apps", color: "var(--c-purple)" }}
+          label={t("page.apps")}
+          value={t("main.apps_value", { on: apps.filter(appOn).length, all: apps.length })}
+          opens
+          onClick={() => go({ id: "apps" })}
         />
       </Group>
 

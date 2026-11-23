@@ -114,6 +114,36 @@ const PATHS = {
     </>
   ),
   dot: <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />,
+  apps: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.8" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.8" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.8" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.8" />
+    </>
+  ),
+  // The island draws the same siren (`island/glyph.rs`).
+  siren: (
+    <>
+      <path d="M7 18v-6a5 5 0 0 1 10 0v6" />
+      <path d="M5 18h14v3H5z" />
+      <path d="M12 2.5v2M4.3 6.2l1.5 1.2M19.7 6.2l-1.5 1.2" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  // The island's tile draws the same calculator (`island/glyph.rs`).
+  calculator: (
+    <>
+      <rect x="5" y="2.5" width="14" height="19" rx="3" />
+      <rect x="8.5" y="6" width="7" height="3.5" rx="0.8" fill="currentColor" stroke="none" />
+      <path d="M9 13.5h.01M12 13.5h.01M15 13.5h.01M9 17.3h.01M12 17.3h.01M15 17.3h.01" strokeWidth="2.4" />
+    </>
+  ),
 };
 
 export type GlyphName = keyof typeof PATHS;

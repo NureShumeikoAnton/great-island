@@ -5,6 +5,17 @@ New entries go at the top under "Unreleased" and move under a version number whe
 
 ## Unreleased
 
+## 0.10.0 — 2026-11-23
+
+### Added
+
+- Apps: swiping the island up opens a row of apps, the first one is the calculator; the settings have an "Apps & Connectors" section.
+- The "Air raid alerts" connector: notices of an alert and its end at the chosen place, a ribbon page while the alert lasts.
+
+### Fixed
+
+- Text on the island sits right in the middle: in notices, badges, the recording panel, the player and the timers.
+
 ## 0.9.0 — 2026-11-22
 
 ### Added

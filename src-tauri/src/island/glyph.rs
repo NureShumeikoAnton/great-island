@@ -130,6 +130,12 @@ pub enum Glyph {
     Keyboard,
     Gamepad,
     Phone,
+    // App tiles, viewBox 20.
+    Calculator,
+    Siren,
+    Warning,
+    // Signs on an app's keys (`apps::ui::Symbol`), viewBox 20.
+    Backspace,
 }
 
 enum Part {
@@ -708,6 +714,77 @@ impl Glyph {
                 ),
             ],
             Self::Back => &[Line(&[Move(12.5, 4.5), To(7.0, 10.0), To(12.5, 15.5)], 1.8)],
+            Self::Calculator => &[
+                RectOutline(4.0, 2.0, 12.0, 16.0, 2.6, 1.6),
+                Rect(6.8, 4.8, 6.4, 3.0, 0.8),
+                Circle(7.6, 11.0, 1.05),
+                Circle(10.0, 11.0, 1.05),
+                Circle(12.4, 11.0, 1.05),
+                Circle(7.6, 14.4, 1.05),
+                Circle(10.0, 14.4, 1.05),
+                Circle(12.4, 14.4, 1.05),
+            ],
+            // The eye centres on the dome and base, not the thin rays, so those sit mid-box (4.0 to 16.2).
+            Self::Siren => &[
+                Line(
+                    &[
+                        Move(5.6, 13.4),
+                        To(5.6, 9.2),
+                        ArcCw(14.4, 9.2, 4.4),
+                        To(14.4, 13.4),
+                    ],
+                    1.6,
+                ),
+                Rect(3.4, 13.2, 13.2, 3.0, 1.0),
+                Line(
+                    &[
+                        Move(10.0, 1.4),
+                        To(10.0, 2.8),
+                        Move(3.6, 4.0),
+                        To(4.7, 5.0),
+                        Move(16.4, 4.0),
+                        To(15.3, 5.0),
+                    ],
+                    1.5,
+                ),
+            ],
+            Self::Warning => &[
+                Line(
+                    &[
+                        Move(10.0, 3.2),
+                        To(17.6, 16.4),
+                        To(2.4, 16.4),
+                        To(10.0, 3.2),
+                    ],
+                    1.6,
+                ),
+                Rect(9.2, 7.6, 1.6, 4.8, 0.8),
+                Circle(10.0, 14.2, 0.95),
+            ],
+            Self::Backspace => &[
+                Line(
+                    &[
+                        Move(7.4, 4.75),
+                        To(15.3, 4.75),
+                        ArcCw(17.5, 6.95, 2.2),
+                        To(17.5, 13.05),
+                        ArcCw(15.3, 15.25, 2.2),
+                        To(7.4, 15.25),
+                        To(2.6, 10.0),
+                        To(7.4, 4.75),
+                    ],
+                    1.5,
+                ),
+                Line(
+                    &[
+                        Move(9.6, 7.9),
+                        To(13.8, 12.1),
+                        Move(13.8, 7.9),
+                        To(9.6, 12.1),
+                    ],
+                    1.5,
+                ),
+            ],
             Self::Brush => &[Line(
                 &[
                     Move(3.0, 14.0),

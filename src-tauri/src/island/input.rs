@@ -13,9 +13,10 @@ use super::{
     view::{HOLD_MS, Hit, Mode, PlayerHit},
 };
 use crate::control::ControlId;
-use crate::gesture::{Dir, Gestures, Output, Pull, Settle, Zone};
+use crate::gesture::{Dir, Edges, Gestures, Output, Pull, Settle, Zone};
 use crate::platform;
 use crate::record::panel::Press;
+use crate::stage::Sheet;
 use windows::Win32::{
     Foundation::{LPARAM, WPARAM},
     UI::Input::KeyboardAndMouse::{
@@ -155,6 +156,7 @@ impl App {
     }
 
     pub(super) fn on_mouse_down(&mut self, p: (i32, i32)) {
+        self.reclaim_keyboard();
         let (x, y) = self.logical(p);
         let hit = self.scene.hit_test(x, y);
         if hit == Some(Hit::Player(PlayerHit::Seek)) {
@@ -196,6 +198,8 @@ impl App {
             Some(Hit::Player(PlayerHit::Copy)) if self.stage.can_swipe() => Zone::Swipe,
             // The downloads card is all picture and text: a move over them takes the notice away.
             Some(Hit::DownloadOpen | Hit::DownloadFolder) => Zone::Swipe,
+            // The whole card is the ribbon's page: a click opens it, a move goes on along the ribbon.
+            Some(Hit::Ribbon) => Zone::Swipe,
             Some(_) => Zone::Button,
             None if self.stage.can_swipe() => Zone::Swipe,
             None => Zone::Button,
@@ -203,7 +207,7 @@ impl App {
         self.pointer.pressed = hit;
         self.pointer
             .gestures
-            .press(self.now_ms(), x, y, zone, self.stage.edges());
+            .press(self.now_ms(), x, y, zone, self.edges());
         unsafe {
             SetCapture(self.island);
         }
@@ -298,7 +302,7 @@ impl App {
         if !self.stage.can_swipe() {
             return;
         }
-        let (now, edges) = (self.now_ms(), self.stage.edges());
+        let (now, edges) = (self.now_ms(), self.edges());
         let output = if horizontal {
             self.pointer.gestures.hscroll(now, delta, edges)
         } else {
@@ -308,6 +312,25 @@ impl App {
             self.on_gesture(output);
         }
         self.schedule_gesture();
+    }
+
+    /// The stage's edges, with no pull up while no app is on.
+    fn edges(&self) -> Edges {
+        let mut edges = self.stage.edges();
+        if self.stage.shown().sheet.is_none() {
+            edges.up &= self.has_apps();
+        }
+        edges
+    }
+
+    /// What a pull that way opens: from the ribbon down the control center, up the apps; from a
+    /// sheet, back to the ribbon.
+    fn pulled_to(&self, pull: Pull) -> Option<Sheet> {
+        match (self.stage.shown().sheet, pull) {
+            (None, Pull::Down) => Some(Sheet::Controls),
+            (None, Pull::Up) => Some(Sheet::Apps),
+            (Some(_), _) => None,
+        }
     }
 
     fn cancel_hold(&mut self) {
@@ -372,9 +395,10 @@ impl App {
                 }
             }
             Output::Pull(pull, offset) => {
-                let target = match pull {
-                    Pull::Open => self.view_input(Mode::Menu),
-                    Pull::Close => self.view_input(self.activity_mode()),
+                let target = match self.pulled_to(pull) {
+                    Some(Sheet::Controls) => self.view_input(Mode::Menu),
+                    Some(Sheet::Apps) => self.view_input(Mode::Apps),
+                    None => self.view_input(self.activity_mode()),
                 };
                 log(self.scene.pull(pull, offset, &target.model()));
                 if let Some(size) = self.scene.gesture_size() {
@@ -385,9 +409,9 @@ impl App {
                 log(self.scene.settle_pull(pull, commit));
                 self.purge_later();
                 let now = self.now_ms();
-                let changed = match (pull, commit) {
-                    (Pull::Open, true) => self.stage.open_menu(now),
-                    (Pull::Close, true) => self.stage.close_menu(now),
+                let changed = match (self.pulled_to(pull), commit) {
+                    (Some(sheet), true) => self.stage.open_sheet(sheet, now),
+                    (None, true) => self.stage.close_sheet(now),
                     (_, false) => false,
                 };
                 self.after_stage(changed);
@@ -461,6 +485,10 @@ impl App {
             Hit::DownloadOpen => self.open_download(),
             Hit::DownloadFolder => self.show_downloads(),
             Hit::Scan(hit) => self.scan_click(hit),
+            Hit::Launch(index) => self.launch_app(index),
+            Hit::AppBack => self.close_app(),
+            Hit::Ribbon => self.open_ribbon_app(),
+            Hit::App(action) => self.app_press(action),
         }
     }
 }

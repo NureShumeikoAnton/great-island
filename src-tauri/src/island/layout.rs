@@ -28,7 +28,8 @@ impl App {
             .1
             .max(card.1)
             .max(menu.1)
-            .max(PANEL_TALLEST);
+            .max(PANEL_TALLEST)
+            .max(self.tallest_app());
         self.frame = (FRAME_WIDTH, height + OVERSHOOT.1);
 
         // The second pass is needed if the window moved to a monitor with a different scale.

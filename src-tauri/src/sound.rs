@@ -133,6 +133,12 @@ pub enum Cue {
     Pulse,
     /// Critical charge: one note sliding down, with a quiet echo.
     Fall,
+    /// An alert: a tone rising and falling, twice, like a siren far off.
+    Alarm,
+    /// A lower level of it: two soft notes down.
+    Caution,
+    /// It is over: three notes up.
+    Clear,
 }
 
 struct Note {
@@ -166,9 +172,27 @@ impl Cue {
             note(880.0, 0.0, 0.24, 0.55, 0.75),
             note(880.0, 0.28, 0.07, 0.45, 0.75),
         ];
+        const ALARM: [Note; 4] = [
+            note(587.33, 0.0, 0.26, 0.58, 1.335),
+            note(783.99, 0.58, 0.26, 0.58, 0.749),
+            note(587.33, 1.16, 0.22, 0.58, 1.335),
+            note(783.99, 1.74, 0.22, 0.62, 0.749),
+        ];
+        const CAUTION: [Note; 2] = [
+            note(659.25, 0.0, 0.17, 0.5, 1.0),
+            note(523.25, 0.26, 0.15, 0.62, 1.0),
+        ];
+        const CLEAR: [Note; 3] = [
+            note(523.25, 0.0, 0.13, 0.5, 1.0),
+            note(659.25, 0.13, 0.13, 0.5, 1.0),
+            note(783.99, 0.26, 0.14, 0.7, 1.0),
+        ];
         match self {
             Self::Pulse => &PULSE,
             Self::Fall => &FALL,
+            Self::Alarm => &ALARM,
+            Self::Caution => &CAUTION,
+            Self::Clear => &CLEAR,
         }
     }
 
@@ -176,6 +200,8 @@ impl Cue {
         match self {
             Self::Pulse => &[(1.0, 1.0), (2.0, 0.18)],
             Self::Fall => &[(1.0, 1.0), (2.0, 0.25), (3.0, 0.08)],
+            Self::Alarm => &[(1.0, 1.0), (2.0, 0.3), (3.0, 0.12)],
+            Self::Caution | Self::Clear => &[(1.0, 1.0), (2.0, 0.12)],
         }
     }
 }

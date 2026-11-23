@@ -442,7 +442,7 @@ impl Scene {
             &details,
             &fade.visual,
             PAD + SMALL_INSET + ROW_ICON_W,
-            FADE_Y + (SMALL_H - fade.height) / 2.0,
+            FADE_Y + self.comp.center_top(&fade, SMALL_H),
         )?;
         let switch_x = WIDTH - PAD - SWITCH_W;
         let switch_y = FADE_Y + (SMALL_H - SWITCH_H) / 2.0;
@@ -588,7 +588,7 @@ impl Scene {
             self.comp.set_text(&mut parts.count_text, &label, s)?;
             parts.count_text.visual.SetOffset(v3(
                 snap((ROUND - parts.count_text.width) / 2.0, s),
-                snap((ROUND - parts.count_text.height) / 2.0, s),
+                snap(self.comp.center_top(&parts.count_text, ROUND), s),
             ))?;
         }
         let (base, hover) = if counting {

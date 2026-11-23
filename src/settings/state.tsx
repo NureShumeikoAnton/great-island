@@ -1,7 +1,16 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AppInfo, type Display, type Hotkey, type Reminder, type Settings, type UpdateView } from "../api";
+import {
+  api,
+  type AppInfo,
+  type AppView,
+  type Display,
+  type Hotkey,
+  type Reminder,
+  type Settings,
+  type UpdateView,
+} from "../api";
 
 export interface SettingsState {
   settings: Settings;
@@ -15,6 +24,13 @@ export interface SettingsState {
   /** Where the update stands: the island keeps it, this window only shows it. */
   updating: UpdateView | null;
   displays: Display[];
+  apps: AppView[];
+  /** Whether the app is on, by the settings or by its kind. */
+  appOn: (app: AppView) => boolean;
+  setAppOn: (id: string, on: boolean) => void;
+  /** A declared setting of an app, or its default. */
+  appValue: (app: AppView, key: string) => unknown;
+  setAppValue: (id: string, key: string, value: unknown) => void;
   defaultShots: string;
   defaultRecordings: string;
   /** Critical problems in the journal today. */

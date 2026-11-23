@@ -73,6 +73,53 @@ export interface Settings {
   clockSeconds: boolean;
   /** Space on a photo or a video in Explorer opens it in the viewer. */
   explorerSpace: boolean;
+  /** By app id; an app never switched has no entry. */
+  apps: Record<string, AppPrefs>;
+}
+
+export interface AppPrefs {
+  /** Absent: never switched, the kind's default (`AppView.onByDefault`). */
+  on?: boolean;
+  values?: Record<string, unknown>;
+}
+
+/** An app of the island, in the order of its row. */
+export interface AppView {
+  id: string;
+  title: string;
+  icon: "calculator" | "siren";
+  /** A connector's service: its terms are confirmed before it is turned on. */
+  connector: ServiceView | null;
+  onByDefault: boolean;
+  fields: FieldView[];
+}
+
+export interface ServiceView {
+  provider: string;
+  site: string;
+  /** What leaves the computer and which requests go, one point each. */
+  sends: string[];
+  /** The closing line of the terms; empty — none. */
+  note: string;
+}
+
+export interface FieldView {
+  key: string;
+  label: string;
+  /** Empty — no line under the label. */
+  sub: string;
+  /** Not null: a new group of rows starts here, under this title (empty: no title). */
+  group: string | null;
+  kind: "toggle" | "choice" | "text" | "lookup" | "hotkey";
+  default: unknown;
+}
+
+/** An item of a lookup field. */
+export interface Choice {
+  value: string;
+  label: string;
+  /** Where it is; empty — nothing. */
+  detail: string;
 }
 
 /** "auto" follows Windows. The island reads it at start: a change applies after a restart. */
@@ -192,6 +239,13 @@ export const api = {
   /** false = the setting couldn't be written. */
   releasePrintScreen: () => invoke<boolean>("release_print_screen"),
   displays: () => invoke<Display[]>("list_displays"),
+  apps: () => invoke<AppView[]>("list_apps"),
+  appLookup: (id: string, key: string, query: string) => invoke<Choice[]>("app_lookup", { id, key, query }),
+  /** null — the stored value is no longer an item. */
+  appDescribe: (id: string, key: string, value: string) =>
+    invoke<Choice | null>("app_describe", { id, key, value }),
+  /** The connector's own site, as it declared it. */
+  openAppSite: (id: string) => invoke<boolean>("open_app_site", { id }),
   openJournal: () => invoke<boolean>("open_journal"),
   /** Newest first. Rejects with the reason the file could not be read. */
   readJournal: (problemsOnly: boolean) => invoke<JournalEntry[]>("read_journal", { problemsOnly }),

@@ -37,6 +37,7 @@ use crate::{
         meter::{BARS, Bars},
         panel::{Microphone, Page, Panel, Press, heard, selected, slide},
     },
+    stage::Sheet,
 };
 
 /// The bars are redrawn this often while the microphones page is open; never otherwise.
@@ -121,8 +122,8 @@ impl App {
 
     /// After the area selection: `area` is what the panel records now.
     pub(super) fn reopen_record_panel(&mut self, area: Option<Area>) {
-        let changed = self.stage.open_menu(self.now_ms());
-        if !self.stage.shown().menu {
+        let changed = self.stage.open_sheet(Sheet::Controls, self.now_ms());
+        if self.stage.shown().sheet != Some(Sheet::Controls) {
             return;
         }
         self.record_panel.open = Some(Open::new(area));
@@ -249,7 +250,7 @@ impl App {
     }
 
     pub(super) fn sync_record_panel(&mut self) {
-        if self.record_panel.open.is_some() && !self.stage.shown().menu {
+        if self.record_panel.open.is_some() && self.stage.shown().sheet != Some(Sheet::Controls) {
             self.record_panel.open = None;
             self.kill_timer(timers::METER);
             self.end_panel_wait();

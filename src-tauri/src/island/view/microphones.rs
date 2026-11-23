@@ -118,7 +118,7 @@ impl Scene {
             &root,
             &title.visual,
             PAD + BACK + 8.0,
-            PAD + (BACK - title.height) / 2.0,
+            PAD + self.comp.center_top(&title, BACK),
         )?;
 
         let highlight = self.pill(INNER, ROW, &self.comp.brush(color(FILL, 1.0))?)?;
@@ -165,7 +165,12 @@ impl Scene {
             let text = self
                 .comp
                 .text(&self.comp.fit(name, st, name_w), st, self.scale)?;
-            self.place(&root, &text.visual, name_x, y + (ROW - text.height) / 2.0)?;
+            self.place(
+                &root,
+                &text.visual,
+                name_x,
+                y + self.comp.center_top(&text, ROW),
+            )?;
         }
         let bars = self.comp.container()?;
         let mut bar_visuals = Vec::new();
@@ -317,7 +322,7 @@ impl Scene {
         ))?;
         parts.unheard.visual.SetOffset(v3(
             snap(WIDTH - PAD - 12.0 - parts.unheard.width, s),
-            snap(y + (ROW - parts.unheard.height) / 2.0, s),
+            snap(y + self.comp.center_top(&parts.unheard, ROW), s),
         ))?;
         parts.bars.SetOpacity(if hearing { 1.0 } else { 0.0 })?;
         parts

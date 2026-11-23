@@ -250,7 +250,7 @@ impl Scene {
                 &root,
                 &text.visual,
                 14.0 + 13.0 + 9.0,
-                y + (18.0 - text.height) / 2.0,
+                y + self.comp.center_top(&text, 18.0),
             )?;
 
             let clock = self
@@ -402,7 +402,7 @@ impl Scene {
                 if let Some(clock) = content.clocks.first() {
                     clock.text.visual.SetOffset(v3(
                         snap(content.clock_left, s),
-                        snap((30.0 - clock.text.height) / 2.0, s),
+                        snap(self.comp.center_top(&clock.text, 30.0), s),
                     ))?;
                     content.width = content.clock_left + clock.text.width + 13.0;
                 }
@@ -421,7 +421,7 @@ impl Scene {
                 if let Some(clock) = content.clocks.first() {
                     clock.text.visual.SetOffset(v3(
                         snap(14.0 + (42.0 - clock.text.width) / 2.0, s),
-                        snap(12.0 + (42.0 - clock.text.height) / 2.0, s),
+                        snap(12.0 + self.comp.center_top(&clock.text, 42.0), s),
                     ))?;
                 }
             }

@@ -786,6 +786,11 @@ impl Comp {
             .unwrap_or_else(|_| self.layout("н", style).map_or(0.0, |(_, _, h)| h / 2.0))
     }
 
+    /// Centers by the letters, not the line box, which keeps room for descenders and leaves the text visibly raised.
+    pub fn center_top(&self, text: &Text, height: f32) -> f32 {
+        height / 2.0 - self.cap_middle(text.style)
+    }
+
     /// Centers by the letters (upper capitals to lower baseline), not line boxes, which leave the text visibly low.
     pub fn stack_top(&self, upper: &Text, lower: &Text, gap: f32, height: f32) -> f32 {
         let boxes = (height - (upper.height + gap + lower.height)) / 2.0;
@@ -874,6 +879,15 @@ impl Comp {
             return Ok(());
         }
         text.style.color = c;
+        let content = std::mem::take(&mut text.content);
+        self.draw_text(text, &content, scale)
+    }
+
+    pub fn set_text_size(&self, text: &mut Text, size: f32, scale: f32) -> Result<()> {
+        if text.style.size == size {
+            return Ok(());
+        }
+        text.style.size = size;
         let content = std::mem::take(&mut text.content);
         self.draw_text(text, &content, scale)
     }

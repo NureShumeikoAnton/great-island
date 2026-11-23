@@ -661,7 +661,7 @@ impl Scene {
                             self.scale,
                         )?;
                         text.visual
-                            .SetOffset(v3(16.0, row_y + (14.0 - text.height) / 2.0))?;
+                            .SetOffset(v3(16.0, row_y + self.comp.center_top(text, 14.0)))?;
                     }
                     if let Some(text) = parts.remaining.as_mut() {
                         self.comp.set_text(
@@ -672,7 +672,7 @@ impl Scene {
                         let right = rect.x + rect.w + 8.0 + 34.0;
                         text.visual.SetOffset(v3(
                             right - text.width,
-                            row_y + (14.0 - text.height) / 2.0,
+                            row_y + self.comp.center_top(text, 14.0),
                         ))?;
                     }
                 }

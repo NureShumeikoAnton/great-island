@@ -314,15 +314,15 @@ impl Scene {
             .dot
             .SetOffset(v3(snap(x, s), snap((HEIGHT - DOT) / 2.0, s)))?;
         x += DOT + DOT_GAP;
-        parts
-            .rec
-            .visual
-            .SetOffset(v3(snap(x, s), snap((HEIGHT - parts.rec.height) / 2.0, s)))?;
+        parts.rec.visual.SetOffset(v3(
+            snap(x, s),
+            snap(self.comp.center_top(&parts.rec, HEIGHT), s),
+        ))?;
         x += parts.rec.width + gap;
-        parts
-            .time
-            .visual
-            .SetOffset(v3(snap(x, s), snap((HEIGHT - parts.time.height) / 2.0, s)))?;
+        parts.time.visual.SetOffset(v3(
+            snap(x, s),
+            snap(self.comp.center_top(&parts.time, HEIGHT), s),
+        ))?;
         x += parts.time.width + gap;
         let mic_x = x;
         if mic {
@@ -341,7 +341,7 @@ impl Scene {
             .SetOffset(v3(snap(track_x, s), snap(INSET, s)))?;
         parts.size.visual.SetOffset(v3(
             snap(SIZE_LEFT, s),
-            snap((HEIGHT - parts.size.height) / 2.0, s),
+            snap(self.comp.center_top(&parts.size, HEIGHT), s),
         ))?;
 
         let width = (core + if record.hover { 2.0 * SIDE } else { 0.0 }).round();
@@ -568,7 +568,7 @@ impl Scene {
             self.comp.set_text(&mut clock.text, &left, s)?;
             clock.text.visual.SetOffset(v3(
                 snap((COUNTDOWN - clock.text.width) / 2.0, s),
-                snap((COUNTDOWN - clock.text.height) / 2.0, s),
+                snap(self.comp.center_top(&clock.text, COUNTDOWN), s),
             ))?;
         }
         Ok(())

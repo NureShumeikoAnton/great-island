@@ -8,7 +8,7 @@
 //! a window message or a timer. What a handler does lives with its feature:
 //!
 //! - `reminders`, `player`, `controls`, `screenshot`, `record`, `record_panel`, `watch`, `problem`, `notify`,
-//!   `downloads`, `devices`, `open`, `explorer`, `scan` — a feature each: its state and what it does on the island;
+//!   `downloads`, `devices`, `open`, `explorer`, `scan`, `apps` — a feature each: its state and what it does on the island;
 //! - `capture` — what the screenshot and the recording share: the source, hiding the island
 //!   from captures, the card; `select` — the area selection both use; `hotkeys` — every
 //!   global key; `dialogs` — the dialog windows every feature opens through;
@@ -18,6 +18,8 @@
 //!   `comp`, `paragraph`, `glyph` — drawing and Win32. They don't decide anything: they return a request and the
 //!   feature carries it out.
 
+mod app_news;
+mod apps;
 mod capture;
 mod comp;
 mod config;
@@ -71,6 +73,8 @@ use crate::{
     settings::{Language, Settings},
     stage::Stage,
 };
+use app_news::AppNews;
+use apps::Apps;
 use devices::Devices;
 use dialogs::Dialogs;
 use downloads::Downloads;
@@ -99,7 +103,7 @@ use update::Updates;
 use view::Scene;
 use watch::Watch;
 use window::{
-    WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_EXPLORER, WM_FAULT, WM_MEDIA,
+    WM_APPS, WM_CONTROLS, WM_DEMO, WM_DEVICES, WM_DOWNLOAD, WM_EXPLORER, WM_FAULT, WM_MEDIA,
     WM_OPEN_SETTINGS, WM_OPENED, WM_RECORD, WM_SAVE, WM_SCAN, WM_UPDATE,
 };
 use windows::{
@@ -111,11 +115,11 @@ use windows::{
             WindowsAndMessaging::{
                 DefWindowProcW, DispatchMessageW, FindWindowW, GetMessageW, KillTimer,
                 MA_NOACTIVATE, MSG, PostMessageW, PostQuitMessage, RegisterWindowMessageW,
-                SetTimer, TranslateMessage, WM_CAPTURECHANGED, WM_COPYDATA, WM_DISPLAYCHANGE,
-                WM_DPICHANGED, WM_ENDSESSION, WM_HOTKEY, WM_INPUT, WM_LBUTTONDOWN, WM_LBUTTONUP,
-                WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCACTIVATE,
-                WM_NCCALCSIZE, WM_NCLBUTTONDOWN, WM_POWERBROADCAST, WM_QUERYENDSESSION,
-                WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
+                SetTimer, TranslateMessage, WM_CAPTURECHANGED, WM_CHAR, WM_COPYDATA,
+                WM_DISPLAYCHANGE, WM_DPICHANGED, WM_ENDSESSION, WM_HOTKEY, WM_INPUT, WM_KEYDOWN,
+                WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE,
+                WM_MOUSEWHEEL, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCLBUTTONDOWN, WM_POWERBROADCAST,
+                WM_QUERYENDSESSION, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
             },
         },
     },
@@ -192,6 +196,8 @@ mod timers {
     pub const FOLLOW: usize = 37;
     /// "Copied" on the scanner's status has been shown long enough.
     pub const SCAN_COPIED: usize = 38;
+    /// The nearest of the apps' timers.
+    pub const APPS: usize = 39;
 }
 
 const INSTANCE: &str = "Local\\GreatIsland.Island";
@@ -451,6 +457,8 @@ struct App {
     devices: Devices,
     opened: Opened,
     explorer: Explorer,
+    apps: Apps,
+    app_news: AppNews,
     pointer: Pointer,
 
     monitor: MonitorId,
@@ -566,6 +574,8 @@ impl App {
             devices: Devices::default(),
             opened: Opened::default(),
             explorer: Explorer::default(),
+            apps: Apps::default(),
+            app_news: AppNews::default(),
             pointer: Pointer::new(),
             monitor,
             scale: 1.0,
@@ -584,6 +594,7 @@ impl App {
 
     fn start(&mut self) {
         self.set_timer(timers::TICK, TICK_MS);
+        self.sync_apps();
         self.relayout();
         self.sync_visibility();
         self.sync_media();
@@ -650,6 +661,9 @@ impl App {
             WM_MOUSEHWHEEL if island => self.on_wheel(wheel_delta(wparam), true),
             WM_CAPTURECHANGED if island => self.on_capture_lost(),
             WM_HOTKEY if island => self.on_hotkey(wparam.0 as i32),
+            // Only while an app's page has taken the keyboard: the island never has it otherwise.
+            WM_KEYDOWN if island => self.on_app_key(wparam),
+            WM_CHAR if island => self.on_app_char(wparam),
             WM_MEDIA => self.on_media(),
             WM_CONTROLS => self.on_controls(),
             WM_RECORD => self.on_record_events(),
@@ -660,6 +674,7 @@ impl App {
             WM_OPENED => self.on_opened(),
             WM_EXPLORER => self.on_explorer(wparam),
             WM_SCAN => self.on_scan_found(),
+            WM_APPS => self.on_apps_answers(),
             // The default handler frees the copy of the key after us.
             WM_INPUT => {
                 self.on_explorer_key(lparam);
@@ -741,6 +756,7 @@ impl App {
             timers::DIALOG_GONE => self.on_dialog_gone(),
             timers::FOLLOW => self.on_follow_timer(),
             timers::SCAN_COPIED => self.on_scan_copied_timer(),
+            timers::APPS => self.on_apps_timer(),
             _ => {}
         }
     }
@@ -835,6 +851,8 @@ impl App {
         self.sync_clip();
         self.sync_problem();
         self.sync_record_panel();
+        self.sync_apps_sheet();
+        self.sync_app_news();
         self.sync_notify();
         self.sync_downloads_stage();
         self.sync_devices_stage();

@@ -100,7 +100,7 @@ impl Scene {
             .comp
             .text(problem.title, style(13.0, true, TEXT), self.scale)?;
         let x = LEFT + ICON + GAP;
-        self.place(&root, &label.visual, x, (30.0 - label.height) / 2.0)
+        self.place(&root, &label.visual, x, self.comp.center_top(&label, 30.0))
     }
 
     fn build_problem_card(&self, problem: &ProblemModel, content: &mut Content) -> Result<()> {

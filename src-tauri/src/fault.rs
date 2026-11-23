@@ -64,10 +64,12 @@ pub enum What {
     PlayerLevel,
     UpdateCheck,
     UpdateInstall,
+    /// A connector's service didn't answer (`island/apps.rs`).
+    Connector,
 }
 
 impl What {
-    pub const ALL: [What; 47] = [
+    pub const ALL: [What; 48] = [
         What::RecordStart,
         What::RecordBroken,
         What::RecordLost,
@@ -115,6 +117,7 @@ impl What {
         What::PlayerLevel,
         What::UpdateCheck,
         What::UpdateInstall,
+        What::Connector,
     ];
 
     pub fn level(self) -> Level {
@@ -190,6 +193,7 @@ impl What {
             Self::PlayerLevel => "PLAYER-LEVEL",
             Self::UpdateCheck => "UPD-CHECK",
             Self::UpdateInstall => "UPD-INSTALL",
+            Self::Connector => "APP-FETCH",
         }
     }
 
@@ -247,6 +251,7 @@ impl What {
             Self::PlayerLevel => tr_for!(lang, "fault.title.player_level"),
             Self::UpdateCheck => tr_for!(lang, "fault.title.update_check"),
             Self::UpdateInstall => tr_for!(lang, "fault.title.update_install"),
+            Self::Connector => tr_for!(lang, "fault.title.connector"),
         }
         .into_owned()
     }
@@ -478,6 +483,7 @@ impl Fault {
             (UpdateCheck, Missing) => tr!("fault.reason.update_check_missing"),
             (UpdateCheck, Unknown) => tr!("fault.reason.update_check"),
             (UpdateInstall, Unknown) => tr!("fault.reason.update_install"),
+            (Connector, _) => tr!("fault.reason.connector"),
             (_, cause) => return cause.reason(),
         };
         fixed.into_owned()

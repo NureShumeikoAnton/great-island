@@ -3,6 +3,7 @@
 //! modification time of settings.json.
 
 use crate::{
+    apps,
     fault::{Fault, What},
     hotkey::{Hotkey, Problem},
     journal,
@@ -159,6 +160,114 @@ struct DisplayInfo {
     primary: bool,
     width: i32,
     height: i32,
+}
+
+/// An app as its section shows it; the texts are the island's, in this window's language.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppView {
+    id: &'static str,
+    title: String,
+    icon: apps::Icon,
+    /// A connector's service: its terms are confirmed before it is turned on.
+    connector: Option<ServiceView>,
+    /// On while its `on` was never switched.
+    on_by_default: bool,
+    fields: Vec<FieldView>,
+}
+
+#[derive(Serialize)]
+struct ServiceView {
+    provider: &'static str,
+    site: &'static str,
+    sends: Vec<String>,
+    note: String,
+}
+
+#[derive(Serialize)]
+struct FieldView {
+    key: &'static str,
+    label: String,
+    sub: String,
+    group: Option<String>,
+    /// "toggle", "choice", "text", "lookup" or "hotkey".
+    kind: &'static str,
+    default: serde_json::Value,
+}
+
+fn field_view(field: apps::prefs::Field) -> FieldView {
+    use apps::prefs::FieldKind;
+    use serde_json::Value;
+    let (kind, default) = match field.kind {
+        FieldKind::Toggle { default } => ("toggle", Value::Bool(default)),
+        FieldKind::Choice { default, .. } => ("choice", Value::String(default.into())),
+        FieldKind::Text { default } => ("text", Value::String(default)),
+        FieldKind::Lookup => ("lookup", Value::String(String::new())),
+        FieldKind::Hotkey => ("hotkey", Value::Null),
+    };
+    FieldView {
+        key: field.key,
+        label: field.label,
+        sub: field.sub,
+        group: field.group,
+        kind,
+        default,
+    }
+}
+
+fn app_by_id(id: &str) -> Option<Box<dyn apps::Applet>> {
+    apps::catalog::all()
+        .into_iter()
+        .find(|a| a.manifest().id == id)
+}
+
+#[tauri::command]
+fn list_apps() -> Vec<AppView> {
+    apps::catalog::all()
+        .iter()
+        .map(|app| {
+            let m = app.manifest();
+            AppView {
+                id: m.id,
+                title: m.title,
+                icon: m.icon,
+                on_by_default: apps::prefs::is_on(&m.kind, None),
+                connector: match m.kind {
+                    apps::Kind::Connector(s) => Some(ServiceView {
+                        provider: s.provider,
+                        site: s.site,
+                        sends: s.sends,
+                        note: s.note,
+                    }),
+                    apps::Kind::App => None,
+                },
+                fields: m.fields.into_iter().map(field_view).collect(),
+            }
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn app_lookup(id: String, key: String, query: String) -> Vec<apps::Choice> {
+    app_by_id(&id).map_or_else(Vec::new, |app| app.lookup(&key, &query))
+}
+
+/// How a stored lookup value reads; none — not an item any more.
+#[tauri::command]
+fn app_describe(id: String, key: String, value: String) -> Option<apps::Choice> {
+    app_by_id(&id)?.describe(&key, &value)
+}
+
+/// Only the site the connector declared: the web view never passes an address of its own.
+#[tauri::command]
+fn open_app_site(id: String) -> bool {
+    let Some(app) = app_by_id(&id) else {
+        return false;
+    };
+    let apps::Kind::Connector(service) = app.manifest().kind else {
+        return false;
+    };
+    crate::capture::adapters::open(std::path::Path::new(service.site)).is_ok()
 }
 
 #[tauri::command]
@@ -367,6 +476,10 @@ pub fn run(island_lang: Option<Lang>) {
             check_hotkey,
             release_print_screen,
             list_displays,
+            list_apps,
+            app_lookup,
+            app_describe,
+            open_app_site,
             app_info,
             update_status,
             update_command,

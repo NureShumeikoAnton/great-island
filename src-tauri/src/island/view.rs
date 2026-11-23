@@ -5,11 +5,13 @@
 //! The capsule is a rounded rectangle whose size the compositor animates. Rounding and centering are bound to
 //! the size by expressions, so the system recomputes them every frame, not us.
 
+mod app;
 mod card;
 mod device;
 mod device_art;
 mod download;
 mod file_icon;
+mod live;
 pub(super) use file_icon::sheet;
 mod menu;
 mod microphones;
@@ -28,9 +30,11 @@ mod timers;
 mod update;
 mod viewing;
 
+pub use app::{AppTile, AppsModel, PageModel};
 pub use card::{CardModel, CardPhase, Video};
 pub use device::DeviceModel;
 pub use download::{DownloadModel, FileModel};
+pub use live::LiveModel;
 pub use menu::button_center;
 pub use microphones::{MAX_MICROPHONES, TALLEST as PANEL_TALLEST};
 pub use panel::PanelModel;
@@ -118,13 +122,37 @@ pub enum Mode {
     Scan {
         list: bool,
     },
+    /// The row of apps pulled up from the island.
+    Apps,
+    /// An app's page, in the row's place.
+    App,
+    /// An app's notice (`apps::Notice`).
+    AppNotice,
+    /// An app's page of the ribbon; `open` under the cursor.
+    Ribbon {
+        open: bool,
+    },
 }
 
 impl Mode {
+    /// A page of the ribbon opened under the cursor: it shows the ribbon's dots (how many pages,
+    /// which one this is). Every page of the ribbon has its open form here.
+    pub fn ribbon_open(self) -> bool {
+        matches!(
+            self,
+            Self::Expanded
+                | Self::Player(PlayerForm::Expanded { .. })
+                | Self::Ribbon { open: true }
+        )
+    }
+
     /// Whether the island dims in this view when untouched. Only collapsed activities dim; notices and states
     /// (the viewer window is open, a download is coming) never do: they are shown to be seen.
     pub fn dims(self) -> bool {
-        matches!(self, Self::Collapsed | Self::Player(PlayerForm::Collapsed))
+        matches!(
+            self,
+            Self::Collapsed | Self::Player(PlayerForm::Collapsed) | Self::Ribbon { open: false }
+        )
     }
 }
 
@@ -176,6 +204,13 @@ pub enum Hit {
     /// The text of the downloads card, or its pile: show the files in Explorer.
     DownloadFolder,
     Scan(ScanHit),
+    /// A tile of the apps' row, by its place in the row.
+    Launch(usize),
+    /// The ‹ over an app's page.
+    AppBack,
+    App(crate::apps::ui::Action),
+    /// The ribbon's page of an app: its page opens.
+    Ribbon,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -238,6 +273,9 @@ pub struct Model<'a> {
     pub download: Option<DownloadModel<'a>>,
     pub device: Option<DeviceModel<'a>>,
     pub scan: Option<ScanModel<'a>>,
+    pub apps: Option<AppsModel<'a>>,
+    /// An app's notice or its ribbon page, as the mode says.
+    pub live: Option<LiveModel<'a>>,
 }
 
 pub struct PlayerModel<'a> {
@@ -249,7 +287,7 @@ pub struct PlayerModel<'a> {
     pub copied: bool,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 struct Rect {
     x: f32,
     y: f32,
@@ -311,6 +349,7 @@ struct Content {
     record: Option<record::Parts>,
     download: Option<download::Parts>,
     scan: Option<scan::Parts>,
+    app: Option<app::Parts>,
     /// Kept alive because an expression holds it only weakly; dropped, the gradient falls back to a one-DIP silver stripe.
     _light: Option<CompositionPropertySet>,
 }
@@ -486,6 +525,9 @@ impl Scene {
             Mode::Download { open } => self.download_size(model, open),
             Mode::Device => self.device_size(model),
             Mode::Scan { .. } => self.scan_size(model),
+            Mode::Apps | Mode::App => self.apps_size(model),
+            Mode::AppNotice => self.live_size(model, true),
+            Mode::Ribbon { open } => self.live_size(model, open),
         }
     }
 
@@ -642,6 +684,9 @@ impl Scene {
             if let Some(parts) = &content.menu {
                 self.press_menu(parts, self.pressed.as_ref(), hit.as_ref())?;
             }
+            if let Some(parts) = &content.app {
+                self.press_app(parts, self.pressed.as_ref(), hit.as_ref())?;
+            }
         }
         self.pressed = hit;
         Ok(())
@@ -685,6 +730,7 @@ impl Scene {
             record: None,
             download: None,
             scan: None,
+            app: None,
             _light: None,
         };
         match model.mode {
@@ -708,6 +754,13 @@ impl Scene {
             Mode::Download { open } => self.build_download(model, open, &mut content)?,
             Mode::Device => self.build_device(model, &mut content)?,
             Mode::Scan { .. } => self.build_scan(model, &mut content)?,
+            Mode::Apps => self.build_apps_row(model, &mut content)?,
+            Mode::App => self.build_app_page(model, &mut content)?,
+            Mode::AppNotice => self.build_live_card(model, None, &mut content)?,
+            Mode::Ribbon { open: true } => {
+                self.build_live_card(model, Some(Hit::Ribbon), &mut content)?
+            }
+            Mode::Ribbon { open: false } => self.build_live_collapsed(model, &mut content)?,
         }
         self.update_content(model, &mut content)?;
         Ok(content)
@@ -750,14 +803,18 @@ impl Scene {
             Mode::Viewing => self.update_viewing(model, content)?,
             Mode::Downloading => self.update_downloading(model, content)?,
             Mode::Scan { .. } => self.update_scan(model, content)?,
+            Mode::App => self.update_app_page(model, content)?,
             Mode::Indicator(..)
+            | Mode::Apps
             | Mode::Shutter
             | Mode::Discarded
             | Mode::Problem { .. }
             | Mode::Update
             | Mode::System { .. }
             | Mode::Download { .. }
-            | Mode::Device => {}
+            | Mode::Device
+            | Mode::AppNotice
+            | Mode::Ribbon { .. } => {}
         }
         Ok(())
     }
@@ -872,7 +929,7 @@ impl Scene {
             parent,
             &text.visual,
             rect.x + (rect.w - width) / 2.0,
-            rect.y + (rect.h - text.height) / 2.0,
+            rect.y + self.comp.center_top(&text, rect.h),
         )?;
         Ok(Button {
             fill,
@@ -961,6 +1018,30 @@ fn content_key(model: &Model) -> String {
                     .collect()
             });
             return format!("Scan|{list}|{language}|{}", rows.join(","));
+        }
+        (Mode::Apps, _) => {
+            let tiles: Vec<String> = model.apps.as_ref().map_or(Vec::new(), |a| {
+                a.tiles
+                    .iter()
+                    .map(|t| format!("{:?}{}", t.icon, t.title))
+                    .collect()
+            });
+            return format!("Apps|{}", tiles.join("|"));
+        }
+        // A typed digit changes the texts in place; another app, title or set of keys is a new page.
+        (Mode::App, _) => {
+            let page = model.apps.as_ref().and_then(|a| a.page.as_ref());
+            return page.map_or_else(String::new, |p| {
+                format!("App|{}|{}|{}", p.id, p.title, app::shape(p.node))
+            });
+        }
+        (Mode::AppNotice | Mode::Ribbon { .. }, _) => {
+            return format!(
+                "{:?}|{:?}|{}",
+                model.mode,
+                model.dots,
+                live::key(model.live.as_ref())
+            );
         }
         (Mode::Problem { .. }, _) => {
             let (critical, title, reason) = model

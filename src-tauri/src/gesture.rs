@@ -1,5 +1,5 @@
-//! Island gestures: mouse and touchpad swipe, wheel step, hold to rewind, pull down and up to open
-//! and close the control center. Pure logic without windows: coordinates and time in, an action out.
+//! Island gestures: mouse and touchpad swipe, wheel step, hold to rewind, a vertical pull down or
+//! up (the island decides what opens or closes that way: the control center, the apps). Pure logic without windows: coordinates and time in, an action out.
 //! Thresholds come from the design (design/now-playing.html, "Gesture thresholds").
 //! The gesture axis is decided once by the first 6 px and doesn't change until release.
 
@@ -53,15 +53,15 @@ pub enum Zone {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pull {
-    Open,
-    Close,
+    Down,
+    Up,
 }
 
 impl Pull {
     fn sign(self) -> f32 {
         match self {
-            Self::Open => 1.0,
-            Self::Close => -1.0,
+            Self::Down => 1.0,
+            Self::Up => -1.0,
         }
     }
 }
@@ -70,9 +70,12 @@ impl Pull {
 pub struct Edges {
     pub prev: bool,
     pub next: bool,
-    /// Whether a vertical pull is possible and why. `Close` = the menu is open: paging the ribbon
-    /// and wheel steps are not allowed from it.
-    pub pull: Option<Pull>,
+    /// Whether a pull that way leads anywhere.
+    pub down: bool,
+    pub up: bool,
+    /// A sheet pulled out of the island is open (the control center, the apps): it is no ribbon
+    /// activity, so neither paging nor wheel steps start from it.
+    pub sheet: bool,
     /// A notice is on screen: any swipe only takes it away; the other edges are ignored.
     pub dismiss: bool,
 }
@@ -85,8 +88,14 @@ impl Edges {
         }
     }
 
-    fn in_menu(self) -> bool {
-        self.pull == Some(Pull::Close)
+    /// The pull a vertical move of `dy` (down is positive) starts, if it leads anywhere.
+    fn toward(self, dy: f32) -> Option<Pull> {
+        let pull = if dy > 0.0 { Pull::Down } else { Pull::Up };
+        let open = match pull {
+            Pull::Down => self.down,
+            Pull::Up => self.up,
+        };
+        open.then_some(pull)
     }
 }
 
@@ -271,7 +280,7 @@ impl Gestures {
                 }
                 let horizontal = dx.abs() >= dy.abs();
                 // The offset counts from the threshold point, so the content doesn't jump by 6 px.
-                if horizontal && !*wandered && !self.edges.in_menu() {
+                if horizontal && !*wandered && !self.edges.sheet {
                     let origin = *x0 + SWIPE_THRESHOLD * dx.signum();
                     let mut drag = Drag::new(None, origin, now, false);
                     drag.push(now, x - origin);
@@ -279,10 +288,9 @@ impl Gestures {
                     self.state = State::Dragging(drag);
                     return Some(output);
                 }
-                if let Some(pull) = self.edges.pull
-                    && !horizontal
+                if !horizontal
                     && !*wandered
-                    && dy.signum() == pull.sign()
+                    && let Some(pull) = self.edges.toward(dy)
                 {
                     let origin = *y0 + SWIPE_THRESHOLD * dy.signum();
                     let mut drag = Drag::new(Some(pull), origin, now, false);
@@ -359,7 +367,7 @@ impl Gestures {
         if edges.dismiss {
             return self.sweep(now, delta);
         }
-        if edges.in_menu() && matches!(self.state, State::Idle) {
+        if edges.sheet && matches!(self.state, State::Idle) {
             return None;
         }
         // Scrolling right moves the content left, like in a browser.
@@ -388,10 +396,10 @@ impl Gestures {
         if delta % WHEEL_DELTA == 0 {
             return self.wheel(now, delta, edges);
         }
-        let pull = edges.pull?;
-        if !matches!(self.state, State::Idle) || (delta as f32).signum() != pull.sign() {
+        if !matches!(self.state, State::Idle) {
             return None;
         }
+        let pull = edges.toward(delta as f32)?;
         self.scroll(now, Some(pull), delta, edges)
     }
 
@@ -485,7 +493,7 @@ impl Gestures {
             || delta % WHEEL_DELTA != 0
             || now < self.wheel_quiet_until
             || self.is_active()
-            || edges.in_menu()
+            || edges.sheet
         {
             return None;
         }
@@ -585,36 +593,70 @@ fn shape_pull(progress: f32) -> f32 {
 mod tests {
     use super::*;
 
-    const BOTH: Edges = Edges {
-        prev: true,
-        next: true,
-        pull: None,
-        dismiss: false,
-    };
     const NONE: Edges = Edges {
         prev: false,
         next: false,
-        pull: None,
+        down: false,
+        up: false,
+        sheet: false,
         dismiss: false,
     };
-    const CAN_OPEN: Edges = Edges {
+    const BOTH: Edges = Edges {
         prev: true,
         next: true,
-        pull: Some(Pull::Open),
-        dismiss: false,
+        ..NONE
+    };
+    const CAN_OPEN: Edges = Edges { down: true, ..BOTH };
+    const RIBBON: Edges = Edges {
+        down: true,
+        up: true,
+        ..BOTH
     };
     const MENU: Edges = Edges {
-        prev: false,
-        next: false,
-        pull: Some(Pull::Close),
-        dismiss: false,
+        up: true,
+        sheet: true,
+        ..NONE
+    };
+    const APPS: Edges = Edges {
+        down: true,
+        sheet: true,
+        ..NONE
     };
     const NOTICE: Edges = Edges {
-        prev: false,
-        next: false,
-        pull: None,
         dismiss: true,
+        ..NONE
     };
+
+    #[test]
+    fn the_ribbon_pulls_both_ways_and_the_apps_close_downward() {
+        let mut g = Gestures::new();
+        g.press(0, 100.0, 40.0, Zone::Swipe, RIBBON);
+        assert_eq!(
+            g.move_to(10, 100.0, 20.0),
+            Some(Output::Pull(Pull::Up, 14.0))
+        );
+        assert_eq!(g.release(), Some(Output::PullEnd(Pull::Up, false)));
+        assert_eq!(
+            g.vscroll(1000, -24, RIBBON),
+            Some(Output::Pull(Pull::Up, 20.0))
+        );
+
+        let mut g = Gestures::new();
+        g.press(0, 100.0, 40.0, Zone::Swipe, APPS);
+        assert_eq!(g.move_to(10, 100.0, 20.0), None, "nothing further up");
+        g.release();
+        g.press(100, 100.0, 40.0, Zone::Swipe, APPS);
+        assert_eq!(
+            g.move_to(110, 100.0, 60.0),
+            Some(Output::Pull(Pull::Down, 14.0))
+        );
+        g.release();
+        assert_eq!(
+            g.hscroll(5000, 30, APPS),
+            None,
+            "the apps don't page the ribbon"
+        );
+    }
 
     #[test]
     fn a_drag_any_way_takes_a_notice_away_and_a_short_one_does_nothing() {
@@ -663,13 +705,13 @@ mod tests {
         g.press(0, 100.0, 10.0, Zone::Swipe, CAN_OPEN);
         assert_eq!(
             g.move_to(10, 101.0, 17.0),
-            Some(Output::Pull(Pull::Open, 1.0))
+            Some(Output::Pull(Pull::Down, 1.0))
         );
         assert_eq!(
             g.move_to(200, 101.0, 46.0),
-            Some(Output::Pull(Pull::Open, 30.0))
+            Some(Output::Pull(Pull::Down, 30.0))
         );
-        assert_eq!(g.release(), Some(Output::PullEnd(Pull::Open, true)));
+        assert_eq!(g.release(), Some(Output::PullEnd(Pull::Down, true)));
     }
 
     #[test]
@@ -678,7 +720,7 @@ mod tests {
         g.press(0, 100.0, 10.0, Zone::Swipe, CAN_OPEN);
         g.move_to(10, 100.0, 17.0);
         g.move_to(1000, 100.0, 30.0);
-        assert_eq!(g.release(), Some(Output::PullEnd(Pull::Open, false)));
+        assert_eq!(g.release(), Some(Output::PullEnd(Pull::Down, false)));
     }
 
     #[test]
@@ -702,7 +744,7 @@ mod tests {
         g.press(0, 100.0, 40.0, Zone::Swipe, MENU);
         assert_eq!(
             g.move_to(10, 100.0, 20.0),
-            Some(Output::Pull(Pull::Close, 14.0))
+            Some(Output::Pull(Pull::Up, 14.0))
         );
     }
 
@@ -721,15 +763,15 @@ mod tests {
         let mut g = Gestures::new();
         assert_eq!(
             g.vscroll(0, 24, CAN_OPEN),
-            Some(Output::Pull(Pull::Open, 20.0))
+            Some(Output::Pull(Pull::Down, 20.0))
         );
         assert_eq!(
             g.vscroll(10, 24, CAN_OPEN),
-            Some(Output::Pull(Pull::Open, 40.0))
+            Some(Output::Pull(Pull::Down, 40.0))
         );
         assert_eq!(
             g.vscroll(20, 24, CAN_OPEN),
-            Some(Output::PullEnd(Pull::Open, true))
+            Some(Output::PullEnd(Pull::Down, true))
         );
         assert_eq!(g.vscroll(40, 10, CAN_OPEN), None);
     }

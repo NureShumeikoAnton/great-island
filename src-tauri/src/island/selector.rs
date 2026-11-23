@@ -437,22 +437,22 @@ fn pill(comp: &Comp, k: f32, content: &str) -> Result<Pill> {
         brush,
         text,
     };
-    fit_pill(&pill, k)?;
+    fit_pill(comp, &pill, k)?;
     Ok(pill)
 }
 
 fn set_pill(comp: &Comp, pill: &mut Pill, k: f32, content: &str) -> Result<()> {
     comp.set_text(&mut pill.text, content, k)?;
-    fit_pill(pill, k)
+    fit_pill(comp, pill, k)
 }
 
-fn fit_pill(pill: &Pill, k: f32) -> Result<()> {
+fn fit_pill(comp: &Comp, pill: &Pill, k: f32) -> Result<()> {
     let size = v2((pill.text.width + 2.0 * PILL_PAD).round(), PILL_H);
     pill.body.SetSize(size)?;
     pill.shape.SetSize(size)?;
     pill.fill.SetSize(size)?;
     pill.text.visual.SetOffset(v3(
         snap(PILL_PAD, k),
-        snap((PILL_H - pill.text.height) / 2.0, k),
+        snap(comp.center_top(&pill.text, PILL_H), k),
     ))
 }

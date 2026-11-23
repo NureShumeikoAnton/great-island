@@ -161,3 +161,10 @@ settings_app.rs — the system folder-picker dialog
 settings_app.rs — checking whether a key combination is free
 journal/mod.rs — reading island.log for the Journal page (no access, the disk; now: the page says so in place of the list)
 journal/mod.rs — clearing island.log and removing island.old.log (locked by another program, no access; now: a toast with the reason, the journal stays)
+
+== Apps and connectors ==
+island/apps.rs, update/adapters/http.rs — a connector's request on its own thread (no network, a proxy or a firewall, the service down, blocked or changed: the app keeps its last answer and its page says the service doesn't answer; APP-FETCH on the island once, again only after an answer)
+apps/alarm/feed.rs — the air raid map's feed or a place's history in another shape (the service changed it: read as no answer, the same as above; an entry that doesn't read is skipped alone)
+apps/alarm/regions.tsv — the service's region list changed (a new id is not in the table: its alerts reach no place until scripts/alarm-regions.mjs is run again)
+platform.rs — the local time of an alert's history (no time zone: UTC is shown)
+settings_app.rs — opening a connector's site in the browser (no browser associated)

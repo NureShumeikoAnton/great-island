@@ -16,7 +16,9 @@ impl App {
         if notice.is_some_and(|n| n.kind.breaks_fullscreen()) {
             return true;
         }
-        let fullscreen = self.fullscreen.then_some(self.settings.fullscreen);
+        // An app's notice may ask to show over a fullscreen app (an air raid alert).
+        let fullscreen = (self.fullscreen && !self.app_notice_over_fullscreen())
+            .then_some(self.settings.fullscreen);
         if fullscreen == Some(Fullscreen::Hide) {
             return false;
         }
